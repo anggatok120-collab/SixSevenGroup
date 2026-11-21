@@ -56,6 +56,12 @@
   <div class="modal-foot" id="mFoot"></div>
 </form></dialog>
 
+<dialog class="modal confirm" id="confirmDlg" aria-labelledby="cTitle" aria-describedby="cText">
+  <div class="modal-head"><div><h2 id="cTitle"></h2></div></div>
+  <div class="modal-body"><p id="cText" class="muted"></p></div>
+  <div class="modal-foot"><button type="button" class="btn btn-secondary" id="cNo">Batal</button><button type="button" class="btn btn-danger" id="cYes"></button></div>
+</dialog>
+
 <div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true"><i class="ph-fill ph-check-circle"></i><p id="toastText"></p><button class="tiny-btn" id="toastClose" aria-label="Tutup"><i class="ph ph-x"></i></button></div>
 
 <script src="/app.js"></script>

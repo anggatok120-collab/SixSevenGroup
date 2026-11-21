@@ -70,12 +70,26 @@ function toast(msg, kind = 'success') {
 }
 $('#toastClose').onclick = () => $('#toast').classList.remove('show');
 
+// Konfirmasi di dalam aplikasi (pengganti confirm() bawaan browser), hanya untuk aksi yang menghapus data.
+function askConfirm(title, text, okLabel = 'Hapus') {
+  const dlg = $('#confirmDlg');
+  $('#cTitle').textContent = title; $('#cText').textContent = text; $('#cYes').innerHTML = `<i class="ph ph-trash"></i>${okLabel}`;
+  return new Promise((resolve) => {
+    const done = (v) => { dlg.close(); resolve(v); };
+    $('#cYes').onclick = () => done(true); $('#cNo').onclick = () => done(false);
+    dlg.oncancel = (e) => { e.preventDefault(); done(false); };
+    dlg.onclick = (e) => { if (e.target === dlg) done(false); };
+    dlg.showModal(); setTimeout(() => $('#cNo').focus(), 20);
+  });
+}
+
 // ---------- Navigasi ----------
 const NAV = [
   { title: 'Ringkasan', items: [
     { id: 'dashboard', label: 'Dashboard', icon: 'squares-four' },
   ] },
   { title: 'Jadwal', items: [
+    { id: 'matkul', label: 'Mata Kuliah', icon: 'books' },
     { id: 'jadwal', label: 'Jadwal Kuliah', icon: 'book-open' },
     { id: 'ujian', label: 'Jadwal Ujian', icon: 'clipboard-text' },
   ] },
@@ -91,6 +105,7 @@ const NAV = [
 ];
 const META = {
   dashboard: ['Dashboard', 'Ringkasan kelas, tugas, dan ujian kamu'],
+  matkul: ['Mata Kuliah', 'Daftar mata kuliah semester ini'],
   jadwal: ['Jadwal Kuliah', 'Jadwal rutin mingguan yang dipakai bot untuk mengingatkan grup'],
   tugas: ['Tugas', 'Daftar tugas beserta tenggatnya'],
   ujian: ['Ujian', 'UTS, UAS, kuis, dan praktikum'],
@@ -161,7 +176,7 @@ function render() {
   $('#botDot').classList.toggle('on', !!(b.wa && b.grup));
   $('#botText').textContent = b.wa ? (b.grup ? 'Bot WA aktif' : 'Bot aktif, grup belum diatur') : 'Bot WA offline';
   a11yPass();
-  ({ dashboard: viewDashboard, jadwal: viewJadwal, tugas: viewTugas, ujian: viewUjian, pengingat: viewPengingat, status: viewStatus, akun: viewAkun, profil: viewProfil })[S.view]();
+  ({ dashboard: viewDashboard, matkul: viewMatkul, jadwal: viewJadwal, tugas: viewTugas, ujian: viewUjian, pengingat: viewPengingat, status: viewStatus, akun: viewAkun, profil: viewProfil })[S.view]();
 }
 
 // Ilustrasi garis sederhana untuk keadaan kosong (warna mengikuti teks, jadi tetap hitam-putih).
@@ -172,9 +187,10 @@ const ILLUS = {
   coffee: '<path d="M14 26h30v14a12 12 0 0 1-12 12h-6a12 12 0 0 1-12-12z"/><path d="M44 30h3a6 6 0 0 1 0 12h-4"/><path d="M22 18c0-3 3-3 3-6M30 18c0-3 3-3 3-6M38 18c0-3 3-3 3-6" class="accent"/><path d="M12 57h36"/>',
   done: '<circle cx="32" cy="34" r="18"/><path d="M24 34l6 6 11-12" class="accent"/><path d="M50 10v6M47 13h6M12 12v4M10 14h4M54 46v4M52 48h4"/>',
   inbox: '<path d="M10 36l7-22h30l7 22v14a4 4 0 0 1-4 4H14a4 4 0 0 1-4-4z"/><path d="M10 36h13l3 6h12l3-6h13" class="accent"/>',
+  books: '<rect x="10" y="14" width="10" height="40" rx="2"/><rect x="22" y="10" width="10" height="44" rx="2"/><path d="M36 15l9-2 8 39-9 2z"/><path d="M10 46h10M22 46h10M24 18h6" class="accent"/>',
   search: '<circle cx="28" cy="28" r="15"/><path d="M39 39l13 13" class="accent"/><path d="M22 28h12"/>',
 };
-const ILLUS_OF = { 'calendar-blank': 'calendar', 'calendar-dots': 'calendar', 'list-checks': 'tasks', exam: 'exam', coffee: 'coffee', 'check-circle': 'done', confetti: 'done', tray: 'inbox', 'magnifying-glass': 'search' };
+const ILLUS_OF = { 'calendar-blank': 'calendar', 'calendar-dots': 'calendar', 'list-checks': 'tasks', exam: 'exam', coffee: 'coffee', 'check-circle': 'done', confetti: 'done', tray: 'inbox', 'magnifying-glass': 'search', books: 'books' };
 const illus = (icon) => { const k = ILLUS_OF[icon]; return k ? `<svg class="illus" viewBox="0 0 64 64" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ILLUS[k]}</svg>` : `<i class="ph-duotone ph-${icon}"></i>`; };
 const empty = (icon, title, hint, action = '') => `<div class="empty">${illus(icon)}<b>${title}</b><p>${hint}</p>${action}</div>`;
 // Keadaan kosong di dalam panel dashboard: ikon, judul, penjelasan, dan tombol kecil opsional.
@@ -414,6 +430,32 @@ function viewDashboard() {
  
 }
 
+// ---------- Mata kuliah ----------
+function viewMatkul() {
+  const n = now(); const list = S.data.matkul || [];
+  const same = (a, b) => a.toLowerCase() === b.toLowerCase();
+  const info = list.map((m) => ({
+    m,
+    jadwal: S.data.kelas.filter((k) => same(k.matkul, m.nama)).sort((a, b) => ((a.hari + 6) % 7) - ((b.hari + 6) % 7) || a.mulai.localeCompare(b.mulai)),
+    tugas: S.data.tugas.filter((t) => same(t.matkul, m.nama) && !t.selesai).length,
+    ujian: S.data.ujian.filter((u) => same(u.matkul, m.nama) && u.ms >= n).sort((a, b) => a.ms - b.ms)[0],
+  }));
+  const sks = list.reduce((a, m) => a + (m.sks || 0), 0);
+  const cards = info.map(({ m, jadwal, tugas, ujian }) => `<article class="mk-card">
+      <div class="mk-top"><span class="mk-badge">${esc(m.nama.split(/\s+/).map((x) => x[0]).join('').replace(/[^A-Za-z0-9]/g, '').slice(0, 3).toUpperCase() || 'MK')}</span>
+        <div class="mk-title"><b>${esc(m.nama)}</b><small>${[m.kode && esc(m.kode), m.sks != null && `${m.sks} SKS`].filter(Boolean).join(' · ') || 'Kode & SKS kosong'}</small></div>
+        ${canEdit() ? `<div class="mk-act"><button class="tiny-btn" data-edit="matkul" data-id="${m.id}" aria-label="Ubah ${esc(m.nama)}"><i class="ph ph-pencil-simple"></i></button><button class="tiny-btn danger" data-del="matkul" data-id="${m.id}" aria-label="Hapus ${esc(m.nama)}"><i class="ph ph-trash"></i></button></div>` : ''}</div>
+      <dl class="mk-meta">
+        <div><dt><i class="ph ph-chalkboard-teacher"></i>Dosen</dt><dd>${esc(m.dosen || '–')}</dd></div>
+        <div><dt><i class="ph ph-calendar-dots"></i>Jadwal</dt><dd>${jadwal.length ? jadwal.map((k) => `${HARI[k.hari].slice(0, 3)} ${k.mulai.replace(':', '.')}`).join(', ') : 'Belum ada'}</dd></div>
+      </dl>
+      <div class="mk-foot"><span class="tag">${tugas} tugas aktif</span>${ujian ? `<span class="tag" data-tone="live">${esc(ujian.jenis)} · ${w(ujian.ms).d} ${BULAN[w(ujian.ms).m]}</span>` : ''}${m.catatan ? `<span class="mk-note" title="${esc(m.catatan)}"><i class="ph ph-note"></i>Catatan</span>` : ''}</div>
+    </article>`).join('');
+  $('#content').innerHTML = `
+    ${pageHead('books', 'Mata kuliah', 'Daftar mata kuliah semester ini. Jadwal, tugas, dan ujian memilih mata kuliah dari daftar ini.', [[list.length, 'Mata kuliah'], [sks, 'Total SKS'], [info.filter((x) => x.jadwal.length).length, 'Punya jadwal']], addBtn('matkul', 'Tambah mata kuliah'))}
+    ${list.length ? `<div class="mk-grid">${cards}</div>` : `<div class="card">${empty('books', 'Belum ada mata kuliah', canEdit() ? 'Tambahkan mata kuliah dulu, lalu atur jadwal, tugas, dan ujiannya.' : 'Admin belum mengisi daftar mata kuliah.', addBtn('matkul', 'Tambah sekarang'))}</div>`}`;
+}
+
 // ---------- Jadwal ----------
 function viewJadwal() {
   const today = w(now()).dow;
@@ -429,7 +471,7 @@ function viewJadwal() {
       </div>`).join('') : '<div class="none">Tidak ada kelas</div>'}</div>`;
   }).join('');
   $('#content').innerHTML = `
-    ${pageHead('book-open', 'Jadwal mingguan', 'Tambah mata kuliah beserta hari dan jamnya. Bot memakai jadwal ini untuk mengingatkan grup sebelum kelas dimulai.', [[S.data.kelas.length, 'Kelas / minggu'], [new Set(S.data.kelas.map((k) => k.hari)).size, 'Hari kuliah'], [S.data.kelas.filter((k) => /praktikum|lab/i.test(`${k.matkul} ${k.ruang || ''}`)).length, 'Praktikum'], [S.data.kelas.filter((k) => k.hari === today).length, 'Hari ini']], addBtn('kelas', 'Tambah mata kuliah'))}
+    ${pageHead('book-open', 'Jadwal mingguan', 'Hari dan jam tiap mata kuliah. Bot memakai jadwal ini untuk mengingatkan grup sebelum kelas dimulai.', [[S.data.kelas.length, 'Kelas / minggu'], [new Set(S.data.kelas.map((k) => k.hari)).size, 'Hari kuliah'], [S.data.kelas.filter((k) => /praktikum|lab/i.test(`${k.matkul} ${k.ruang || ''}`)).length, 'Praktikum'], [S.data.kelas.filter((k) => k.hari === today).length, 'Hari ini']], addBtn('kelas', 'Tambah jadwal'))}
     ${S.data.kelas.length ? `<div class="board" style="--cols:${hari.length}">${cols}</div>` : `<div class="card">${empty('calendar-dots', 'Belum ada jadwal', canEdit() ? 'Tambahkan jadwal kuliah mingguan untuk mulai.' : 'Admin belum mengisi jadwal kuliah.', addBtn('kelas', 'Tambah sekarang'))}</div>`}`;
 }
 
@@ -637,21 +679,40 @@ function viewProfil() {
 }
 
 // ---------- Modal tambah/ubah/detail ----------
+// Pilihan mata kuliah dari menu Mata Kuliah, plus opsi menambah yang baru langsung di form.
+function mkField(v, hint = '') {
+  const list = S.data.matkul || []; const cur = v.matkul || '';
+  const known = list.some((m) => m.nama === cur);
+  const baru = !list.length || (cur && !known);
+  return `<label class="field"><span>Mata kuliah</span><select name="matkul" data-mk-select ${baru && !list.length ? 'hidden' : ''}>
+      ${cur ? '' : '<option value="" disabled selected>Pilih mata kuliah…</option>'}
+      ${list.map((m) => `<option value="${esc(m.nama)}" ${m.nama === cur ? 'selected' : ''}>${esc(m.nama)}${m.kode ? ` (${esc(m.kode)})` : ''}</option>`).join('')}
+      <option value="__baru" ${baru && list.length ? 'selected' : ''}>+ Mata kuliah baru…</option></select>
+    <input name="matkulBaru" data-mk-new placeholder="Nama mata kuliah baru, contoh: Ekologi Perairan" value="${known ? '' : esc(cur)}" ${baru ? '' : 'hidden'}>
+    <small class="muted">${list.length ? 'Daftar diambil dari menu Mata Kuliah.' : 'Belum ada mata kuliah. Ketik namanya, nanti otomatis masuk menu Mata Kuliah.'}${hint ? ` ${hint}` : ''}</small></label>`;
+}
 const FORMS = {
+  matkul: { label: 'mata kuliah', eyebrow: 'Mata kuliah', fields: (v) => `
+    <label class="field"><span>Nama mata kuliah</span><input name="nama" required maxlength="80" value="${esc(v.nama)}" placeholder="Ekologi Perairan"></label>
+    <div class="grid2"><label class="field"><span>Kode (opsional)</span><input name="kode" value="${esc(v.kode)}" placeholder="PI201"></label>
+    <label class="field"><span>SKS (opsional)</span><input name="sks" type="number" min="0" max="12" inputmode="numeric" value="${v.sks ?? ''}" placeholder="3"></label></div>
+    <label class="field"><span>Dosen pengampu (opsional)</span><input name="dosen" value="${esc(v.dosen)}" placeholder="Dr. Sari"></label>
+    <label class="field"><span>Catatan (opsional)</span><textarea name="catatan" placeholder="Link grup kelas, buku wajib, aturan absen, dll.">${esc(v.catatan)}</textarea></label>
+    ${v.id && v.pakai && (v.pakai.jadwal + v.pakai.tugas + v.pakai.ujian) ? '<small class="muted">Mengganti nama ikut mengubah jadwal, tugas, dan ujian yang memakai mata kuliah ini.</small>' : ''}` },
   kelas: { label: 'jadwal', eyebrow: 'Jadwal kuliah', fields: (v) => `
-    <label class="field"><span>Mata kuliah</span><input name="matkul" required value="${esc(v.matkul)}" list="dlMatkul" placeholder="Contoh: Ekologi Perairan"><small class="muted">Ketik nama mata kuliah baru, atau pilih yang sudah ada. Kuliah 2× seminggu? Tambahkan 2 jadwal dengan nama yang sama.</small></label>
+    ${mkField(v, 'Kuliah 2× seminggu? Tambahkan 2 jadwal untuk mata kuliah yang sama.')}
     <label class="field"><span>Hari</span><select name="hari">${[1, 2, 3, 4, 5, 6, 0].map((h) => `<option value="${h}" ${+v.hari === h ? 'selected' : ''}>${HARI[h]}</option>`).join('')}</select></label>
     <div class="grid2"><label class="field"><span>Mulai</span><input type="time" name="mulai" required value="${esc(v.mulai)}"></label><label class="field"><span>Selesai</span><input type="time" name="selesai" value="${esc(v.selesai)}"></label></div>
     <div class="grid2"><label class="field"><span>Ruang</span><input name="ruang" value="${esc(v.ruang)}" placeholder="R.301"></label><label class="field"><span>Dosen</span><input name="dosen" value="${esc(v.dosen)}"></label></div>` },
   tugas: { label: 'tugas', eyebrow: 'Tugas', fields: (v) => `
     <label class="field"><span>Judul tugas</span><input name="judul" required value="${esc(v.judul)}" placeholder="Laporan praktikum 3"></label>
-    <label class="field"><span>Mata kuliah</span><input name="matkul" required value="${esc(v.matkul)}" list="dlMatkul"></label>
+    ${mkField(v)}
     <div class="grid2"><label class="field"><span>Tenggat</span><input type="datetime-local" name="deadline" required value="${esc((v.deadline || '').replace(' ', 'T'))}"></label>
     <label class="field"><span>Prioritas</span><select name="prioritas"><option value="normal">Normal</option><option value="tinggi" ${v.prioritas === 'tinggi' ? 'selected' : ''}>Tinggi</option></select></label></div>
     <label class="field"><span>Catatan</span><textarea name="catatan" placeholder="Format pengumpulan, link Drive, dll.">${esc(v.catatan)}</textarea></label>
     ${v.id ? `<label class="inline-field"><input type="checkbox" name="selesai" ${v.selesai ? 'checked' : ''}> Sudah selesai</label>` : ''}` },
   ujian: { label: 'ujian', eyebrow: 'Ujian', fields: (v) => `
-    <label class="field"><span>Mata kuliah</span><input name="matkul" required value="${esc(v.matkul)}" list="dlMatkul"></label>
+    ${mkField(v)}
     <div class="grid2"><label class="field"><span>Jenis</span><select name="jenis">${['UTS', 'UAS', 'Kuis', 'Praktikum'].map((j) => `<option ${v.jenis === j ? 'selected' : ''}>${j}</option>`).join('')}</select></label>
     <label class="field"><span>Ruang</span><input name="ruang" value="${esc(v.ruang)}"></label></div>
     <label class="field"><span>Waktu</span><input type="datetime-local" name="waktu" required value="${esc((v.waktu || '').replace(' ', 'T'))}"></label>` },
@@ -669,9 +730,19 @@ function openForm(type, id) {
   editing = { type, id };
   const f = FORMS[type];
   $('#mEyebrow').textContent = f.eyebrow;
-  $('#mTitle').textContent = `${id ? 'Ubah' : 'Tambah'} ${type === 'kelas' && !id ? 'mata kuliah' : f.label}`;
-  const matkul = [...new Set([...S.data.kelas, ...S.data.tugas, ...S.data.ujian].map((x) => x.matkul))].sort();
-  $('#mBody').innerHTML = f.fields(v) + `<datalist id="dlMatkul">${matkul.map((m) => `<option value="${esc(m)}">`).join('')}</datalist><p class="form-error" id="mErr"></p>`;
+  $('#mTitle').textContent = `${id ? 'Ubah' : 'Tambah'} ${f.label}`;
+  $('#mBody').innerHTML = f.fields(v) + '<p class="form-error" id="mErr"></p>';
+  const sel = $('#mBody [data-mk-select]'); const inp = $('#mBody [data-mk-new]');
+  if (sel) {
+    const sync = () => { const b = sel.value === '__baru'; inp.hidden = !b; inp.required = b; if (b && document.activeElement === sel) inp.focus(); };
+    sel.required = !sel.hidden; inp.required = !inp.hidden;
+    sel.addEventListener('change', () => {
+      sync();
+      // Jadwal: isi dosen otomatis dari data mata kuliah kalau masih kosong.
+      const m = (S.data.matkul || []).find((x) => x.nama === sel.value); const dosen = $('#mBody [name=dosen]');
+      if (type === 'kelas' && m?.dosen && dosen && !dosen.value) dosen.value = m.dosen;
+    });
+  }
   $('#mFoot').innerHTML = `<button type="button" class="btn btn-secondary" data-close>Batal</button><button class="btn btn-primary" id="mSubmit"><i class="ph ph-floppy-disk"></i>Simpan</button>`;
   $('#modal').showModal(); a11yPass();
   setTimeout(() => $('#mBody input:not([disabled]), #mBody select')?.focus(), 30);
@@ -698,6 +769,7 @@ $('#modalForm').addEventListener('submit', async (e) => {
   const form = e.target; const bad = [...form.elements].find((el) => el.willValidate && !el.checkValidity());
   if (bad) { $('#mErr').textContent = `${bad.closest('.field')?.querySelector('span')?.textContent || 'Isian'} belum valid.`; bad.focus(); return; }
   const fd = new FormData(form); const body = Object.fromEntries(fd); body.selesai = fd.has('selesai');
+  if ('matkulBaru' in body) { if (body.matkul === '__baru' || !body.matkul) body.matkul = body.matkulBaru; delete body.matkulBaru; }
   const { type, id } = editing; const btn = $('#mSubmit'); btn.disabled = true; btn.lastChild.textContent = 'Menyimpan…';
   try {
     await api(`/api/${type}${id ? '/' + id : ''}`, { method: id ? 'PUT' : 'POST', body });
@@ -710,8 +782,8 @@ $('#modal').addEventListener('click', (e) => { if (e.target === e.currentTarget)
 
 async function del(type, id) {
   const v = findItem(type, id);
-  const label = type === 'tugas' ? `tugas "${v?.judul}"` : type === 'akun' ? `akun ${v?.nama}` : `${FORMS[type].label} ${v?.matkul}`;
-  if (!confirm(`Hapus ${label}?`)) return;
+  const label = type === 'tugas' ? `tugas "${v?.judul}"` : type === 'akun' ? `akun ${v?.nama}` : type === 'matkul' ? `mata kuliah ${v?.nama}` : `${FORMS[type].label} ${v?.matkul}`;
+  if (!(await askConfirm(`Hapus ${label}?`, type === 'matkul' ? 'Mata kuliah akan dihapus dari daftar.' : 'Data yang dihapus tidak bisa dikembalikan.'))) return;
   try {
     await api(`/api/${type}/${id}`, { method: 'DELETE' });
     if ($('#modal').open) $('#modal').close();
@@ -766,8 +838,6 @@ document.addEventListener('click', async (e) => {
   if ('reloadStatus' in d) { S.status = null; viewStatus(); return loadStatus(); }
   if ('logout' in d) return logout();
   if ('send' in d || 'testSend' in d) {
-    const label = 'send' in d ? `Kirim pesan "${{ pagi: 'ringkasan hari ini', besok: 'persiapan besok', tugas: 'daftar tugas', ujian: 'daftar ujian' }[d.send]}" ke grup sekarang?` : 'Kirim pesan percobaan ke grup?';
-    if (!confirm(label)) return;
     el.disabled = true; const old = el.innerHTML; el.innerHTML = '<i class="ph ph-spinner"></i>Mengirim…';
     try { await api('send' in d ? `/api/pengingat/kirim/${d.send}` : '/api/status/tes', { method: 'POST' }); toast('Pesan terkirim ke grup.'); if ('testSend' in d) loadStatus(); }
     catch (err) { toast(err.message, 'error'); }
