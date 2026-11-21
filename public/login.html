@@ -4,14 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Masuk · Pengingat Kuliah</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📚</text></svg>">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230e7490'/%3E%3Cpath d='M9 8h6v16H9zM17 8h6v16h-6z' fill='%23fff'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="/vendor/manrope/index.css">
 <link rel="stylesheet" href="/vendor/phosphor/regular/style.css">
 <link rel="stylesheet" href="/vendor/phosphor/fill/style.css">
 <link rel="stylesheet" href="/vendor/phosphor/bold/style.css">
 <link rel="stylesheet" href="/vendor/phosphor/duotone/style.css">
 <style>
-:root { --bg:#f2f8fc; --card:#fff; --line:#d7e4eb; --ink:#0f2533; --muted:#5b7384; --accent:#1677a6; --tile:#dff1f9; --field:#f7fbfd; --err:#dc2626; --err-bg:#fef2f2; }
+:root { --bg:#f2f8fc; --card:#fff; --line:#c9dbe5; --ink:#0f2533; --muted:#4a6272; --accent:#0e6a96; --tile:#dff1f9; --field:#f7fbfd; --err:#dc2626; --err-bg:#fef2f2; }
 @media (prefers-color-scheme: dark) { :root { --bg:#061722; --card:#0e2938; --line:#1c3d50; --ink:#e8f4fa; --muted:#8fb0c2; --accent:#38aee3; --tile:#123a4f; --field:#0a2230; --err:#f87171; --err-bg:#2d1414; } }
 * { box-sizing: border-box; }
 body { margin: 0; min-height: 100dvh; display: grid; place-items: center; padding: 20px 16px; font: 15px/1.5 "Manrope Variable", "Manrope", system-ui, sans-serif; color: var(--ink);
@@ -25,10 +25,12 @@ h1 { margin: .35rem 0 1.6rem; font-size: clamp(1.75rem, 6vw, 2.35rem); line-heig
 label { display: block; font-size: .8rem; font-weight: 700; color: var(--muted); margin-bottom: .4rem; }
 .input { position: relative; margin-bottom: 1rem; }
 .input i { position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 1.15rem; }
-.input input { width: 100%; height: 3.15rem; padding: 0 1rem 0 2.8rem; border-radius: .8rem; border: 1px solid var(--line); background: var(--field); color: var(--ink); font: inherit; }
+.input input { width: 100%; height: 3.15rem; padding: 0 1rem 0 2.8rem; border-radius: .8rem; border: 1px solid var(--line); background: var(--field); color: var(--ink); font: inherit; font-size: 16px; }
 .input input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 15%, transparent); }
 button { width: 100%; height: 3.15rem; border: 0; border-radius: .8rem; background: var(--accent); color: #fff; font: 800 .95rem "Manrope Variable", "Manrope", sans-serif; cursor: pointer; margin-top: .5rem; display: flex; align-items: center; justify-content: center; gap: .5rem; }
 button:disabled { opacity: .6; cursor: wait; }
+button:focus-visible, input:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 .error { display: none; margin-bottom: 1rem; padding: .7rem .9rem; border-left: 3px solid var(--err); background: var(--err-bg); color: var(--err); border-radius: .4rem; font-size: .85rem; font-weight: 600; }
 .error.show { display: block; }
 .foot { margin-top: 1.5rem; color: var(--muted); font-size: .8rem; text-align: center; }
@@ -37,16 +39,16 @@ button:disabled { opacity: .6; cursor: wait; }
 </head>
 <body>
 <main class="card">
-  <div class="brand"><div class="tile"><i class="ph-fill ph-books"></i></div><div><b>Pengingat Kuliah</b><small>Jadwal · Tugas · Ujian</small></div></div>
+  <div class="brand"><div class="tile"><i class="ph-fill ph-books" aria-hidden="true"></i></div><div><b>Pengingat Kuliah</b><small>Jadwal · Tugas · Ujian</small></div></div>
   <div class="eyebrow">Akses Pengingat Kuliah</div>
   <h1>Masuk untuk melihat jadwal kuliah.</h1>
-  <div class="error" id="err" role="alert"></div>
+  <div class="error" id="err" role="alert" aria-live="assertive"></div>
   <form id="f">
     <label for="u">Username</label>
-    <div class="input"><i class="ph ph-user"></i><input id="u" name="username" autocomplete="username" autocapitalize="none" required></div>
+    <div class="input"><i class="ph ph-user" aria-hidden="true"></i><input id="u" name="username" autocomplete="username" autocapitalize="none" required></div>
     <label for="p">Password</label>
-    <div class="input"><i class="ph ph-lock-key"></i><input id="p" name="password" type="password" autocomplete="current-password" required></div>
-    <button id="b"><i class="ph ph-sign-in"></i> Masuk</button>
+    <div class="input"><i class="ph ph-lock-key" aria-hidden="true"></i><input id="p" name="password" type="password" autocomplete="current-password" required></div>
+    <button id="b"><i class="ph ph-sign-in" aria-hidden="true"></i> Masuk</button>
   </form>
   <p class="foot">Belum punya akun? Minta ke admin kelas.</p>
 </main>
