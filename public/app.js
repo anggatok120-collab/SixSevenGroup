@@ -440,10 +440,9 @@ function viewMatkul() {
     tugas: S.data.tugas.filter((t) => same(t.matkul, m.nama) && !t.selesai).length,
     ujian: S.data.ujian.filter((u) => same(u.matkul, m.nama) && u.ms >= n).sort((a, b) => a.ms - b.ms)[0],
   }));
-  const sks = list.reduce((a, m) => a + (m.sks || 0), 0);
   const cards = info.map(({ m, jadwal, tugas, ujian }) => `<article class="mk-card">
       <div class="mk-top"><span class="mk-badge">${esc(m.nama.split(/\s+/).map((x) => x[0]).join('').replace(/[^A-Za-z0-9]/g, '').slice(0, 3).toUpperCase() || 'MK')}</span>
-        <div class="mk-title"><b>${esc(m.nama)}</b><small>${[m.kode && esc(m.kode), m.sks != null && `${m.sks} SKS`].filter(Boolean).join(' · ') || 'Kode & SKS kosong'}</small></div>
+        <div class="mk-title"><b>${esc(m.nama)}</b><small>${jadwal.length ? `${jadwal.length}× seminggu` : 'Belum ada jadwal'}</small></div>
         ${canEdit() ? `<div class="mk-act"><button class="tiny-btn" data-edit="matkul" data-id="${m.id}" aria-label="Ubah ${esc(m.nama)}"><i class="ph ph-pencil-simple"></i></button><button class="tiny-btn danger" data-del="matkul" data-id="${m.id}" aria-label="Hapus ${esc(m.nama)}"><i class="ph ph-trash"></i></button></div>` : ''}</div>
       <dl class="mk-meta">
         <div><dt><i class="ph ph-chalkboard-teacher"></i>Dosen</dt><dd>${esc(m.dosen || '–')}</dd></div>
@@ -452,7 +451,7 @@ function viewMatkul() {
       <div class="mk-foot"><span class="tag">${tugas} tugas aktif</span>${ujian ? `<span class="tag" data-tone="live">${esc(ujian.jenis)} · ${w(ujian.ms).d} ${BULAN[w(ujian.ms).m]}</span>` : ''}${m.catatan ? `<span class="mk-note" title="${esc(m.catatan)}"><i class="ph ph-note"></i>Catatan</span>` : ''}</div>
     </article>`).join('');
   $('#content').innerHTML = `
-    ${pageHead('books', 'Mata kuliah', 'Daftar mata kuliah semester ini. Jadwal, tugas, dan ujian memilih mata kuliah dari daftar ini.', [[list.length, 'Mata kuliah'], [sks, 'Total SKS'], [info.filter((x) => x.jadwal.length).length, 'Punya jadwal']], addBtn('matkul', 'Tambah mata kuliah'))}
+    ${pageHead('books', 'Mata kuliah', 'Daftar mata kuliah semester ini. Jadwal, tugas, dan ujian memilih mata kuliah dari daftar ini.', [[list.length, 'Mata kuliah'], [info.filter((x) => x.jadwal.length).length, 'Punya jadwal'], [info.reduce((a, x) => a + x.tugas, 0), 'Tugas aktif']], addBtn('matkul', 'Tambah mata kuliah'))}
     ${list.length ? `<div class="mk-grid">${cards}</div>` : `<div class="card">${empty('books', 'Belum ada mata kuliah', canEdit() ? 'Tambahkan mata kuliah dulu, lalu atur jadwal, tugas, dan ujiannya.' : 'Admin belum mengisi daftar mata kuliah.', addBtn('matkul', 'Tambah sekarang'))}</div>`}`;
 }
 
@@ -673,7 +672,7 @@ function viewProfil() {
     </div></div>`;
   $('#profForm').onsubmit = async (e) => {
     e.preventDefault();
-    try { await api('/api/auth/me', { method: 'PUT', body: Object.fromEntries(new FormData(e.target)) }); S.user.nama = new FormData(e.target).get('nama') || S.user.nama; setUserChip(); e.target.passwordLama.value = ''; e.target.passwordBaru.value = ''; $('#profErr').textContent = ''; toast('Profil disimpan.'); }
+    try { const r = await api('/api/auth/me', { method: 'PUT', body: Object.fromEntries(new FormData(e.target)) }); if (r.token) { token = r.token; try { sessionStorage.setItem('token', token); } catch {} } S.user.nama = new FormData(e.target).get('nama') || S.user.nama; setUserChip(); e.target.passwordLama.value = ''; e.target.passwordBaru.value = ''; $('#profErr').textContent = ''; toast('Profil disimpan.'); }
     catch (err) { $('#profErr').textContent = err.message; }
   };
 }
@@ -686,7 +685,7 @@ function mkField(v, hint = '') {
   const baru = !list.length || (cur && !known);
   return `<label class="field"><span>Mata kuliah</span><select name="matkul" data-mk-select ${baru && !list.length ? 'hidden' : ''}>
       ${cur ? '' : '<option value="" disabled selected>Pilih mata kuliah…</option>'}
-      ${list.map((m) => `<option value="${esc(m.nama)}" ${m.nama === cur ? 'selected' : ''}>${esc(m.nama)}${m.kode ? ` (${esc(m.kode)})` : ''}</option>`).join('')}
+      ${list.map((m) => `<option value="${esc(m.nama)}" ${m.nama === cur ? 'selected' : ''}>${esc(m.nama)}</option>`).join('')}
       <option value="__baru" ${baru && list.length ? 'selected' : ''}>+ Mata kuliah baru…</option></select>
     <input name="matkulBaru" data-mk-new placeholder="Nama mata kuliah baru, contoh: Ekologi Perairan" value="${known ? '' : esc(cur)}" ${baru ? '' : 'hidden'}>
     <small class="muted">${list.length ? 'Daftar diambil dari menu Mata Kuliah.' : 'Belum ada mata kuliah. Ketik namanya, nanti otomatis masuk menu Mata Kuliah.'}${hint ? ` ${hint}` : ''}</small></label>`;
@@ -694,8 +693,6 @@ function mkField(v, hint = '') {
 const FORMS = {
   matkul: { label: 'mata kuliah', eyebrow: 'Mata kuliah', fields: (v) => `
     <label class="field"><span>Nama mata kuliah</span><input name="nama" required maxlength="80" value="${esc(v.nama)}" placeholder="Ekologi Perairan"></label>
-    <div class="grid2"><label class="field"><span>Kode (opsional)</span><input name="kode" value="${esc(v.kode)}" placeholder="PI201"></label>
-    <label class="field"><span>SKS (opsional)</span><input name="sks" type="number" min="0" max="12" inputmode="numeric" value="${v.sks ?? ''}" placeholder="3"></label></div>
     <label class="field"><span>Dosen pengampu (opsional)</span><input name="dosen" value="${esc(v.dosen)}" placeholder="Dr. Sari"></label>
     <label class="field"><span>Catatan (opsional)</span><textarea name="catatan" placeholder="Link grup kelas, buku wajib, aturan absen, dll.">${esc(v.catatan)}</textarea></label>
     ${v.id && v.pakai && (v.pakai.jadwal + v.pakai.tugas + v.pakai.ujian) ? '<small class="muted">Mengganti nama ikut mengubah jadwal, tugas, dan ujian yang memakai mata kuliah ini.</small>' : ''}` },
@@ -768,7 +765,9 @@ $('#modalForm').addEventListener('submit', async (e) => {
   if (!editing || editing.detail) return;
   const form = e.target; const bad = [...form.elements].find((el) => el.willValidate && !el.checkValidity());
   if (bad) { $('#mErr').textContent = `${bad.closest('.field')?.querySelector('span')?.textContent || 'Isian'} belum valid.`; bad.focus(); return; }
-  const fd = new FormData(form); const body = Object.fromEntries(fd); body.selesai = fd.has('selesai');
+  const fd = new FormData(form); const body = Object.fromEntries(fd);
+  // "selesai" di tugas = kotak centang; di jadwal = jam selesai (jangan ditimpa).
+  if (editing.type === 'tugas') body.selesai = fd.has('selesai');
   if ('matkulBaru' in body) { if (body.matkul === '__baru' || !body.matkul) body.matkul = body.matkulBaru; delete body.matkulBaru; }
   const { type, id } = editing; const btn = $('#mSubmit'); btn.disabled = true; btn.lastChild.textContent = 'Menyimpan…';
   try {

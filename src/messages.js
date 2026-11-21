@@ -1,5 +1,5 @@
 // Penyusun pesan WA. Dipakai pengingat otomatis, tombol "kirim sekarang", dan pratinjau di web.
-const { local } = require('./time');
+const { local, parseLocal, pad } = require('./time');
 const { tugasLine, ujianLine, jadwalHari } = require('./format');
 
 const DAY = 86400000;
@@ -18,9 +18,11 @@ function pesanHariIni(db, now = Date.now()) {
 function pesanBesok(db, now = Date.now()) {
   const besok = local(now + DAY);
   const kelas = db.kelasByHari(besok.dow);
-  const batasAwal = now; const batasAkhir = now + 2 * DAY;
-  const tugas = db.tugasAktif().filter((x) => x.deadline > batasAwal && x.deadline <= batasAkhir);
-  const ujian = db.ujianMendatang(now).filter((x) => x.waktu <= batasAkhir);
+  // Batas = akhir hari besok (waktu lokal), bukan 48 jam dari sekarang.
+  const awalBesok = parseLocal(`${besok.y}-${pad(besok.mo)}-${pad(besok.d)} 00:00`);
+  const akhirBesok = awalBesok + DAY;
+  const tugas = db.tugasAktif().filter((x) => x.deadline > now && x.deadline < akhirBesok);
+  const ujian = db.ujianMendatang(now).filter((x) => x.waktu >= awalBesok && x.waktu < akhirBesok);
   let msg = `🌙 *Persiapan besok*\n\n${jadwalHari(kelas, besok.dow)}`;
   if (tugas.length) msg += `\n\n📝 *Tugas deadline sampai besok*\n${tugas.map((x) => tugasLine(x, now)).join('\n')}`;
   if (ujian.length) msg += `\n\n📚 *Ujian besok*\n${ujian.map((x) => ujianLine(x, now)).join('\n')}`;

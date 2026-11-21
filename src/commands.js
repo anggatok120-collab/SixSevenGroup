@@ -36,6 +36,7 @@ function parseKelas(line) {
   const mulai = parseHM(m || '');
   const selesai = s ? parseHM(s) : null;
   if (!mulai || (s && !selesai)) return { error: `Jam "${jam}" tidak valid. Contoh: 08:00-09:40` };
+  if (selesai && selesai <= mulai) return { error: 'Jam selesai harus setelah jam mulai.' };
   if (!matkul) return { error: 'Nama mata kuliah wajib diisi.' };
   return { kelas: { hari, mulai, selesai, matkul, ruang: ruang || null, dosen: dosen || null } };
 }

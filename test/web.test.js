@@ -132,3 +132,15 @@ test('masuk lewat WhatsApp: link sekali pakai', async () => {
     assert.equal(createLoginToken(db, ['6281234567890']).error, 'unknown');
   } finally { srv.close(); }
 });
+
+test('ganti password mengeluarkan sesi lama', async () => {
+  const { srv, req, login } = setup();
+  try {
+    const t1 = await login('admin', 'rahasia123'); const t2 = await login('admin', 'rahasia123');
+    const r = await req('/api/auth/me', { method: 'PUT', token: t1, body: { passwordLama: 'rahasia123', passwordBaru: 'rahasia-baru-1' } });
+    assert.equal(r.status, 200); assert.ok(r.json.token);
+    assert.equal((await req('/api/auth/me', { token: t2 })).status, 401);
+    assert.equal((await req('/api/auth/me', { token: r.json.token })).status, 200);
+    assert.ok(await login('admin', 'rahasia-baru-1'));
+  } finally { srv.close(); }
+});
