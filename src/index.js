@@ -60,8 +60,21 @@ async function start() {
   sock = makeWASocket({ version, auth: state, logger: log.child({ module: 'baileys' }, { level: 'warn' }) });
 
   sock.ev.on('creds.update', saveCreds);
+
+  // Alternatif QR: kalau PAIRING_NUMBER diisi, bot minta kode tautan 8 huruf
+  // yang dimasukkan di HP bot (WhatsApp > Perangkat tertaut > Tautkan dengan nomor telepon).
+  const pairNum = (process.env.PAIRING_NUMBER || '').replace(/\D/g, '');
+  if (pairNum && !sock.authState.creds.registered) {
+    setTimeout(async () => {
+      try {
+        const code = await sock.requestPairingCode(pairNum);
+        log.info(`KODE TAUTAN WHATSAPP: ${code}`);
+        console.log(`\n=== KODE TAUTAN WHATSAPP: ${code} ===\n`);
+      } catch (err) { log.error({ err }, 'gagal minta kode tautan'); }
+    }, 3000);
+  }
   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
-    if (qr) {
+    if (qr && !pairNum) {
       console.log('Scan QR ini dari WhatsApp > Perangkat tertaut:');
       qrcode.generate(qr, { small: true });
     }
