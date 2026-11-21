@@ -45,6 +45,13 @@ function openDb(file = path.join(__dirname, '..', 'data', 'kuliah.db')) {
       kunci TEXT PRIMARY KEY,
       nilai TEXT NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS login_link (
+      hash TEXT PRIMARY KEY,          -- sha256 token, token aslinya tidak disimpan
+      akun_id INTEGER NOT NULL,
+      dibuat INTEGER NOT NULL,
+      exp INTEGER NOT NULL,
+      dipakai INTEGER
+    );
     CREATE TABLE IF NOT EXISTS log_kirim (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       at INTEGER NOT NULL,
@@ -57,6 +64,7 @@ function openDb(file = path.join(__dirname, '..', 'data', 'kuliah.db')) {
   const cols = (t) => db.prepare(`PRAGMA table_info(${t})`).all().map((c) => c.name);
   if (!cols('tugas').includes('prioritas')) db.exec("ALTER TABLE tugas ADD COLUMN prioritas TEXT NOT NULL DEFAULT 'normal'");
   if (!cols('tugas').includes('catatan')) db.exec('ALTER TABLE tugas ADD COLUMN catatan TEXT');
+  if (!cols('akun').includes('wa')) db.exec('ALTER TABLE akun ADD COLUMN wa TEXT');
 
   const one = (sql) => db.prepare(sql);
   return {
@@ -87,7 +95,17 @@ function openDb(file = path.join(__dirname, '..', 'data', 'kuliah.db')) {
     tandaiTerkirim: (k) => one('INSERT OR IGNORE INTO terkirim (kunci, at) VALUES (?, ?)').run(k, Date.now()),
     bersihkanTerkirim: (before) => one('DELETE FROM terkirim WHERE at < ?').run(before),
 
-    akunAll: () => one('SELECT id, username, nama, role FROM akun ORDER BY role, nama').all(),
+    akunAll: () => one('SELECT id, username, nama, role, wa FROM akun ORDER BY role, nama').all(),
+    akunByWa: (wa) => (wa ? one('SELECT * FROM akun WHERE wa = ?').get(wa) : undefined),
+    setAkunWa: (id, wa) => one('UPDATE akun SET wa = ? WHERE id = ?').run(wa || null, id).changes,
+
+    addLoginLink: (l) => one('INSERT INTO login_link (hash, akun_id, dibuat, exp) VALUES (@hash, @akun_id, @dibuat, @exp)').run(l),
+    loginLinkCount: (akunId, since) => one('SELECT COUNT(*) n FROM login_link WHERE akun_id = ? AND dibuat > ?').get(akunId, since).n,
+    pakaiLoginLink: (hash, now) => {
+      const r = one('UPDATE login_link SET dipakai = ? WHERE hash = ? AND dipakai IS NULL AND exp > ?').run(now, hash, now);
+      return r.changes ? one('SELECT * FROM login_link WHERE hash = ?').get(hash) : null;
+    },
+    bersihkanLoginLink: (now) => one('DELETE FROM login_link WHERE exp < ?').run(now - 86400000),
     akunCount: () => one('SELECT COUNT(*) n FROM akun').get().n,
     akunById: (id) => one('SELECT * FROM akun WHERE id = ?').get(id),
     akunByUsername: (u) => one('SELECT * FROM akun WHERE username = ?').get(u),

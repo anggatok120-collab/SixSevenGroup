@@ -6,6 +6,7 @@ const { parseLocal, fmtLocal, parseHM } = require('./time');
 const { ROLES, hashPassword, checkPassword, makeToken, readToken, bootstrapAdmin } = require('./auth');
 const { getSettings, validate } = require('./settings');
 const { BUILDERS } = require('./messages');
+const { normalWa, redeemLoginToken } = require('./walogin');
 
 const noBot = { status: () => ({ wa: false }), send: async () => { throw new Error('Bot tidak tersedia'); } };
 
@@ -54,6 +55,22 @@ function createWeb(db, { password, cfg, bot = noBot, secret }) {
       return res.status(401).json({ error: 'Username atau password salah' });
     }
     attempts.delete(ip);
+    res.json({ token: makeToken(sessionSecret, akun.id), user: { id: akun.id, username: akun.username, nama: akun.nama, role: akun.role } });
+  });
+  // Masuk lewat WhatsApp: halaman login butuh nomor bot, lalu menukar token dari link yang dikirim bot.
+  app.get('/api/auth/wa', (req, res) => {
+    const st = bot.status();
+    res.json({ aktif: !!(st.wa && st.nomor), nomor: st.wa ? st.nomor || null : null });
+  });
+  app.post('/api/auth/wa', (req, res) => {
+    const ip = req.ip; const now = Date.now();
+    const a = (attempts.get(ip) || []).filter((t) => now - t < 15 * 60000);
+    if (a.length >= 10) return res.status(429).json({ error: 'Terlalu banyak percobaan. Coba lagi 15 menit lagi.' });
+    const akun = redeemLoginToken(db, req.body?.token, now);
+    if (!akun) {
+      attempts.set(ip, [...a, now]);
+      return res.status(401).json({ error: 'Link masuk sudah dipakai atau kedaluwarsa. Kirim "login" lagi ke bot WhatsApp.' });
+    }
     res.json({ token: makeToken(sessionSecret, akun.id), user: { id: akun.id, username: akun.username, nama: akun.nama, role: akun.role } });
   });
   app.get('/api/auth/me', anyUser, (req, res) => res.json({ user: req.user }));
@@ -185,6 +202,16 @@ function createWeb(db, { password, cfg, bot = noBot, secret }) {
 
   // ---- Kelola akun (admin) ----
   app.get('/api/akun', admin, (req, res) => res.json({ akun: db.akunAll() }));
+  // Nomor WA opsional; harus unik supaya satu nomor hanya bisa masuk ke satu akun.
+  const waOf = (body, selfId) => {
+    if (body?.wa === undefined) return { skip: true };
+    const raw = str(body.wa); if (!raw) return { v: null };
+    const wa = normalWa(raw);
+    if (!wa) return { error: 'Nomor WhatsApp tidak valid. Contoh: 081234567890' };
+    const other = db.akunByWa(wa);
+    if (other && other.id !== selfId) return { error: `Nomor ini sudah dipakai akun ${other.nama}` };
+    return { v: wa };
+  };
   app.post('/api/akun', admin, (req, res) => {
     const username = str(req.body?.username).toLowerCase();
     const nama = str(req.body?.nama); const role = str(req.body?.role); const pw = String(req.body?.password || '');
@@ -193,7 +220,10 @@ function createWeb(db, { password, cfg, bot = noBot, secret }) {
     if (!ROLES.includes(role)) return bad(res, 'Peran tidak valid');
     if (pw.length < 8) return bad(res, 'Password minimal 8 karakter');
     if (db.akunByUsername(username)) return bad(res, 'Username sudah dipakai');
-    res.json({ id: Number(db.addAkun({ username, nama, role, hash: hashPassword(pw) })) });
+    const w = waOf(req.body); if (w.error) return bad(res, w.error);
+    const id = Number(db.addAkun({ username, nama, role, hash: hashPassword(pw) }));
+    if (w.v) db.setAkunWa(id, w.v);
+    res.json({ id });
   });
   app.put('/api/akun/:id', admin, (req, res) => {
     const id = Number(req.params.id); const a = db.akunById(id);
@@ -202,7 +232,9 @@ function createWeb(db, { password, cfg, bot = noBot, secret }) {
     if (!ROLES.includes(role)) return bad(res, 'Peran tidak valid');
     if (a.role === 'admin' && role !== 'admin' && db.adminCount() <= 1) return bad(res, 'Harus ada minimal satu admin');
     if (pw && pw.length < 8) return bad(res, 'Password minimal 8 karakter');
+    const w = waOf(req.body, id); if (w.error) return bad(res, w.error);
     db.updateAkun(id, { nama, role, hash: pw ? hashPassword(pw) : undefined });
+    if (!w.skip) db.setAkunWa(id, w.v);
     res.json({ ok: true });
   });
   app.delete('/api/akun/:id', admin, (req, res) => {

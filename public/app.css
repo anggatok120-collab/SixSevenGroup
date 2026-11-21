@@ -416,7 +416,8 @@ dialog.modal form { display: flex; flex-direction: column; max-height: inherit; 
 .topbar { background: var(--color-background); border-bottom: 1px solid var(--color-border); }
 .sidebar { background: var(--color-surface); }
 .card, .panel, .metric, .hero { background: var(--color-surface); box-shadow: none; }
-.brand-mark { background: var(--color-surface-raised); border: 1px solid rgba(255,255,255,.34); color: var(--color-text); box-shadow: none; }
+.brand-mark { display: block; width: 38px; height: 38px; padding: 0; background: none; border: 0; border-radius: 11px; box-shadow: 0 0 0 1px rgba(255,255,255,.08); }
+.field small { font-size: var(--text-caption); line-height: 1.4; }
 .btn-primary { background: var(--color-primary); color: var(--color-on-primary); box-shadow: none; border-color: transparent; }
 .btn-primary:hover { background: var(--color-primary-strong); }
 
