@@ -24,6 +24,7 @@ cp .env.example .env   # isi ADMIN_NUMBERS dan ADMIN_PASSWORD dulu
 npm start              # sekali saja, untuk scan QR
 ```
 1. Scan QR yang muncul dari HP bot: WhatsApp → Perangkat tertaut → Tautkan perangkat.
+   Tidak bisa scan (misal lewat SSH)? Isi `PAIRING_NUMBER` dengan nomor bot, lalu masukkan kode 8 huruf dari log di HP bot: Perangkat tertaut → Tautkan perangkat → Tautkan dengan nomor telepon.
 2. Masukkan nomor bot ke grup kelas, lalu ketik `/groupid` di grup. Salin ID-nya ke `GROUP_JID` di `.env`.
 3. Hentikan (`Ctrl+C`), lalu jalankan dengan pm2:
 ```bash
