@@ -97,6 +97,7 @@ function createWeb(db, { password, cfg, bot = noBot, secret, backupDir = DEFAULT
   app.get('/api/data', anyUser, (req, res) => {
     const st = bot.status();
     res.json({
+      matkul: db.matkulAll(),
       kelas: db.kelasAll(),
       tugas: db.tugasAll().map(out.tugas),
       ujian: db.ujianAll().map(out.ujian),
@@ -148,6 +149,38 @@ function createWeb(db, { password, cfg, bot = noBot, secret, backupDir = DEFAULT
       res.json({ ok: true });
     });
   };
+  // ---- Mata kuliah ----
+  function matkulBody(b) {
+    const nama = str(b.nama).replace(/\s+/g, ' ');
+    if (!nama) return { error: 'Nama mata kuliah wajib diisi' };
+    if (nama.length > 80) return { error: 'Nama mata kuliah terlalu panjang' };
+    const sksRaw = str(b.sks); const sks = sksRaw ? Number(sksRaw) : null;
+    if (sksRaw && !(Number.isInteger(sks) && sks >= 0 && sks <= 12)) return { error: 'SKS harus angka 0–12' };
+    return { v: { nama, kode: str(b.kode) || null, sks, dosen: str(b.dosen) || null, catatan: str(b.catatan) || null } };
+  }
+  const dupe = (nama, selfId) => { const m = db.matkulByNama(nama); return m && m.id !== selfId; };
+  app.post('/api/matkul', editor, (req, res) => {
+    const r = matkulBody(req.body || {}); if (r.error) return bad(res, r.error);
+    if (dupe(r.v.nama)) return bad(res, `Mata kuliah "${r.v.nama}" sudah ada`);
+    res.json({ id: Number(db.addMatkul(r.v)) });
+  });
+  app.put('/api/matkul/:id', editor, (req, res) => {
+    const id = Number(req.params.id);
+    const r = matkulBody(req.body || {}); if (r.error) return bad(res, r.error);
+    if (dupe(r.v.nama, id)) return bad(res, `Mata kuliah "${r.v.nama}" sudah ada`);
+    if (!db.updateMatkul(id, r.v)) return res.status(404).json({ error: 'Data tidak ditemukan' });
+    res.json({ ok: true });
+  });
+  app.delete('/api/matkul/:id', editor, (req, res) => {
+    const r = db.delMatkul(Number(req.params.id));
+    if (r.pakai) {
+      const p = r.pakai; const bagian = [p.jadwal && `${p.jadwal} jadwal`, p.tugas && `${p.tugas} tugas`, p.ujian && `${p.ujian} ujian`].filter(Boolean).join(', ');
+      return res.status(409).json({ error: `Masih dipakai di ${bagian}. Hapus atau pindahkan dulu.` });
+    }
+    if (!r.changes) return res.status(404).json({ error: 'Data tidak ditemukan' });
+    res.json({ ok: true });
+  });
+
   crud('kelas', kelasBody, db.addKelas, db.updateKelas, db.delKelas);
   crud('tugas', tugasBody, db.addTugas, db.updateTugas, db.delTugas);
   crud('ujian', ujianBody, db.addUjian, db.updateUjian, db.delUjian);

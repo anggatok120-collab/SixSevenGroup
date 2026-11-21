@@ -607,3 +607,32 @@ dialog.modal[open]::backdrop { animation: fadein 200ms ease-out; }
 .btn-primary .ic-plus { color: var(--color-on-primary); }
 .btn-secondary .ic-plus { color: var(--color-text); }
 .btn-primary i, .btn-primary svg { color: var(--color-on-primary); }
+
+/* ---------- Mata kuliah ---------- */
+.mk-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--space-4); }
+.mk-card { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-5); border-radius: var(--radius-card); border: 1px solid var(--color-border); background: var(--color-surface); min-width: 0; transition: border-color var(--dur-ui) ease-out, transform var(--dur-ui) var(--ease-out); }
+.mk-card:hover { border-color: var(--color-border-strong); }
+@media (hover: hover) { .mk-card:hover { transform: translate3d(0, -2px, 0); } }
+.mk-top { display: flex; align-items: flex-start; gap: var(--space-3); min-width: 0; }
+.mk-badge { display: grid; place-items: center; width: 42px; height: 42px; flex: none; border-radius: 12px; background: var(--color-surface-raised); border: 1px solid var(--color-border-strong); font: 600 12px/1 'JetBrains Mono', monospace; letter-spacing: .04em; }
+.mk-title { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.mk-title b { font-size: var(--text-body-md); font-weight: 600; overflow-wrap: anywhere; }
+.mk-title small { color: var(--color-text-subtle); font-size: var(--text-caption); }
+.mk-act { display: flex; gap: 2px; margin: -6px -6px 0 0; }
+.mk-meta { margin: 0; display: grid; gap: var(--space-2); padding: var(--space-3); border-radius: var(--radius-control); background: var(--color-surface-raised); }
+.mk-meta div { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: var(--space-2); font-size: var(--text-body-sm); }
+.mk-meta dt { color: var(--color-text-subtle); display: flex; align-items: center; gap: 6px; }
+.mk-meta dd { margin: 0; color: var(--color-text); overflow-wrap: anywhere; }
+.mk-foot { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; margin-top: auto; }
+.mk-note { display: inline-flex; align-items: center; gap: 4px; font-size: var(--text-caption); color: var(--color-text-subtle); }
+#content.enter .mk-card { animation: fade 260ms ease-out both; animation-delay: 120ms; }
+#content.enter .mk-card:nth-child(2) { animation-delay: 150ms; } #content.enter .mk-card:nth-child(3) { animation-delay: 180ms; } #content.enter .mk-card:nth-child(n+4) { animation-delay: 210ms; }
+.field select[hidden], .field input[hidden] { display: none; }
+.field select + input { margin-top: var(--space-2); }
+/* Konfirmasi di dalam aplikasi */
+dialog.modal.confirm { width: min(400px, calc(100vw - 24px)); }
+dialog.modal.confirm .modal-body p { margin: 0; }
+dialog.modal.confirm h2 { font-size: var(--text-heading-sm); line-height: 1.35; }
+/* Kotak centang tugas untuk anggota (hanya lihat) */
+.check:disabled, .task-check:disabled { opacity: .45; cursor: default; }
+@media (prefers-reduced-motion: reduce) { .mk-card:hover { transform: none; } }
