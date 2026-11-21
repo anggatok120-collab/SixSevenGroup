@@ -21,8 +21,8 @@ function createWeb(db, { password, cfg, bot = noBot, secret }) {
   const vendor = (pkg) => path.join(__dirname, '..', 'node_modules', pkg);
   const long = { maxAge: '30d', immutable: true };
   app.use('/vendor/phosphor', express.static(path.join(vendor('@phosphor-icons/web'), 'src'), long));
-  app.use('/vendor/manrope', express.static(vendor('@fontsource-variable/manrope'), long));
-  app.use('/vendor/serif', express.static(vendor('@fontsource/instrument-serif'), long));
+  app.use('/vendor/inter', express.static(vendor('@fontsource-variable/inter'), long));
+  app.use('/vendor/mono', express.static(vendor('@fontsource/jetbrains-mono'), long));
   app.use(express.static(pub));
 
   // ---- Auth ----

@@ -1,14 +1,12 @@
 <!doctype html>
-<html lang="id" data-theme="dark">
+<html lang="id">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Pengingat Kuliah</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230a0a0a'/%3E%3Cpath d='M9 8h6v16H9zM17 8h6v16h-6z' fill='%23fafafa'/%3E%3C/svg%3E">
-<script>try { document.documentElement.dataset.theme = localStorage.getItem('theme') || 'dark'; } catch {}</script>
-<link rel="stylesheet" href="/vendor/manrope/index.css">
-<link rel="stylesheet" href="/vendor/serif/latin-400.css">
-<link rel="stylesheet" href="/vendor/serif/latin-400-italic.css">
+<title>Six Seven 67</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23181b23'/%3E%3Crect x='.5' y='.5' width='31' height='31' rx='8.5' fill='none' stroke='%236fa8ff' stroke-opacity='.6'/%3E%3Ctext x='16' y='21' font-family='Arial' font-weight='700' font-size='13' text-anchor='middle' fill='%23f2f4f8'%3E67%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="/vendor/inter/index.css">
+<link rel="stylesheet" href="/vendor/mono/500.css">
 <link rel="stylesheet" href="/vendor/phosphor/regular/style.css">
 <link rel="stylesheet" href="/vendor/phosphor/fill/style.css">
 <link rel="stylesheet" href="/vendor/phosphor/bold/style.css">
@@ -17,28 +15,33 @@
 </head>
 <body>
 <a class="skip" href="#content">Langsung ke konten</a>
-<div class="boot" id="boot"><i class="ph-fill ph-books"></i><b>Menyiapkan Pengingat Kuliah…</b><small>Memeriksa akun dan menyinkronkan data.</small></div>
+<div class="boot" id="boot"><i class="ph-fill ph-books"></i><b>Menyiapkan Six Seven 67…</b><small>Memeriksa akun dan menyinkronkan data.</small></div>
 
+<div class="aurora" aria-hidden="true"></div>
 <div class="shell" id="shell" aria-busy="true">
   <aside class="sidebar" id="sidebar" aria-label="Navigasi utama">
     <div class="brand">
-      <div class="brand-mark"><i class="ph-fill ph-books"></i></div>
-      <div><strong>Pengingat Kuliah</strong><small>Jadwal · Tugas · Ujian</small></div>
+      <span class="brand-mark" aria-hidden="true">67</span>
+      <div><strong>Six Seven 67</strong><small>Manajemen Perkuliahan</small></div>
     </div>
     <nav class="nav" id="nav" aria-label="Menu"></nav>
-    <div class="side-foot"><span class="dot" id="botDot" aria-hidden="true"></span><span id="botText" role="status">Memeriksa bot…</span></div>
+    <div class="side-foot">
+      <div class="bot-pill"><span class="dot" id="botDot" aria-hidden="true"></span><span id="botText" role="status">Memeriksa bot…</span></div>
+      <div class="user-card">
+        <button class="profile-chip" id="profileBtn" aria-label="Buka profil saya"><span class="avatar" id="avatar" aria-hidden="true"></span><span class="who"><b id="userName"></b><small id="userRole"></small></span></button>
+        <button class="tiny-btn" id="logoutBtn" aria-label="Keluar" title="Keluar"><i class="ph ph-sign-out"></i></button>
+      </div>
+    </div>
   </aside>
   <button class="scrim" id="scrim" aria-label="Tutup menu"></button>
 
   <div class="main">
     <header class="topbar">
       <button class="icon-btn menu-btn" id="menuBtn" aria-label="Buka menu"><i class="ph ph-list"></i></button>
-      <div class="page-title"><h1 id="pageTitle" tabindex="-1"></h1><p id="pageSub"></p></div>
+      <div class="page-title"><p id="pageSub"></p><h1 id="pageTitle" tabindex="-1"></h1></div>
+      <label class="top-search"><i class="ph ph-magnifying-glass"></i><input type="search" id="globalSearch" placeholder="Cari mata kuliah, tugas…" aria-label="Cari mata kuliah atau tugas"></label>
       <div class="top-actions">
-        <button class="theme-switch" id="themeBtn" aria-label="Ganti tema"><i class="ph-fill ph-moon"></i><i class="ph-fill ph-sun"></i></button>
-        <button class="icon-btn" id="bellBtn" aria-label="Tugas aktif"><i class="ph ph-bell"></i><span class="count hidden" id="bellCount"></span></button>
-        <button class="profile-chip" id="profileBtn" aria-label="Buka profil saya"><span class="avatar" id="avatar" aria-hidden="true"></span><div><b id="userName"></b><small id="userRole"></small></div></button>
-        <button class="icon-btn hide-sm" id="logoutBtn" aria-label="Keluar" title="Keluar"><i class="ph ph-sign-out"></i></button>
+        <button class="pill-btn" id="bellBtn" aria-label="Tugas aktif"><i class="ph ph-bell"></i><span id="bellCount">0</span></button>
       </div>
     </header>
     <main class="content" id="content" tabindex="-1"></main>
