@@ -206,7 +206,7 @@ function viewDashboard() {
 
   $('#content').innerHTML = `
   <section class="hero">
-    <div><h2>${salam}, ${esc(S.user.nama.split(' ')[0])}.</h2><p>${kalimat}</p></div>
+    <div><div class="eyebrow">${tgl(n)} · ${w(n).y || ""}</div><h2>${salam}, <em>${esc(S.user.nama.split(' ')[0])}</em>.</h2><p>${kalimat}</p></div>
     ${canEdit() ? '<button class="btn btn-primary" data-add="tugas"><i class="ph ph-plus"></i>Tambah tugas</button>' : ''}
   </section>
   <section class="metrics">
@@ -271,7 +271,7 @@ function viewTugas() {
       : empty('confetti', 'Tidak ada tugas aktif', 'Semua beres. Tambahkan tugas baru kalau ada.', addBtn('tugas', 'Tambah sekarang'));
   $('#content').innerHTML = `
     <div class="toolbar"><div class="toolbar-left"><label class="search"><i class="ph ph-magnifying-glass"></i><input id="q" placeholder="Cari tugas atau mata kuliah…" value="${esc(S.q)}"></label><div class="segmented">${seg}</div></div>${addBtn('tugas', 'Tambah tugas')}</div>
-    <div class="card" style="padding:6px">${list.length ? `<div class="table"><div class="thead"><span>Status</span><span>Tugas</span><span>Mata kuliah</span><span>Tenggat</span><span>Prioritas</span><span style="text-align:right">Aksi</span></div>${rows}</div>` : kosong}</div>`;
+    <div class="card">${list.length ? `<div class="table"><div class="thead"><span>Status</span><span>Tugas</span><span>Mata kuliah</span><span>Tenggat</span><span>Prioritas</span><span style="text-align:right">Aksi</span></div>${rows}</div>` : kosong}</div>`;
   const qi = $('#q'); qi.oninput = () => { S.q = qi.value; const pos = qi.selectionStart; viewTugas(); const n = $('#q'); n.focus(); n.setSelectionRange(pos, pos); };
 }
 
@@ -296,7 +296,7 @@ function viewUjian() {
   }).join('');
   $('#content').innerHTML = `
     <div class="toolbar"><div class="toolbar-left"><span class="muted">Bot mengingatkan grup H-7, H-1, dan pagi hari-H ujian.</span></div>${addBtn('ujian', 'Tambah ujian')}</div>
-    <div class="card" style="padding:6px">${list.length ? `<div class="table ujian"><div class="thead"><span>Jenis</span><span>Mata kuliah</span><span>Waktu</span><span>Ruang</span><span>Status</span><span style="text-align:right">Aksi</span></div>${rows}</div>`
+    <div class="card">${list.length ? `<div class="table ujian"><div class="thead"><span>Jenis</span><span>Mata kuliah</span><span>Waktu</span><span>Ruang</span><span>Status</span><span style="text-align:right">Aksi</span></div>${rows}</div>`
       : empty('exam', 'Belum ada ujian', canEdit() ? 'Tambahkan jadwal UTS, UAS, atau kuis.' : 'Belum ada ujian terjadwal.', addBtn('ujian', 'Tambah sekarang'))}</div>`;
 }
 
