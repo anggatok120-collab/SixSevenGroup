@@ -20,7 +20,10 @@ const MENU = `🤖 *Bot Pengingat Kuliah*
 /selesai 3 – tandai tugas no. 3 selesai
 /hapustugas 3 · /hapusujian 2 · /hapuskelas 5
 
-/groupid – tampilkan ID chat ini`;
+/web – alamat web pengelola
+/groupid – tampilkan ID chat ini
+
+Prefix boleh / ! atau .`;
 
 const split = (s) => s.split('|').map((x) => x.trim());
 
@@ -36,8 +39,8 @@ function parseKelas(line) {
   return { kelas: { hari, mulai, selesai, matkul, ruang: ruang || null, dosen: dosen || null } };
 }
 
-function handle(db, text, { isAdmin = false, chatJid = '', now = Date.now() } = {}) {
-  const m = /^\/(\w+)\s*([\s\S]*)$/.exec(text.trim());
+function handle(db, text, { isAdmin = false, chatJid = '', now = Date.now(), webUrl = process.env.WEB_URL || '' } = {}) {
+  const m = /^[/!.](\w+)\s*([\s\S]*)$/.exec(text.trim());
   if (!m) return null;
   const cmd = m[1].toLowerCase();
   const arg = m[2].trim();
@@ -47,6 +50,8 @@ function handle(db, text, { isAdmin = false, chatJid = '', now = Date.now() } = 
   switch (cmd) {
     case 'menu': case 'help': case 'bantuan':
       return MENU;
+    case 'web':
+      return webUrl ? `🌐 Kelola jadwal, tugas, dan ujian di: ${webUrl}` : 'Alamat web belum diatur (WEB_URL).';
     case 'groupid':
       return `ID chat ini: ${chatJid}`;
     case 'hari':
