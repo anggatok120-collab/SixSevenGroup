@@ -7,10 +7,11 @@ const { ROLES, hashPassword, checkPassword, makeToken, readToken, bootstrapAdmin
 const { getSettings, validate } = require('./settings');
 const { BUILDERS } = require('./messages');
 const { normalWa, redeemLoginToken } = require('./walogin');
+const { DEFAULT_DIR, NAME_RE, listBackups, backupNow } = require('./backup');
 
 const noBot = { status: () => ({ wa: false }), send: async () => { throw new Error('Bot tidak tersedia'); } };
 
-function createWeb(db, { password, cfg, bot = noBot, secret }) {
+function createWeb(db, { password, cfg, bot = noBot, secret, backupDir = DEFAULT_DIR }) {
   const sessionSecret = secret || crypto.createHash('sha256').update(`wa-pengingat-kuliah:${password || ''}`).digest('hex');
   bootstrapAdmin(db, password);
 
@@ -198,6 +199,19 @@ function createWeb(db, { password, cfg, bot = noBot, secret }) {
       db.addLog('tes', 'gagal', err.message);
       res.status(502).json({ error: `Gagal mengirim: ${err.message}` });
     }
+  });
+
+  // ---- Backup database (admin) ----
+  const backupInfo = () => ({ jam: cfg?.backupAt || '02:00', simpan: cfg?.backupKeep || 14, daftar: listBackups(backupDir) });
+  app.get('/api/backup', admin, (req, res) => res.json(backupInfo()));
+  app.post('/api/backup', admin, async (req, res) => {
+    try { await backupNow(db, { dir: backupDir, keep: cfg?.backupKeep || 14 }); res.json(backupInfo()); }
+    catch (err) { res.status(500).json({ error: `Backup gagal: ${err.message}` }); }
+  });
+  app.get('/api/backup/:name', admin, (req, res) => {
+    const name = String(req.params.name);
+    if (!NAME_RE.test(name) || !listBackups(backupDir).some((b) => b.name === name)) return res.status(404).json({ error: 'Backup tidak ditemukan' });
+    res.download(path.join(backupDir, name), name);
   });
 
   // ---- Kelola akun (admin) ----

@@ -9,6 +9,8 @@ function loadConfig(env = process.env) {
     taskLeadsMin: list(env.TASK_REMINDERS_MIN, '4320,1440,180').map(Number),
     examLeadsMin: list(env.EXAM_REMINDERS_MIN, '10080,1440').map(Number),
     examMorningAt: env.EXAM_MORNING_AT || '06:00',
+    backupAt: env.BACKUP_AT || '02:00',
+    backupKeep: Math.max(1, Number(env.BACKUP_KEEP || 14)),
   };
 }
 

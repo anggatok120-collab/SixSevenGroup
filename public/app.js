@@ -429,7 +429,7 @@ function viewJadwal() {
       </div>`).join('') : '<div class="none">Tidak ada kelas</div>'}</div>`;
   }).join('');
   $('#content').innerHTML = `
-    ${pageHead('book-open', 'Jadwal mingguan', 'Jadwal rutin yang dipakai bot untuk mengingatkan grup sebelum tiap kelas dimulai.', [[S.data.kelas.length, 'Kelas / minggu'], [new Set(S.data.kelas.map((k) => k.hari)).size, 'Hari kuliah'], [S.data.kelas.filter((k) => /praktikum|lab/i.test(`${k.matkul} ${k.ruang || ''}`)).length, 'Praktikum'], [S.data.kelas.filter((k) => k.hari === today).length, 'Hari ini']], addBtn('kelas', 'Tambah jadwal'))}
+    ${pageHead('book-open', 'Jadwal mingguan', 'Tambah mata kuliah beserta hari dan jamnya. Bot memakai jadwal ini untuk mengingatkan grup sebelum kelas dimulai.', [[S.data.kelas.length, 'Kelas / minggu'], [new Set(S.data.kelas.map((k) => k.hari)).size, 'Hari kuliah'], [S.data.kelas.filter((k) => /praktikum|lab/i.test(`${k.matkul} ${k.ruang || ''}`)).length, 'Praktikum'], [S.data.kelas.filter((k) => k.hari === today).length, 'Hari ini']], addBtn('kelas', 'Tambah mata kuliah'))}
     ${S.data.kelas.length ? `<div class="board" style="--cols:${hari.length}">${cols}</div>` : `<div class="card">${empty('calendar-dots', 'Belum ada jadwal', canEdit() ? 'Tambahkan jadwal kuliah mingguan untuk mulai.' : 'Admin belum mengisi jadwal kuliah.', addBtn('kelas', 'Tambah sekarang'))}</div>`}`;
 }
 
@@ -551,7 +551,7 @@ function viewPengingat() {
 
 // ---------- Status bot (admin) ----------
 async function loadStatus() {
-  try { const first = !S.status; S.status = await api('/api/status'); if (S.view === 'status') (first ? enterAnim : (f) => f())(viewStatus); } catch (e) { toast(e.message, 'error'); }
+  try { const first = !S.status; const [st, bk] = await Promise.all([api('/api/status'), api('/api/backup').catch(() => null)]); S.status = st; S.backup = bk; if (S.view === 'status') (first ? enterAnim : (f) => f())(viewStatus); } catch (e) { toast(e.message, 'error'); }
 }
 const LOG_MODE = { pagi: 'Ringkasan pagi', besok: 'Persiapan besok', kelas: 'Kelas dimulai', tugas: 'Tenggat tugas', ujian: 'Ujian', tes: 'Pesan percobaan' };
 function viewStatus() {
@@ -575,7 +575,25 @@ function viewStatus() {
       <div class="card"><div class="card-head"><h2><i class="ph ph-flask"></i>Kirim pesan percobaan</h2></div>
         <p class="muted" style="margin:0 0 14px;font-size:13px">Kirim satu pesan uji ke grup untuk memastikan bot bisa mengirim.</p>
         <button class="btn btn-primary" data-test-send ${s.wa && s.grupJid ? '' : 'disabled'}><i class="ph ph-paper-plane-tilt"></i>Kirim tes ke grup</button></div>
-    </div>`;
+    </div>
+    ${backupCard()}`;
+}
+const fmtSize = (b) => (b >= 1048576 ? `${(b / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1024))} KB`);
+function backupCard() {
+  const b = S.backup; if (!b) return '';
+  const last = b.daftar[0];
+  return `<div class="card"><div class="card-head"><div><h2><i class="ph ph-database"></i>Backup database</h2>
+      <span class="muted" style="font-size:13px">Otomatis tiap hari jam ${esc(b.jam)} WIB, ${b.simpan} backup terakhir disimpan di server.</span></div>
+      <button class="btn btn-secondary btn-sm" data-backup-now><i class="ph ph-floppy-disk"></i>Backup sekarang</button></div>
+    ${last ? `<p class="muted" style="margin:0;font-size:13px">Terakhir: <b style="color:var(--color-text)">${tgl(last.at)} · ${hm(last.at)}</b></p>` : ''}
+    <div class="rows">${b.daftar.length ? b.daftar.slice(0, 7).map((x) => `<div class="row"><div class="grow"><div class="title">${tgl(x.at)} · ${hm(x.at)}</div><div class="sub">${esc(x.name)} · ${fmtSize(x.size)}</div></div><button class="tiny-btn" data-backup-dl="${esc(x.name)}" aria-label="Unduh ${esc(x.name)}" title="Unduh"><i class="ph ph-download-simple"></i></button></div>`).join('') : empty('database', 'Belum ada backup', 'Backup pertama dibuat otomatis, atau klik Backup sekarang.')}</div></div>`;
+}
+async function downloadBackup(name) {
+  const r = await fetch(`/api/backup/${encodeURIComponent(name)}`, { headers: { Authorization: `Bearer ${token}` } });
+  if (!r.ok) throw new Error('Gagal mengunduh backup');
+  const url = URL.createObjectURL(await r.blob());
+  const a = Object.assign(document.createElement('a'), { href: url, download: name }); document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 // ---------- Akun (admin) ----------
@@ -621,7 +639,7 @@ function viewProfil() {
 // ---------- Modal tambah/ubah/detail ----------
 const FORMS = {
   kelas: { label: 'jadwal', eyebrow: 'Jadwal kuliah', fields: (v) => `
-    <label class="field"><span>Mata kuliah</span><input name="matkul" required value="${esc(v.matkul)}" list="dlMatkul"></label>
+    <label class="field"><span>Mata kuliah</span><input name="matkul" required value="${esc(v.matkul)}" list="dlMatkul" placeholder="Contoh: Ekologi Perairan"><small class="muted">Ketik nama mata kuliah baru, atau pilih yang sudah ada. Kuliah 2× seminggu? Tambahkan 2 jadwal dengan nama yang sama.</small></label>
     <label class="field"><span>Hari</span><select name="hari">${[1, 2, 3, 4, 5, 6, 0].map((h) => `<option value="${h}" ${+v.hari === h ? 'selected' : ''}>${HARI[h]}</option>`).join('')}</select></label>
     <div class="grid2"><label class="field"><span>Mulai</span><input type="time" name="mulai" required value="${esc(v.mulai)}"></label><label class="field"><span>Selesai</span><input type="time" name="selesai" value="${esc(v.selesai)}"></label></div>
     <div class="grid2"><label class="field"><span>Ruang</span><input name="ruang" value="${esc(v.ruang)}" placeholder="R.301"></label><label class="field"><span>Dosen</span><input name="dosen" value="${esc(v.dosen)}"></label></div>` },
@@ -651,7 +669,7 @@ function openForm(type, id) {
   editing = { type, id };
   const f = FORMS[type];
   $('#mEyebrow').textContent = f.eyebrow;
-  $('#mTitle').textContent = `${id ? 'Ubah' : 'Tambah'} ${f.label}`;
+  $('#mTitle').textContent = `${id ? 'Ubah' : 'Tambah'} ${type === 'kelas' && !id ? 'mata kuliah' : f.label}`;
   const matkul = [...new Set([...S.data.kelas, ...S.data.tugas, ...S.data.ujian].map((x) => x.matkul))].sort();
   $('#mBody').innerHTML = f.fields(v) + `<datalist id="dlMatkul">${matkul.map((m) => `<option value="${esc(m)}">`).join('')}</datalist><p class="form-error" id="mErr"></p>`;
   $('#mFoot').innerHTML = `<button type="button" class="btn btn-secondary" data-close>Batal</button><button class="btn btn-primary" id="mSubmit"><i class="ph ph-floppy-disk"></i>Simpan</button>`;
@@ -722,7 +740,7 @@ function openDay(ms) {
 
 // ---------- Event global ----------
 document.addEventListener('click', async (e) => {
-  const el = e.target.closest('[data-view],[data-add],[data-edit],[data-del],[data-detail],[data-toggle],[data-close],[data-filter],[data-day],[data-pick-day],[data-scope],[data-ptab],[data-send],[data-test-send],[data-reload-status],[data-clear-q],[data-logout]');
+  const el = e.target.closest('[data-view],[data-add],[data-edit],[data-del],[data-detail],[data-toggle],[data-close],[data-filter],[data-day],[data-pick-day],[data-scope],[data-ptab],[data-send],[data-test-send],[data-backup-now],[data-backup-dl],[data-reload-status],[data-clear-q],[data-logout]');
   if (!el) return;
   const d = el.dataset; const id = Number(d.id);
   if ('toggle' in d) {
@@ -743,6 +761,8 @@ document.addEventListener('click', async (e) => {
   if ('pickDay' in d) { S.dashDay = Number(d.pickDay); S.dashScope = 'day'; return viewDashboard(); }
   if ('scope' in d) { S.dashScope = d.scope; S.dashDay = null; return viewDashboard(); }
   if ('ptab' in d) { previewTab = d.ptab; return viewPengingat(); }
+  if ('backupNow' in d) { el.disabled = true; try { S.backup = await api('/api/backup', { method: 'POST' }); toast('Backup database dibuat.'); viewStatus(); } catch (err) { toast(err.message, 'error'); el.disabled = false; } return; }
+  if ('backupDl' in d) { try { await downloadBackup(d.backupDl); } catch (err) { toast(err.message, 'error'); } return; }
   if ('reloadStatus' in d) { S.status = null; viewStatus(); return loadStatus(); }
   if ('logout' in d) return logout();
   if ('send' in d || 'testSend' in d) {

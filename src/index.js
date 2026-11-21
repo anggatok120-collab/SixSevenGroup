@@ -11,6 +11,7 @@ const { loadConfig } = require('./config');
 const { handle } = require('./commands');
 const { dueReminders } = require('./reminders');
 const { createWeb } = require('./web');
+const { startAutoBackup } = require('./backup');
 const { getSettings } = require('./settings');
 const { isLoginRequest, senderNumbers, createLoginToken, loginReply } = require('./walogin');
 
@@ -136,6 +137,7 @@ async function start() {
 }
 
 start();
+startAutoBackup(db, { at: cfg.backupAt, keep: cfg.backupKeep, log });
 
 const bot = {
   status: () => ({
