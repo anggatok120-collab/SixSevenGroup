@@ -7,7 +7,7 @@ const { loadConfig } = require('../src/config');
 
 function setup(bot) {
   const db = openDb(':memory:');
-  const app = createWeb(db, { password: 'rahasia123', cfg: loadConfig({}), bot });
+  const app = createWeb(db, { password: 'rahasia123', cfg: loadConfig({}), bot, backupDir: require('fs').mkdtempSync(require('path').join(require('os').tmpdir(), 'bk-')) });
   const srv = app.listen(0); const base = `http://127.0.0.1:${srv.address().port}`;
   const req = async (p, { method = 'GET', body, token } = {}) => {
     const r = await fetch(base + p, { method, headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: body && JSON.stringify(body) });
