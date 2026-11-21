@@ -111,6 +111,15 @@ function renderNav() {
     }).join('')}</div>`;
   }).join('');
 }
+const TABS = [['dashboard', 'Beranda', 'house'], ['jadwal', 'Jadwal', 'calendar-dots'], ['tugas', 'Tugas', 'list-checks'], ['ujian', 'Ujian', 'clipboard-text']];
+function renderTabbar() {
+  const main = TABS.some(([id]) => id === S.view);
+  $('#tabbar').innerHTML = TABS.map(([id, label, icon]) => {
+    const on = S.view === id;
+    return `<button data-view="${id}" ${on ? 'aria-current="page"' : ''}><i class="ph${on ? '-fill' : ''} ph-${icon}"></i>${label}</button>`;
+  }).join('') + `<button id="tabMore" ${main ? '' : 'aria-current="page"'}><i class="ph${main ? '' : '-fill'} ph-dots-three-outline"></i>Lainnya</button>`;
+  $('#tabMore').onclick = () => $('#shell').classList.add('nav-open');
+}
 function go(view) {
   const item = NAV.flatMap((g) => g.items).find((i) => i.id === view);
   if (!item || !allowed(item)) view = 'dashboard';
@@ -133,6 +142,7 @@ function a11yPass() {
 // ---------- Render utama ----------
 function render() {
   renderNav();
+  renderTabbar();
   const [t, sub] = META[S.view];
   const tn = w(now());
   $('#pageTitle').textContent = t; $('#pageTitle').title = sub; $('#pageSub').textContent = `${HARI[tn.dow]}, ${tn.d} ${BULAN_PANJANG[tn.m]} ${tn.y}`;
