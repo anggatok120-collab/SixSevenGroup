@@ -48,7 +48,8 @@ function dueReminders(db, s, now = Date.now()) {
     for (const x of db.tugasAktif()) {
       for (const lead of s.tugas.menit) {
         if (inWindow(x.deadline - lead * 60000, now)) {
-          add('tugas', `tugas:${x.id}:${lead}`, `📝 *Pengingat tugas (${leadLabel(lead)})*\n${tugasLine(x, now)}\n\nKalau sudah dikumpulkan: /selesai ${x.id}`);
+          // Tenggat ikut di kunci: kalau tenggat diubah, pengingat dikirim lagi untuk tenggat baru.
+          add('tugas', `tugas:${x.id}:${lead}:${x.deadline}`, `📝 *Pengingat tugas (${leadLabel(lead)})*\n${tugasLine(x, now)}\n\nKalau sudah dikumpulkan: /selesai ${x.id}`);
         }
       }
     }
@@ -59,7 +60,7 @@ function dueReminders(db, s, now = Date.now()) {
     for (const u of db.ujianMendatang(now)) {
       for (const lead of s.ujian.menit) {
         if (inWindow(u.waktu - lead * 60000, now)) {
-          add('ujian', `ujian:${u.id}:${lead}`, `📚 *Pengingat ujian (${leadLabel(lead)})*\n${ujianLine(u, now)}`);
+          add('ujian', `ujian:${u.id}:${lead}:${u.waktu}`, `📚 *Pengingat ujian (${leadLabel(lead)})*\n${ujianLine(u, now)}`);
         }
       }
       if (s.ujian.pagiJam) {
@@ -67,7 +68,7 @@ function dueReminders(db, s, now = Date.now()) {
         const ujianHariIni = ul.y === t.y && ul.mo === t.mo && ul.d === t.d;
         const pagi = todayAt(now, s.ujian.pagiJam);
         if (ujianHariIni && pagi < u.waktu && inWindow(pagi, now)) {
-          add('ujian', `ujianpagi:${u.id}`, `🍀 *Hari ini ujian!*\n${ujianLine(u, now)}\n\nSemangat, semoga lancar!`);
+          add('ujian', `ujianpagi:${u.id}:${u.waktu}`, `🍀 *Hari ini ujian!*\n${ujianLine(u, now)}\n\nSemangat, semoga lancar!`);
         }
       }
     }

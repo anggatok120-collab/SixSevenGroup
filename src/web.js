@@ -3,7 +3,7 @@ const path = require('path');
 const crypto = require('crypto');
 const express = require('express');
 const { parseLocal, fmtLocal, parseHM } = require('./time');
-const { ROLES, hashPassword, checkPassword, makeToken, readToken, bootstrapAdmin } = require('./auth');
+const { ROLES, hashPassword, checkPassword, makeToken, readToken, bootstrapAdmin, pwVer } = require('./auth');
 const { getSettings, validate } = require('./settings');
 const { BUILDERS } = require('./messages');
 const { normalWa, redeemLoginToken } = require('./walogin');
@@ -28,12 +28,14 @@ function createWeb(db, { password, cfg, bot = noBot, secret, backupDir = DEFAULT
   app.use(express.static(pub));
 
   // ---- Auth ----
+  const sessionFor = (akun) => makeToken(sessionSecret, akun.id, undefined, pwVer(akun.hash));
   const userOf = (req) => {
     const h = req.headers.authorization || '';
     const p = readToken(sessionSecret, h.startsWith('Bearer ') ? h.slice(7) : '');
     if (!p) return null;
     const a = db.akunById(p.id);
-    return a ? { id: a.id, username: a.username, nama: a.nama, role: a.role } : null;
+    if (!a || (p.v && p.v !== pwVer(a.hash))) return null;
+    return { id: a.id, username: a.username, nama: a.nama, role: a.role };
   };
   const need = (...roles) => (req, res, next) => {
     const u = userOf(req);
@@ -56,7 +58,7 @@ function createWeb(db, { password, cfg, bot = noBot, secret, backupDir = DEFAULT
       return res.status(401).json({ error: 'Username atau password salah' });
     }
     attempts.delete(ip);
-    res.json({ token: makeToken(sessionSecret, akun.id), user: { id: akun.id, username: akun.username, nama: akun.nama, role: akun.role } });
+    res.json({ token: sessionFor(akun), user: { id: akun.id, username: akun.username, nama: akun.nama, role: akun.role } });
   });
   // Masuk lewat WhatsApp: halaman login butuh nomor bot, lalu menukar token dari link yang dikirim bot.
   app.get('/api/auth/wa', (req, res) => {
@@ -72,7 +74,7 @@ function createWeb(db, { password, cfg, bot = noBot, secret, backupDir = DEFAULT
       attempts.set(ip, [...a, now]);
       return res.status(401).json({ error: 'Link masuk sudah dipakai atau kedaluwarsa. Kirim "login" lagi ke bot WhatsApp.' });
     }
-    res.json({ token: makeToken(sessionSecret, akun.id), user: { id: akun.id, username: akun.username, nama: akun.nama, role: akun.role } });
+    res.json({ token: sessionFor(akun), user: { id: akun.id, username: akun.username, nama: akun.nama, role: akun.role } });
   });
   app.get('/api/auth/me', anyUser, (req, res) => res.json({ user: req.user }));
   app.put('/api/auth/me', anyUser, (req, res) => {
@@ -86,7 +88,8 @@ function createWeb(db, { password, cfg, bot = noBot, secret, backupDir = DEFAULT
       hash = hashPassword(baru);
     }
     db.updateAkun(req.user.id, { nama, role: req.user.role, hash });
-    res.json({ ok: true });
+    // Ganti password: sesi lain keluar, sesi ini dapat token baru.
+    res.json(hash ? { ok: true, token: sessionFor(db.akunById(req.user.id)) } : { ok: true });
   });
 
   // ---- Data akademik ----
@@ -154,9 +157,7 @@ function createWeb(db, { password, cfg, bot = noBot, secret, backupDir = DEFAULT
     const nama = str(b.nama).replace(/\s+/g, ' ');
     if (!nama) return { error: 'Nama mata kuliah wajib diisi' };
     if (nama.length > 80) return { error: 'Nama mata kuliah terlalu panjang' };
-    const sksRaw = str(b.sks); const sks = sksRaw ? Number(sksRaw) : null;
-    if (sksRaw && !(Number.isInteger(sks) && sks >= 0 && sks <= 12)) return { error: 'SKS harus angka 0–12' };
-    return { v: { nama, kode: str(b.kode) || null, sks, dosen: str(b.dosen) || null, catatan: str(b.catatan) || null } };
+    return { v: { nama, kode: null, sks: null, dosen: str(b.dosen) || null, catatan: str(b.catatan) || null } };
   }
   const dupe = (nama, selfId) => { const m = db.matkulByNama(nama); return m && m.id !== selfId; };
   app.post('/api/matkul', editor, (req, res) => {

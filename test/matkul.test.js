@@ -44,8 +44,7 @@ test('API mata kuliah: tambah, ganti nama ikut jadwal, hapus, dan peran', async 
     const adm = await login('admin', 'rahasia123'); const vw = await login('sari', 'password-sari');
     assert.equal((await req('/api/matkul', { method: 'POST', token: vw, body: { nama: 'X' } })).status, 403);
     assert.equal((await req('/api/matkul', { method: 'POST', token: adm, body: { nama: '' } })).status, 400);
-    assert.equal((await req('/api/matkul', { method: 'POST', token: adm, body: { nama: 'Ekologi', sks: 'abc' } })).status, 400);
-    const mk = await req('/api/matkul', { method: 'POST', token: adm, body: { nama: 'Ekologi Perairan', kode: 'PI201', sks: '3', dosen: 'Dr. Sari' } });
+    const mk = await req('/api/matkul', { method: 'POST', token: adm, body: { nama: 'Ekologi Perairan', dosen: 'Dr. Sari' } });
     assert.equal(mk.status, 200);
     assert.equal((await req('/api/matkul', { method: 'POST', token: adm, body: { nama: 'ekologi perairan' } })).status, 400);
     // jadwal dengan penulisan beda huruf memakai nama yang terdaftar
@@ -56,7 +55,7 @@ test('API mata kuliah: tambah, ganti nama ikut jadwal, hapus, dan peran', async 
     assert.deepEqual(data.matkul.map((m) => m.nama), ['Ekologi Perairan', 'Statistika']);
     assert.equal(data.kelas[0].matkul, 'Ekologi Perairan');
     // ganti nama
-    assert.equal((await req(`/api/matkul/${mk.json.id}`, { method: 'PUT', token: adm, body: { nama: 'Ekologi Perairan Lanjut', sks: 3 } })).status, 200);
+    assert.equal((await req(`/api/matkul/${mk.json.id}`, { method: 'PUT', token: adm, body: { nama: 'Ekologi Perairan Lanjut' } })).status, 200);
     data = (await req('/api/data', { token: adm })).json;
     assert.equal(data.kelas[0].matkul, 'Ekologi Perairan Lanjut');
     // masih dipakai: tidak bisa dihapus

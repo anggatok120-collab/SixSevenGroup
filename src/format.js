@@ -1,6 +1,10 @@
 const { pretty, HARI_LABEL } = require('./time');
 
 function sisa(ms) {
+  if (ms < 0) {
+    const lewat = Math.round(-ms / 60000);
+    return lewat < 60 ? `lewat ${lewat} menit` : lewat < 2880 ? `lewat ${Math.round(lewat / 60)} jam` : `lewat ${Math.floor(lewat / 1440)} hari`;
+  }
   const min = Math.round(ms / 60000);
   if (min < 60) return `${min} menit lagi`;
   const jam = Math.round(min / 60);

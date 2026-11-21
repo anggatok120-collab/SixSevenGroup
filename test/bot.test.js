@@ -86,3 +86,31 @@ test('pengaturan: mode nonaktif tidak dikirim, H-1 jadwal besok', () => {
   // Pagi di hari tanpa apa-apa dilewati
   assert.equal(dueReminders(db, st, at('2026-11-24 06:00')).length, 0);
 });
+
+test('perbaikan bug: pesan besok, sisa waktu lewat, tenggat diubah, jam kelas terbalik', () => {
+  const { pesanBesok } = require('../src/messages');
+  const { sisa } = require('../src/format');
+  const db = openDb(':memory:');
+  const now = at('2026-11-21 18:00'); // Sabtu
+  db.addUjian({ matkul: 'Kalkulus I', jenis: 'UTS', waktu: at('2026-11-22 08:00'), ruang: null }); // besok
+  db.addUjian({ matkul: 'Kimia Dasar', jenis: 'UAS', waktu: at('2026-11-23 08:00'), ruang: null }); // lusa (masih < 48 jam)
+  db.addTugas({ matkul: 'Fisika', judul: 'Lusa pagi', deadline: at('2026-11-23 07:00') });
+  db.addTugas({ matkul: 'Fisika', judul: 'Besok malam', deadline: at('2026-11-22 23:00') });
+  const m = pesanBesok(db, now).text;
+  assert.match(m, /UTS Kalkulus I/); assert.doesNotMatch(m, /UAS Kimia Dasar/);
+  assert.match(m, /Besok malam/); assert.doesNotMatch(m, /Lusa pagi/);
+
+  assert.equal(sisa(-30 * 60000), 'lewat 30 menit');
+  assert.equal(sisa(-3 * 86400000), 'lewat 3 hari');
+  assert.equal(sisa(90 * 60000), '2 jam lagi');
+
+  // tenggat diubah: pengingat H-1 dikirim lagi untuk tenggat baru
+  const s = getSettings(db, cfg);
+  const id = db.addTugas({ matkul: 'Basis Data', judul: 'ERD', deadline: at('2026-11-23 12:00') });
+  const due = (t) => dueReminders(db, s, t).filter((r) => r.mode === 'tugas' && r.text.includes('ERD'));
+  const r1 = due(at('2026-11-22 12:00')); assert.equal(r1.length, 1); db.tandaiTerkirim(r1[0].key);
+  db.updateTugas(id, { matkul: 'Basis Data', judul: 'ERD', deadline: at('2026-11-24 12:00') });
+  assert.equal(due(at('2026-11-23 12:00')).length, 1);
+
+  assert.match(handle(db, '/tambahkelas Senin | 10:00-08:00 | Kalkulus', { isAdmin: true, now }), /selesai harus setelah/);
+});

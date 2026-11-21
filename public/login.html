@@ -70,7 +70,7 @@ const waToken = params.get('wa');
 function finish(token) {
   try { sessionStorage.setItem('token', token); } catch {}
   const next = params.get('next');
-  location.replace(next && next.startsWith('/') && !next.startsWith('//') ? next : '/');
+  location.replace(next && /^\/(?![/\\])/.test(next) ? next : '/');
 }
 function showErr(msg) { err.textContent = msg; err.classList.add('show'); }
 if (waToken) {

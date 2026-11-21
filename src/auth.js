@@ -21,8 +21,11 @@ function checkPassword(pw, stored) {
 const b64 = (s) => Buffer.from(s).toString('base64url');
 const unb64 = (s) => Buffer.from(s, 'base64url').toString();
 
-function makeToken(secret, id, days = SESSION_DAYS) {
-  const body = b64(JSON.stringify({ id, exp: Date.now() + days * 86400000 }));
+// Sidik jari password: token lama otomatis tidak berlaku setelah password diganti.
+const pwVer = (hash) => crypto.createHash('sha256').update(String(hash)).digest('base64url').slice(0, 12);
+
+function makeToken(secret, id, days = SESSION_DAYS, v) {
+  const body = b64(JSON.stringify({ id, exp: Date.now() + days * 86400000, ...(v ? { v } : {}) }));
   const sig = crypto.createHmac('sha256', secret).update(body).digest('base64url');
   return `${body}.${sig}`;
 }
@@ -45,4 +48,4 @@ function bootstrapAdmin(db, password) {
   return true;
 }
 
-module.exports = { ROLES, hashPassword, checkPassword, makeToken, readToken, bootstrapAdmin };
+module.exports = { ROLES, hashPassword, checkPassword, makeToken, readToken, bootstrapAdmin, pwVer };
