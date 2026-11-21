@@ -221,7 +221,7 @@ function viewDashboard() {
     <div class="stack">
       <div class="card"><div class="card-head"><h2><i class="ph ph-clock"></i>Kelas Berikutnya</h2></div>${ticket}</div>
       <div class="card"><div class="card-head"><h2><i class="ph ph-calendar-blank"></i>Kalender Mingguan</h2></div><div class="week">${strip}</div>
-        <div class="legend"><span><i style="background:var(--accent)"></i>Kelas</span><span><i style="background:var(--amber)"></i>Tugas</span><span><i style="background:var(--red)"></i>Ujian</span></div></div>
+        <div class="legend" aria-hidden="true"><span><i class="d-kelas"></i>Kelas</span><span><i class="d-tugas"></i>Tugas</span><span><i class="d-ujian"></i>Ujian</span></div></div>
     </div>
   </section>`;
 }
