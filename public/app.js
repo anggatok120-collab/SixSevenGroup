@@ -102,7 +102,7 @@ function renderNav() {
     if (!items.length) return '';
     return `<div class="nav-group"><div class="nav-title">${g.title}</div>${items.map((it) => {
       const on = S.view === it.id; const b = it.badge ? it.badge() : 0;
-      return `<button data-view="${it.id}" class="${on ? 'active' : ''}"><i class="${on ? 'ph-fill' : 'ph'} ph-${it.icon}"></i><span>${it.label}</span>${b ? `<em class="nav-badge">${b}</em>` : ''}</button>`;
+      return `<button data-view="${it.id}" class="${on ? 'active' : ''}" ${on ? 'aria-current="page"' : ''}><i class="${on ? 'ph-fill' : 'ph'} ph-${it.icon}"></i><span>${it.label}</span>${b ? `<em class="nav-badge" aria-label="${b} tugas aktif">${b}</em>` : ''}</button>`;
     }).join('')}</div>`;
   }).join('');
 }
@@ -114,9 +114,18 @@ function go(view) {
   $('#shell').classList.remove('nav-open');
   render();
   window.scrollTo(0, 0);
+  $('#pageTitle').focus({ preventScroll: true });
   if (view === 'pengingat') loadPengingat();
   if (view === 'status') loadStatus();
   if (view === 'akun') loadAkun();
+}
+
+// Ikon dekoratif disembunyikan dari pembaca layar; label tetap di teks/aria-label tombol.
+function a11yPass() {
+  queueMicrotask(() => $$('i[class*="ph-"]:not([aria-hidden])').forEach((i) => i.setAttribute('aria-hidden', 'true')));
+  const dark = document.documentElement.dataset.theme !== 'light';
+  $('#themeBtn').setAttribute('aria-pressed', String(!dark));
+  $('#themeBtn').setAttribute('aria-label', dark ? 'Ganti ke tema terang' : 'Ganti ke tema gelap');
 }
 
 // ---------- Render utama ----------
@@ -127,9 +136,11 @@ function render() {
   document.title = `${t} · Pengingat Kuliah`;
   const aktif = S.data.tugas.filter((x) => !x.selesai).length;
   $('#bellCount').textContent = aktif; $('#bellCount').classList.toggle('hidden', !aktif);
+  $('#bellBtn').setAttribute('aria-label', aktif ? `${aktif} tugas aktif, buka daftar tugas` : 'Tidak ada tugas aktif, buka daftar tugas');
   const b = S.data.bot || {};
   $('#botDot').classList.toggle('on', !!(b.wa && b.grup));
   $('#botText').textContent = b.wa ? (b.grup ? 'Bot WA aktif' : 'Bot aktif, grup belum diatur') : 'Bot WA offline';
+  a11yPass();
   ({ dashboard: viewDashboard, jadwal: viewJadwal, tugas: viewTugas, ujian: viewUjian, pengingat: viewPengingat, status: viewStatus, akun: viewAkun, profil: viewProfil })[S.view]();
 }
 
@@ -153,7 +164,7 @@ function nextClass() {
 function taskRow(t, compact) {
   const done = t.selesai;
   return `<div class="row clickable ${done ? 'done' : ''}" data-detail="tugas" data-id="${t.id}">
-    <button class="check ${done ? 'on' : ''}" data-toggle="${t.id}" ${canEdit() ? '' : 'disabled'} aria-label="Tandai selesai"><i class="ph-bold ph-check"></i></button>
+    <button class="check ${done ? 'on' : ''}" data-toggle="${t.id}" ${canEdit() ? '' : 'disabled'} aria-pressed="${!!done}" aria-label="${done ? 'Tandai belum selesai' : 'Tandai selesai'}: ${esc(t.judul)}"><i class="ph-bold ph-check"></i></button>
     <div class="grow"><div class="title">${esc(t.judul)}</div><div class="sub"><span class="chip">${esc(t.matkul)}</span>${compact ? '' : `<span>${tgl(t.ms)} · ${hm(t.ms)}</span>`}${t.prioritas === 'tinggi' ? '<span class="pri-high"><i class="ph-fill ph-fire"></i>Tinggi</span>' : ''}</div></div>
     ${badge(dueBadge(t.ms, done))}
   </div>`;
@@ -189,14 +200,14 @@ function viewDashboard() {
     const hasK = S.data.kelas.some((x) => x.hari === t.dow);
     const hasT = S.data.tugas.some((x) => !x.selesai && dayKey(x.ms) === k);
     const hasU = S.data.ujian.some((x) => dayKey(x.ms) === k);
-    return `<button class="day-cell ${ms === sod ? 'today' : ''}" data-day="${ms}"><small>${HARI3[t.dow]}</small><b>${t.d}</b><span class="dots">${hasK ? '<i class="d-kelas"></i>' : ''}${hasT ? '<i class="d-tugas"></i>' : ''}${hasU ? '<i class="d-ujian"></i>' : ''}</span></button>`;
+    const label = `${HARI[t.dow]} ${t.d} ${BULAN[t.m]}: ${[hasK && 'ada kelas', hasT && 'ada tenggat tugas', hasU && 'ada ujian'].filter(Boolean).join(', ') || 'kosong'}`;
+    return `<button class="day-cell ${ms === sod ? 'today' : ''}" data-day="${ms}" aria-label="${label}" ${ms === sod ? 'aria-current="date"' : ''}><small>${HARI3[t.dow]}</small><b>${t.d}</b><span class="dots">${hasK ? '<i class="d-kelas"></i>' : ''}${hasT ? '<i class="d-tugas"></i>' : ''}${hasU ? '<i class="d-ujian"></i>' : ''}</span></button>`;
   }).join('');
 
   $('#content').innerHTML = `
   <section class="hero">
     <div><h2>${salam}, ${esc(S.user.nama.split(' ')[0])}.</h2><p>${kalimat}</p></div>
     ${canEdit() ? '<button class="btn btn-primary" data-add="tugas"><i class="ph ph-plus"></i>Tambah tugas</button>' : ''}
-    <svg class="wave" viewBox="0 0 600 200" preserveAspectRatio="none" aria-hidden="true"><path fill="currentColor" opacity=".18" d="M0 120 C 100 80 200 160 300 120 S 500 80 600 120 V200 H0Z"/><path fill="currentColor" opacity=".12" d="M0 150 C 120 110 220 190 340 150 S 520 120 600 150 V200 H0Z"/></svg>
   </section>
   <section class="metrics">
     <div class="metric red"><div class="metric-top">Sisa Tugas<i class="ph ph-list-checks"></i></div><strong>${aktif.length}</strong><small>${mendesak ? `${mendesak} tenggat < 2 hari` : 'tidak ada yang mendesak'}</small></div>
@@ -242,11 +253,11 @@ function viewTugas() {
   const list = all.filter((t) => (S.filter === 'semua' || (S.filter === 'aktif' ? !t.selesai : t.selesai)))
     .filter((t) => !q || `${t.judul} ${t.matkul} ${t.catatan || ''}`.toLowerCase().includes(q))
     .sort((a, b) => (S.filter === 'selesai' ? b.ms - a.ms : a.ms - b.ms));
-  const seg = ['aktif', 'selesai', 'semua'].map((f) => `<button class="${S.filter === f ? 'on' : ''}" data-filter="${f}">${f[0].toUpperCase() + f.slice(1)}<em>${cnt[f]}</em></button>`).join('');
+  const seg = ['aktif', 'selesai', 'semua'].map((f) => `<button class="${S.filter === f ? 'on' : ''}" data-filter="${f}" aria-pressed="${S.filter === f}">${f[0].toUpperCase() + f.slice(1)}<em>${cnt[f]}</em></button>`).join('');
   const rows = list.map((t) => {
     const pri = t.prioritas === 'tinggi' ? '<span class="pri-high"><i class="ph-fill ph-fire"></i>Tinggi</span>' : '<span class="pri-normal">Normal</span>';
     return `<div class="trow ${t.selesai ? 'done' : ''}">
-      <div><button class="check ${t.selesai ? 'on' : ''}" data-toggle="${t.id}" ${canEdit() ? '' : 'disabled'} aria-label="Tandai selesai"><i class="ph-bold ph-check"></i></button></div>
+      <div><button class="check ${t.selesai ? 'on' : ''}" data-toggle="${t.id}" ${canEdit() ? '' : 'disabled'} aria-pressed="${!!t.selesai}" aria-label="${t.selesai ? 'Tandai belum selesai' : 'Tandai selesai'}: ${esc(t.judul)}"><i class="ph-bold ph-check"></i></button></div>
       <div style="min-width:0;cursor:pointer" data-detail="tugas" data-id="${t.id}"><div class="title">${esc(t.judul)}</div>${t.catatan ? `<div class="note">${esc(t.catatan)}</div>` : ''}
         <div class="m-meta"><span class="chip">${esc(t.matkul)}</span>${badge(dueBadge(t.ms, t.selesai))}<span>${tgl(t.ms)} · ${hm(t.ms)}</span>${t.prioritas === 'tinggi' ? pri : ''}</div></div>
       <div class="d-only"><span class="chip">${esc(t.matkul)}</span></div>
@@ -443,7 +454,7 @@ function openForm(type, id) {
   const matkul = [...new Set([...S.data.kelas, ...S.data.tugas, ...S.data.ujian].map((x) => x.matkul))].sort();
   $('#mBody').innerHTML = f.fields(v) + `<datalist id="dlMatkul">${matkul.map((m) => `<option value="${esc(m)}">`).join('')}</datalist><p class="form-error" id="mErr"></p>`;
   $('#mFoot').innerHTML = `<button type="button" class="btn btn-secondary" data-close>Batal</button><button class="btn btn-primary" id="mSubmit"><i class="ph ph-floppy-disk"></i>Simpan</button>`;
-  $('#modal').showModal();
+  $('#modal').showModal(); a11yPass();
   setTimeout(() => $('#mBody input:not([disabled]), #mBody select')?.focus(), 30);
 }
 function openDetail(type, id) {
@@ -553,6 +564,7 @@ $('#themeBtn').onclick = () => {
   const t = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
   document.documentElement.dataset.theme = t;
   try { localStorage.setItem('theme', t); } catch {}
+  a11yPass();
 };
 window.addEventListener('hashchange', () => { const v = location.hash.slice(1); if (v && v !== S.view) go(v); });
 
@@ -577,6 +589,7 @@ async function boot() {
     setUserChip();
     const d = await api('/api/data'); S.skew = d.serverTime - Date.now(); S.data = d;
     $('#boot').remove();
+    $('#shell').removeAttribute('aria-busy');
     go(location.hash.slice(1) || 'dashboard');
   } catch { /* api() sudah mengarahkan ke login kalau sesi habis */ }
   setInterval(() => { if (!document.hidden && !$('#modal').open) refresh(); }, 30000);

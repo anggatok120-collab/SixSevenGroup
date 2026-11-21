@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Pengingat Kuliah</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📚</text></svg>">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230e7490'/%3E%3Cpath d='M9 8h6v16H9zM17 8h6v16h-6z' fill='%23fff'/%3E%3C/svg%3E">
 <script>try { document.documentElement.dataset.theme = localStorage.getItem('theme') || 'dark'; } catch {}</script>
 <link rel="stylesheet" href="/vendor/manrope/index.css">
 <link rel="stylesheet" href="/vendor/phosphor/regular/style.css">
@@ -14,31 +14,32 @@
 <link rel="stylesheet" href="/app.css">
 </head>
 <body>
+<a class="skip" href="#content">Langsung ke konten</a>
 <div class="boot" id="boot"><i class="ph-fill ph-books"></i><b>Menyiapkan Pengingat Kuliah…</b><small>Memeriksa akun dan menyinkronkan data.</small></div>
 
-<div class="shell" id="shell">
-  <aside class="sidebar" id="sidebar">
+<div class="shell" id="shell" aria-busy="true">
+  <aside class="sidebar" id="sidebar" aria-label="Navigasi utama">
     <div class="brand">
       <div class="brand-mark"><i class="ph-fill ph-books"></i></div>
       <div><strong>Pengingat Kuliah</strong><small>Jadwal · Tugas · Ujian</small></div>
     </div>
-    <nav class="nav" id="nav"></nav>
-    <div class="side-foot"><span class="dot" id="botDot"></span><span id="botText">Memeriksa bot…</span></div>
+    <nav class="nav" id="nav" aria-label="Menu"></nav>
+    <div class="side-foot"><span class="dot" id="botDot" aria-hidden="true"></span><span id="botText" role="status">Memeriksa bot…</span></div>
   </aside>
   <button class="scrim" id="scrim" aria-label="Tutup menu"></button>
 
   <div class="main">
     <header class="topbar">
       <button class="icon-btn menu-btn" id="menuBtn" aria-label="Buka menu"><i class="ph ph-list"></i></button>
-      <div class="page-title"><h1 id="pageTitle"></h1><p id="pageSub"></p></div>
+      <div class="page-title"><h1 id="pageTitle" tabindex="-1"></h1><p id="pageSub"></p></div>
       <div class="top-actions">
         <button class="theme-switch" id="themeBtn" aria-label="Ganti tema"><i class="ph-fill ph-moon"></i><i class="ph-fill ph-sun"></i></button>
         <button class="icon-btn" id="bellBtn" aria-label="Tugas aktif"><i class="ph ph-bell"></i><span class="count hidden" id="bellCount"></span></button>
-        <button class="profile-chip" id="profileBtn"><span class="avatar" id="avatar"></span><div><b id="userName"></b><small id="userRole"></small></div></button>
+        <button class="profile-chip" id="profileBtn" aria-label="Buka profil saya"><span class="avatar" id="avatar" aria-hidden="true"></span><div><b id="userName"></b><small id="userRole"></small></div></button>
         <button class="icon-btn hide-sm" id="logoutBtn" aria-label="Keluar" title="Keluar"><i class="ph ph-sign-out"></i></button>
       </div>
     </header>
-    <main class="content" id="content"></main>
+    <main class="content" id="content" tabindex="-1"></main>
   </div>
 </div>
 
@@ -48,7 +49,7 @@
   <div class="modal-foot" id="mFoot"></div>
 </form></dialog>
 
-<div class="toast" id="toast" role="status"><i class="ph-fill ph-check-circle"></i><p id="toastText"></p><button class="tiny-btn" id="toastClose" aria-label="Tutup"><i class="ph ph-x"></i></button></div>
+<div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true"><i class="ph-fill ph-check-circle"></i><p id="toastText"></p><button class="tiny-btn" id="toastClose" aria-label="Tutup"><i class="ph ph-x"></i></button></div>
 
 <script src="/app.js"></script>
 </body>
