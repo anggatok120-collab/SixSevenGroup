@@ -5,6 +5,7 @@ const { openDb } = require('../src/db');
 const { loadConfig } = require('../src/config');
 const { handle } = require('../src/commands');
 const { dueReminders } = require('../src/reminders');
+const { getSettings } = require('../src/settings');
 const { parseLocal, parseUserDate, fmtLocal } = require('../src/time');
 
 const cfg = loadConfig({});
@@ -32,6 +33,8 @@ test('perintah admin dan non-admin', () => {
   assert.match(handle(db, '/selesai 1', { isAdmin: true, now }), /selesai/);
   assert.match(handle(db, '/tugas', { now }), /Tidak ada tugas/);
   assert.equal(handle(db, 'halo', { now }), null);
+  assert.match(handle(db, '!hari', { now }), /Sabtu/);
+  assert.match(handle(db, '.web', { now, webUrl: 'https://x.id' }), /https:\/\/x\.id/);
 });
 
 test('pengingat kelas, harian, tugas, ujian', () => {
@@ -40,7 +43,8 @@ test('pengingat kelas, harian, tugas, ujian', () => {
   db.addTugas({ matkul: 'BD', judul: 'ERD', deadline: at('2026-11-26 23:59') });
   db.addUjian({ matkul: 'Kalkulus', jenis: 'UTS', waktu: at('2026-11-30 10:00'), ruang: 'R.1' });
 
-  const send = (s) => { const r = dueReminders(db, cfg, at(s)); r.forEach((x) => db.tandaiTerkirim(x.key)); return r; };
+  const st = getSettings(db, cfg);
+  const send = (s) => { const r = dueReminders(db, st, at(s)); r.forEach((x) => db.tandaiTerkirim(x.key)); return r; };
 
   // Senin 23 Nov 07:30 -> pengingat kelas (30 menit sebelum)
   let r = send('2026-11-23 07:30');
@@ -64,5 +68,21 @@ test('pengingat kelas, harian, tugas, ujian', () => {
   assert.ok(r.some((x) => /Hari ini ujian/.test(x.text)));
 
   // Pesan lama tidak dikirim setelah lewat jendela 10 menit
-  assert.equal(dueReminders(db, cfg, at('2026-12-07 07:45')).filter((x) => x.key.startsWith('kelas')).length, 0);
+  assert.equal(dueReminders(db, st, at('2026-12-07 07:45')).filter((x) => x.key.startsWith('kelas')).length, 0);
+});
+
+test('pengaturan: mode nonaktif tidak dikirim, H-1 jadwal besok', () => {
+  const db = openDb(':memory:');
+  db.addKelas({ hari: 1, mulai: '08:00', selesai: null, matkul: 'Kalkulus', ruang: null, dosen: null }); // Senin
+  db.setSetting('pengingat', { kelas: { on: false } });
+  const st = getSettings(db, cfg);
+  assert.equal(st.kelas.on, false); assert.equal(st.kelas.menit, 30);
+  assert.equal(dueReminders(db, st, at('2026-11-23 07:30')).length, 0);
+  // Minggu 22 Nov 18:00 -> persiapan besok (Senin ada kelas)
+  const r = dueReminders(db, st, at('2026-11-22 18:00'));
+  assert.equal(r.length, 1); assert.match(r[0].text, /Persiapan besok[\s\S]*Senin[\s\S]*Kalkulus/);
+  // Sabtu 18:00 -> besok Minggu kosong, tidak dikirim
+  assert.equal(dueReminders(db, st, at('2026-11-21 18:00')).length, 0);
+  // Pagi di hari tanpa apa-apa dilewati
+  assert.equal(dueReminders(db, st, at('2026-11-24 06:00')).length, 0);
 });

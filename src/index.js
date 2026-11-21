@@ -11,6 +11,7 @@ const { loadConfig } = require('./config');
 const { handle } = require('./commands');
 const { dueReminders } = require('./reminders');
 const { createWeb } = require('./web');
+const { getSettings } = require('./settings');
 
 const log = pino({ level: process.env.LOG_LEVEL || 'info' });
 const cfg = loadConfig();
@@ -18,6 +19,8 @@ const db = openDb();
 let sock = null;
 let ticker = null;
 let waConnected = false;
+let waSejak = null;
+let grupNama = null;
 
 const textOf = (m) => m.message?.conversation
   || m.message?.extendedTextMessage?.text
@@ -42,12 +45,15 @@ async function isAdmin(m) {
 
 async function tick() {
   if (!sock || !cfg.groupJid) return;
-  for (const r of dueReminders(db, cfg)) {
+  if (!waConnected) return;
+  for (const r of dueReminders(db, getSettings(db, cfg))) {
     try {
       await sock.sendMessage(cfg.groupJid, { text: r.text });
       db.tandaiTerkirim(r.key);
+      db.addLog(r.mode, 'terkirim', r.text.split('\n')[0].replace(/[*_]/g, '').slice(0, 120));
       log.info({ key: r.key }, 'pengingat terkirim');
     } catch (err) {
+      db.addLog(r.mode, 'gagal', `${r.key}: ${err.message}`);
       log.error({ err, key: r.key }, 'gagal kirim pengingat');
     }
   }
@@ -80,6 +86,8 @@ async function start() {
     }
     if (connection === 'open') {
       waConnected = true;
+      waSejak = Date.now();
+      if (cfg.groupJid) sock.groupMetadata(cfg.groupJid).then((m) => { grupNama = m.subject; }).catch(() => {});
       log.info('Terhubung ke WhatsApp');
       if (!cfg.groupJid) log.warn('GROUP_JID belum diisi. Ketik /groupid di grup kelas, lalu isi di .env dan restart.');
     }
@@ -100,7 +108,7 @@ async function start() {
     for (const m of messages) {
       if (!m.message || m.key.fromMe) continue;
       const text = textOf(m);
-      if (!text.startsWith('/')) continue;
+      if (!/^[/!.]\w/.test(text)) continue;
       try {
         const reply = handle(db, text, { isAdmin: await isAdmin(m), chatJid: m.key.remoteJid });
         if (reply) await sock.sendMessage(m.key.remoteJid, { text: reply }, { quoted: m });
@@ -115,13 +123,25 @@ async function start() {
 
 start();
 
+const bot = {
+  status: () => ({
+    wa: waConnected,
+    nomor: sock?.user?.id ? digits(sock.user.id) : null,
+    grupJid: cfg.groupJid || null,
+    grupNama,
+    sejak: waSejak,
+  }),
+  send: async (text) => {
+    if (!sock || !waConnected) throw new Error('bot belum terhubung ke WhatsApp');
+    if (!cfg.groupJid) throw new Error('GROUP_JID belum diisi');
+    await sock.sendMessage(cfg.groupJid, { text });
+  },
+};
+
 if (process.env.ADMIN_PASSWORD) {
   const port = Number(process.env.WEB_PORT || 3000);
-  createWeb(db, {
-    password: process.env.ADMIN_PASSWORD,
-    publicView: process.env.PUBLIC_VIEW === 'true',
-    getStatus: () => ({ wa: waConnected, grup: !!cfg.groupJid }),
-  }).listen(port, '127.0.0.1', () => log.info(`Web UI jalan di http://127.0.0.1:${port}`));
+  createWeb(db, { password: process.env.ADMIN_PASSWORD, secret: process.env.SESSION_SECRET, cfg, bot })
+    .listen(port, '127.0.0.1', () => log.info(`Web jalan di http://127.0.0.1:${port}`));
 } else {
-  log.warn('ADMIN_PASSWORD kosong, web UI tidak dijalankan.');
+  log.warn('ADMIN_PASSWORD kosong, web tidak dijalankan.');
 }

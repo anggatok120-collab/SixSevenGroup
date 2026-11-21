@@ -8,7 +8,13 @@ Bot WhatsApp yang mengirim pengingat jadwal kelas, deadline tugas, dan ujian ke 
 - Pengingat tugas H-3, H-1, dan 3 jam sebelum deadline
 - Pengingat ujian H-7, H-1, dan pagi hari-H
 - Perintah chat di grup (`/menu`, `/hari`, `/besok`, `/jadwal`, `/tugas`, `/ujian`, `/tambahtugas`, dll.)
-- Web UI: lihat dan kelola jadwal, tugas, ujian (login password; opsional bisa dilihat teman tanpa login)
+- Web pengelola (konsep seperti Akuakalcer: **web untuk mengubah data, bot WA untuk mengirim**):
+  - Dashboard: sapaan, 4 angka ringkas, agenda tugas aktif, kelas berikutnya, kalender mingguan
+  - Jadwal Kuliah (papan per hari), Tugas (cari, filter, prioritas, catatan), Ujian
+  - Pusat Pengingat (admin): nyalakan/matikan tiap jenis pengingat, atur jam, kirim sekarang, pratinjau pesan
+  - Status Bot (admin): koneksi WA, grup tujuan, riwayat pengiriman, kirim pesan tes
+  - Kelola Akun (admin) dan Profil (ganti nama/password)
+  - Tema gelap/terang, tampilan HP dengan menu geser
 - Semua waktu bisa diatur di `.env`
 
 ## Kebutuhan
@@ -53,7 +59,11 @@ sudo certbot --nginx -d kuliah.domainmu.com
 ```
 
 ## Siapa yang boleh mengubah data
-- **Di web**: siapa pun yang tahu `ADMIN_PASSWORD`.
+- **Di web**: login per akun dengan 3 peran:
+  - **Admin**: semuanya, termasuk Pengingat, Status Bot, dan Kelola Akun
+  - **Editor**: tambah/ubah/hapus jadwal, tugas, ujian
+  - **Anggota**: hanya melihat
+  Akun pertama dibuat otomatis: username `admin`, password = `ADMIN_PASSWORD` di `.env`. Setelah itu ganti password lewat menu Profil dan buat akun untuk teman dari menu Kelola Akun.
 - **Di WA**: nomor di `ADMIN_NUMBERS` dan admin grup.
 - Semua anggota grup bisa memakai perintah lihat (`/hari`, `/tugas`, ...).
 
