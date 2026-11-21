@@ -142,7 +142,7 @@ button, [role="button"], a, label.switch, .checks label { cursor: pointer; touch
 .segmented em { font-style: normal; margin-left: 4px; color: var(--color-text-subtle); font-variant-numeric: tabular-nums; }
 
 .empty { text-align: center; padding: var(--space-6) var(--space-4); color: var(--color-text-muted); display: grid; justify-items: center; gap: var(--space-1); }
-.empty i { font-size: 34px; color: var(--color-primary); opacity: .85; margin-bottom: var(--space-1); }
+.empty > i { font-size: 34px; color: var(--color-primary); opacity: .85; margin-bottom: var(--space-1); }
 .empty b { color: var(--color-text); font-size: var(--text-body-md); font-weight: 600; }
 .empty p { margin: 0; font-size: var(--text-body-sm); max-width: 42ch; }
 .empty .btn { margin-top: var(--space-3); }
@@ -349,9 +349,9 @@ dialog.modal form { display: flex; flex-direction: column; max-height: inherit; 
 .toast p { margin: 0; font-size: var(--text-body-sm); }
 
 .boot { position: fixed; inset: 0; display: grid; place-content: center; text-align: center; gap: var(--space-2); background: var(--color-background); z-index: 200; }
-.boot i { font-size: 36px; color: var(--color-primary); animation: pulse 1.2s ease-in-out infinite; }
+.boot i { font-size: 36px; color: var(--color-primary); animation: bootpulse 1.2s ease-in-out infinite; }
 .boot small { color: var(--color-text-muted); }
-@keyframes pulse { 50% { opacity: .4; } }
+@keyframes bootpulse { 50% { opacity: .4; } }
 
 /* ---------- Responsif ---------- */
 @media (max-width: 1100px) {
@@ -419,7 +419,7 @@ dialog.modal form { display: flex; flex-direction: column; max-height: inherit; 
 .brand-mark { display: block; width: 38px; height: 38px; padding: 0; background: none; border: 0; border-radius: 11px; box-shadow: 0 0 0 1px rgba(255,255,255,.08); }
 .field small { font-size: var(--text-caption); line-height: 1.4; }
 .btn-primary { background: var(--color-primary); color: var(--color-on-primary); box-shadow: none; border-color: transparent; }
-.btn-primary:hover { background: var(--color-primary-strong); }
+.btn-primary:hover { background: #e4e4e7; }
 
 /* Bottom tab bar: hanya di HP dan tablet */
 .tabbar { display: none; }
@@ -471,7 +471,8 @@ dialog.modal form { display: flex; flex-direction: column; max-height: inherit; 
 .clock em { font-style: normal; font-family: var(--font-body); font-size: var(--text-caption); color: var(--color-text-subtle); letter-spacing: .06em; }
 @keyframes blink { 50% { opacity: .25; } }
 .next-ev { flex: 1; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: var(--space-4); border-radius: var(--radius-control); border: 1px solid var(--color-border); background: var(--color-surface-raised); color: var(--color-text); text-align: left; transition: border-color 160ms ease-out, transform 160ms ease-out; }
-button.next-ev:hover { border-color: var(--color-border-strong); transform: translateY(-2px); }
+button.next-ev:hover { border-color: var(--color-border-strong); }
+@media (hover: hover) { button.next-ev:hover { transform: translate3d(0, -2px, 0); } }
 .next-ev .eyebrow { display: inline-flex; align-items: center; gap: 6px; }
 .next-ev b { font-size: var(--text-body-lg); font-weight: 600; }
 .next-ev small { color: var(--color-text-muted); font-size: var(--text-body-sm); }
@@ -505,53 +506,51 @@ button.next-ev:hover { border-color: var(--color-border-strong); transform: tran
 .empty .illus { width: 76px; height: 76px; }
 .panel-empty .pe-icon { display: none; }
 
-/* ---------- Animasi interaktif ---------- */
-@keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
-@keyframes pop { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: none; } }
-@keyframes grow { from { height: 0; } }
-@keyframes fill { from { width: 0; } }
-/* Masuk halaman: bagian-bagian muncul bergantian */
-#content.enter > * { animation: rise 420ms cubic-bezier(.2,.7,.2,1) both; }
-#content.enter > *:nth-child(2) { animation-delay: 60ms; }
-#content.enter > *:nth-child(3) { animation-delay: 120ms; }
-#content.enter > *:nth-child(4) { animation-delay: 180ms; }
-#content.enter > *:nth-child(n+5) { animation-delay: 240ms; }
-#content.enter .metric { animation: rise 420ms cubic-bezier(.2,.7,.2,1) both; }
-#content.enter .metric:nth-child(2) { animation-delay: 90ms; } #content.enter .metric:nth-child(3) { animation-delay: 140ms; } #content.enter .metric:nth-child(4) { animation-delay: 190ms; }
-/* Daftar: item muncul satu per satu */
-#content.enter :is(.session, .task, .reminder, .row, .class-card, tbody tr, .plan, .tile) { animation: rise 380ms cubic-bezier(.2,.7,.2,1) both; animation-delay: 160ms; }
-#content.enter :is(.session, .task, .reminder, .row, .class-card, tbody tr, .plan, .tile):nth-child(2) { animation-delay: 200ms; }
-#content.enter :is(.session, .task, .reminder, .row, .class-card, tbody tr, .plan, .tile):nth-child(3) { animation-delay: 240ms; }
-#content.enter :is(.session, .task, .reminder, .row, .class-card, tbody tr, .plan, .tile):nth-child(4) { animation-delay: 280ms; }
-#content.enter :is(.session, .task, .reminder, .row, .class-card, tbody tr, .plan, .tile):nth-child(n+5) { animation-delay: 320ms; }
-#content.enter .col { animation: rise 420ms cubic-bezier(.2,.7,.2,1) both; }
-#content.enter .col:nth-child(2) { animation-delay: 50ms; } #content.enter .col:nth-child(3) { animation-delay: 100ms; } #content.enter .col:nth-child(4) { animation-delay: 150ms; } #content.enter .col:nth-child(n+5) { animation-delay: 200ms; }
-#content.enter .wtrack i { animation: grow 700ms cubic-bezier(.2,.7,.2,1) both; animation-delay: calc(250ms + var(--i, 0) * 50ms); }
-#content.enter .bar i { animation: fill 900ms cubic-bezier(.2,.7,.2,1) both; animation-delay: 300ms; }
-#content.enter .panel-empty, #content.enter .empty { animation: pop 420ms cubic-bezier(.2,.7,.2,1) both; animation-delay: 180ms; }
-/* Hover & tekan */
-.panel, .card, .metric { transition: border-color 180ms ease-out, transform 180ms ease-out, background 180ms ease-out; }
-.metric:hover { transform: translateY(-2px); border-color: var(--color-border-strong); }
-.dash-grid .panel:hover, .hero:hover { border-color: var(--color-border-strong); }
-.btn, .pill-btn, .ghost-btn, .tiny-btn, .icon-btn, .segment button, .segmented button, .quicklink, .wday, .wcol, .chip { transition: background 140ms ease-out, color 140ms ease-out, border-color 140ms ease-out, transform 140ms ease-out; }
-.btn:active:not(:disabled), .pill-btn:active, .ghost-btn:active, .tiny-btn:active, .icon-btn:active, .wday:active, .wcol:active, .next-ev:active { transform: scale(.96); }
-.ghost-btn i, .quicklink i:last-child { transition: transform 160ms ease-out; }
-.ghost-btn:hover i, .quicklink:hover i:last-child { transform: translateX(3px); }
-.session, .task, .reminder, .row, .class-card { transition: background 150ms ease-out, border-color 150ms ease-out, transform 150ms ease-out; }
-.reminder:hover, .row:hover { transform: translateX(3px); }
-.class-card:hover { transform: translateY(-2px); }
-.nav button i { transition: transform 160ms ease-out, color 140ms ease-out; }
-.nav button:hover i { transform: scale(1.12); }
-.nav button.active { animation: pop 260ms ease-out; }
-.task-check[aria-checked="true"] { animation: pop 220ms ease-out; }
-.task-check[aria-checked="true"] i { animation: pop 220ms ease-out; }
-dialog.modal[open] { animation: pop 200ms cubic-bezier(.2,.7,.2,1); }
-dialog.modal[open]::backdrop { animation: fadein 200ms ease-out; }
+/* ---------- Animasi interaktif ----------
+   Hanya transform & opacity (diproses GPU), satu kurva easing, durasi pendek. */
+:root { --ease-out: cubic-bezier(.2,.8,.2,1); --dur-enter: 320ms; --dur-ui: 180ms; }
+@keyframes rise { from { opacity: 0; transform: translate3d(0, 8px, 0); } to { opacity: 1; transform: none; } }
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pop { from { opacity: 0; transform: scale(.97); } to { opacity: 1; transform: none; } }
+@keyframes growY { from { transform: scaleY(0); } to { transform: none; } }
+@keyframes growX { from { transform: scaleX(0); } to { transform: none; } }
 @keyframes fadein { from { opacity: 0; } }
+/* Masuk halaman: blok utama naik bergantian, isi di dalamnya cukup memudar */
+#content.enter > * { animation: rise var(--dur-enter) var(--ease-out) both; }
+#content.enter > *:nth-child(2) { animation-delay: 40ms; }
+#content.enter > *:nth-child(3) { animation-delay: 80ms; }
+#content.enter > *:nth-child(4) { animation-delay: 120ms; }
+#content.enter > *:nth-child(n+5) { animation-delay: 160ms; }
+#content.enter :is(.metric, .col, .session, .task, .reminder, .row, .class-card, tbody tr, .trow, .plan, .tile, .ph-stats > div) { animation: fade 260ms ease-out both; animation-delay: 120ms; }
+#content.enter :is(.metric, .col, .session, .task, .reminder, .row, .class-card, tbody tr, .trow, .plan, .tile, .ph-stats > div):nth-child(2) { animation-delay: 150ms; }
+#content.enter :is(.metric, .col, .session, .task, .reminder, .row, .class-card, tbody tr, .trow, .plan, .tile, .ph-stats > div):nth-child(3) { animation-delay: 180ms; }
+#content.enter :is(.metric, .col, .session, .task, .reminder, .row, .class-card, tbody tr, .trow, .plan, .tile, .ph-stats > div):nth-child(4) { animation-delay: 210ms; }
+#content.enter :is(.metric, .col, .session, .task, .reminder, .row, .class-card, tbody tr, .trow, .plan, .tile, .ph-stats > div):nth-child(n+5) { animation-delay: 240ms; }
+.wtrack i { transform-origin: 50% 100%; }
+.bar i { transform-origin: 0 50%; }
+#content.enter .wtrack i { animation: growY 520ms var(--ease-out) both; animation-delay: calc(200ms + var(--i, 0) * 35ms); }
+#content.enter .bar i { animation: growX 600ms var(--ease-out) both; animation-delay: 220ms; }
+#content.enter :is(.panel-empty, .empty) { animation: fade 280ms ease-out both; animation-delay: 140ms; }
+/* Hover & tekan */
+.panel, .card, .metric, .page-head { transition: border-color var(--dur-ui) ease-out, background-color var(--dur-ui) ease-out; }
+.metric, .class-card, .ph-stats > div, button.next-ev { transition: transform var(--dur-ui) var(--ease-out), border-color var(--dur-ui) ease-out, background-color var(--dur-ui) ease-out; }
+.dash-grid .panel:hover, .hero:hover, .metric:hover, .class-card:hover, .ph-stats > div:hover { border-color: var(--color-border-strong); }
+@media (hover: hover) {
+  .metric:hover, .class-card:hover, .ph-stats > div:hover { transform: translate3d(0, -2px, 0); }
+  .reminder:hover, .row:hover { transform: translate3d(3px, 0, 0); }
+  .ghost-btn:hover i, .quicklink:hover i:last-child { transform: translate3d(3px, 0, 0); }
+  .nav button:hover i { transform: scale(1.1); }
+}
+.btn, .pill-btn, .ghost-btn, .tiny-btn, .icon-btn, .segment button, .segmented button, .quicklink, .wday, .wcol, .chip, .task-check { transition: background-color 140ms ease-out, color 140ms ease-out, border-color 140ms ease-out, transform 140ms var(--ease-out); }
+.btn:active:not(:disabled), .pill-btn:active, .ghost-btn:active, .tiny-btn:active, .icon-btn:active, .wday:active, .wcol:active, button.next-ev:active { transform: scale(.97); }
+.ghost-btn i, .quicklink i:last-child, .nav button i { transition: transform var(--dur-ui) var(--ease-out), color 140ms ease-out; }
+.session, .task, .reminder, .row { transition: background-color 150ms ease-out, border-color 150ms ease-out, transform var(--dur-ui) var(--ease-out); }
+.task-check[aria-checked="true"] i { animation: pop 200ms var(--ease-out); }
+dialog.modal[open] { animation: pop 220ms var(--ease-out); }
+dialog.modal[open]::backdrop { animation: fadein 200ms ease-out; }
 @media (max-width: 1023px) {
-  .tabbar button i { transition: background 180ms ease-out, transform 180ms ease-out; }
-  .tabbar button[aria-current="page"] i { transform: translateY(-1px); }
-  .tabbar button:active i { transform: scale(.9); }
+  .tabbar button i { transition: background-color var(--dur-ui) ease-out, transform var(--dur-ui) var(--ease-out); }
+  .tabbar button:active i { transform: scale(.92); }
 }
 @media (max-width: 1100px) {
   .hero { grid-template-columns: minmax(0, 1fr); }
@@ -563,8 +562,8 @@ dialog.modal[open]::backdrop { animation: fadein 200ms ease-out; }
   .wchart { height: 130px; gap: var(--space-1); }
 }
 @media (prefers-reduced-motion: reduce) {
-  #content.enter *, .clock .colon, .pulse, dialog.modal[open], dialog.modal[open]::backdrop, .nav button.active, .task-check { animation: none !important; }
-  .metric:hover, .reminder:hover, .row:hover, .class-card:hover, button.next-ev:hover { transform: none; }
+  #content.enter *, .clock .colon, .pulse, dialog.modal[open], dialog.modal[open]::backdrop, .task-check i { animation: none !important; }
+  .metric:hover, .reminder:hover, .row:hover, .class-card:hover, button.next-ev:hover, .ph-stats > div:hover { transform: none !important; }
 }
 
 /* ---------- Kepala halaman ---------- */
@@ -574,24 +573,18 @@ dialog.modal[open]::backdrop { animation: fadein 200ms ease-out; }
 .ph-tile { display: grid; place-items: center; width: 48px; height: 48px; flex: none; border-radius: 14px; background: var(--color-surface-raised); border: 1px solid var(--color-border-strong); font-size: 24px; color: var(--color-text); }
 .ph-text { flex: 1 1 260px; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
 .ph-text h2 { margin: 0; font-size: var(--text-heading-md); font-weight: 650; letter-spacing: -.015em; line-height: 1.2; }
-.ph-text p { margin: 0; color: var(--color-text-muted); font-size: var(--text-body-sm); line-height: 1.45; max-width: 62ch; }
+.ph-text p { margin: 0; color: var(--color-text-muted); font-size: var(--text-body-sm); line-height: 1.5; max-width: 60ch; text-wrap: pretty; }
 .ph-stats { display: flex; gap: var(--space-2); margin: 0; flex-wrap: wrap; }
-.ph-stats > div { min-width: 92px; padding: var(--space-2) var(--space-3); border-radius: var(--radius-control); border: 1px solid var(--color-border); background: var(--color-surface-raised); }
+.ph-stats > div { min-width: 104px; padding: 10px var(--space-4); border-radius: var(--radius-control); border: 1px solid var(--color-border); background: var(--color-surface-raised); }
 .ph-stats dt { font-size: var(--text-caption); color: var(--color-text-subtle); white-space: nowrap; }
-.ph-stats dd { margin: 2px 0 0; font-size: var(--text-heading-sm); font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ph-stats dd { margin: 4px 0 0; font-size: var(--text-heading-sm); font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .ph-action { flex: none; }
 .board { align-items: stretch; }
 .profil-grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: var(--space-5); align-items: start; }
 .checklist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
 .checklist li { display: flex; gap: var(--space-2); align-items: center; color: var(--color-text-muted); font-size: var(--text-body-sm); }
 .checklist i { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--color-surface-raised); border: 1px solid var(--color-border); color: var(--color-text); font-size: 11px; flex: none; }
-#content.enter .trow { animation: rise 380ms cubic-bezier(.2,.7,.2,1) both; animation-delay: 160ms; }
-#content.enter .trow:nth-child(3) { animation-delay: 200ms; } #content.enter .trow:nth-child(4) { animation-delay: 240ms; } #content.enter .trow:nth-child(5) { animation-delay: 280ms; } #content.enter .trow:nth-child(n+6) { animation-delay: 320ms; }
-#content.enter .ph-stats > div { animation: pop 380ms cubic-bezier(.2,.7,.2,1) both; animation-delay: 120ms; }
-#content.enter .ph-stats > div:nth-child(2) { animation-delay: 170ms; } #content.enter .ph-stats > div:nth-child(3) { animation-delay: 220ms; } #content.enter .ph-stats > div:nth-child(4) { animation-delay: 270ms; }
 .trow { transition: background 150ms ease-out; }
-.ph-stats > div { transition: border-color 160ms ease-out, transform 160ms ease-out; }
-.ph-stats > div:hover { border-color: var(--color-border-strong); transform: translateY(-2px); }
 @media (max-width: 860px) {
   .profil-grid { grid-template-columns: minmax(0, 1fr); }
   .ph-stats { width: 100%; }
@@ -608,4 +601,3 @@ dialog.modal[open]::backdrop { animation: fadein 200ms ease-out; }
   .ph-stats > div:nth-child(3):last-child { grid-column: 1 / -1; }
   .ph-stats dt { overflow: hidden; text-overflow: ellipsis; }
 }
-@media (prefers-reduced-motion: reduce) { .ph-stats > div:hover { transform: none; } }

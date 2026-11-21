@@ -120,16 +120,20 @@ function renderTabbar() {
   }).join('') + `<button id="tabMore" ${main ? '' : 'aria-current="page"'}><i class="ph${main ? '' : '-fill'} ph-dots-three-outline"></i>Lainnya</button>`;
   $('#tabMore').onclick = () => $('#shell').classList.add('nav-open');
 }
+// Animasi masuk: hanya saat pindah menu atau saat data menu pertama kali tiba.
+function enterAnim(draw) {
+  const c = $('#content');
+  c.classList.remove('enter'); void c.offsetWidth; c.classList.add('enter');
+  clearTimeout(enterAnim.t); enterAnim.t = setTimeout(() => c.classList.remove('enter'), 1400);
+  draw(); countUp(c);
+}
 function go(view) {
   const item = NAV.flatMap((g) => g.items).find((i) => i.id === view);
   if (!item || !allowed(item)) view = 'dashboard';
   S.view = view;
   if (location.hash !== '#' + view) history.replaceState(null, '', '#' + view);
   $('#shell').classList.remove('nav-open');
-  // Animasi masuk hanya saat pindah menu, bukan setiap data diperbarui.
-  const c = $('#content'); c.classList.remove('enter'); void c.offsetWidth; c.classList.add('enter');
-  clearTimeout(go.t); go.t = setTimeout(() => c.classList.remove('enter'), 900);
-  render();
+  enterAnim(render);
   window.scrollTo(0, 0);
   $('#pageTitle').focus({ preventScroll: true });
   if (view === 'pengingat') loadPengingat();
@@ -174,15 +178,15 @@ const ILLUS_OF = { 'calendar-blank': 'calendar', 'calendar-dots': 'calendar', 'l
 const illus = (icon) => { const k = ILLUS_OF[icon]; return k ? `<svg class="illus" viewBox="0 0 64 64" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ILLUS[k]}</svg>` : `<i class="ph-duotone ph-${icon}"></i>`; };
 const empty = (icon, title, hint, action = '') => `<div class="empty">${illus(icon)}<b>${title}</b><p>${hint}</p>${action}</div>`;
 // Keadaan kosong di dalam panel dashboard: ikon, judul, penjelasan, dan tombol kecil opsional.
-const panelEmpty = (icon, title, hint, type, label) => `<div class="panel-empty">${illus(icon)}<b>${title}</b><p>${hint}</p>${type && canEdit() ? `<button class="btn btn-secondary btn-sm" data-add="${type}"><i class="ph ph-plus"></i>${label}</button>` : ''}</div>`;
+const panelEmpty = (icon, title, hint, type, label) => `<div class="panel-empty">${illus(icon)}<b>${title}</b><p>${hint}</p>${type && canEdit() ? `<button class="btn btn-secondary btn-sm" data-add="${type}"><i class="ph-bold ph-plus"></i>${label}</button>` : ''}</div>`;
 // Kepala halaman: ikon, judul, penjelasan singkat, angka ringkas, dan tombol aksi.
 const pageHead = (icon, title, desc, stats = [], action = '') => `<section class="page-head">
   <span class="ph-tile"><i class="ph ph-${icon}" aria-hidden="true"></i></span>
-  <div class="ph-text"><h2>${title}</h2><p>${desc}</p></div>
-  ${stats.length ? `<dl class="ph-stats">${stats.map(([v, l]) => `<div><dt>${l}</dt><dd>${v}</dd></div>`).join('')}</dl>` : ''}
+  <div class="ph-text"><h2>${title}</h2><p>${desc.replace(/(\w)-(?=\w)/g, '$1\u2011')}</p></div>
+  ${stats.length ? `<dl class="ph-stats">${stats.map(([v, l]) => `<div><dt>${l}</dt><dd${typeof v === 'number' && v > 0 ? ` data-count="${v}"` : ''}>${v}</dd></div>`).join('')}</dl>` : ''}
   ${action ? `<div class="ph-action">${action}</div>` : ''}
 </section>`;
-const addBtn = (type, label) => canEdit() ? `<button class="btn btn-primary" data-add="${type}"><i class="ph ph-plus"></i>${label}</button>` : '';
+const addBtn = (type, label) => canEdit() ? `<button class="btn btn-primary" data-add="${type}"><i class="ph-bold ph-plus"></i>${label}</button>` : '';
 
 // ---------- Dashboard ----------
 function nextClass() {
@@ -354,7 +358,7 @@ function viewDashboard() {
       <h2>${salam}, ${esc(S.user.nama.split(' ')[0])}</h2>
       <p>${todaySessions.length ? `${todaySessions.length} kelas` : 'Tidak ada kelas'} hari ini dan ${aktif.length ? `${aktif.length} tugas menunggu` : 'tidak ada tugas yang menunggu'}.</p>
       <blockquote class="quote"><i class="ph ph-quotes" aria-hidden="true"></i>${quoteOfDay()}</blockquote>
-      <div class="hero-actions">${canEdit() ? '<button class="btn btn-primary" data-add="tugas"><i class="ph ph-plus"></i>Tugas baru</button>' : ''}<button class="btn btn-secondary" data-view="jadwal"><i class="ph ph-calendar-blank"></i>Lihat jadwal</button></div>
+      <div class="hero-actions">${canEdit() ? '<button class="btn btn-primary" data-add="tugas"><i class="ph-bold ph-plus"></i>Tugas baru</button>' : ''}<button class="btn btn-secondary" data-view="jadwal"><i class="ph ph-calendar-blank"></i>Lihat jadwal</button></div>
     </div>
     <div class="hero-side">
       <div class="clock" aria-label="Jam sekarang"><span data-clock>${clockText(n)}</span><em>WIB</em></div>
@@ -405,7 +409,7 @@ function viewDashboard() {
     </div>
   </section>`;
   startClock();
-  if ($('#content').classList.contains('enter')) countUp($('#content'));
+ 
 }
 
 // ---------- Jadwal ----------
@@ -496,7 +500,7 @@ const LEADS_TUGAS = [[4320, 'H-3'], [1440, 'H-1'], [360, '6 jam'], [180, '3 jam'
 const LEADS_UJIAN = [[10080, 'H-7'], [4320, 'H-3'], [1440, 'H-1']];
 let previewTab = 'pagi';
 async function loadPengingat() {
-  try { S.pengingat = await api('/api/pengingat'); if (S.view === 'pengingat') viewPengingat(); } catch (e) { toast(e.message, 'error'); }
+  try { const first = !S.pengingat; S.pengingat = await api('/api/pengingat'); if (S.view === 'pengingat') (first ? enterAnim : (f) => f())(viewPengingat); } catch (e) { toast(e.message, 'error'); }
 }
 function viewPengingat() {
   if (!S.pengingat) { $('#content').innerHTML = '<div class="card muted">Memuat pengaturan…</div>'; return; }
@@ -545,7 +549,7 @@ function viewPengingat() {
 
 // ---------- Status bot (admin) ----------
 async function loadStatus() {
-  try { S.status = await api('/api/status'); if (S.view === 'status') viewStatus(); } catch (e) { toast(e.message, 'error'); }
+  try { const first = !S.status; S.status = await api('/api/status'); if (S.view === 'status') (first ? enterAnim : (f) => f())(viewStatus); } catch (e) { toast(e.message, 'error'); }
 }
 const LOG_MODE = { pagi: 'Ringkasan pagi', besok: 'Persiapan besok', kelas: 'Kelas dimulai', tugas: 'Tenggat tugas', ujian: 'Ujian', tes: 'Pesan percobaan' };
 function viewStatus() {
@@ -574,7 +578,7 @@ function viewStatus() {
 
 // ---------- Akun (admin) ----------
 async function loadAkun() {
-  try { S.akun = (await api('/api/akun')).akun; if (S.view === 'akun') viewAkun(); } catch (e) { toast(e.message, 'error'); }
+  try { const first = !S.akun; S.akun = (await api('/api/akun')).akun; if (S.view === 'akun') (first ? enterAnim : (f) => f())(viewAkun); } catch (e) { toast(e.message, 'error'); }
 }
 function viewAkun() {
   if (!S.akun) { $('#content').innerHTML = '<div class="card muted">Memuat akun…</div>'; return; }
