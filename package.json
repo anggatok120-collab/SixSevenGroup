@@ -1,0 +1,22 @@
+{
+  "name": "wa-pengingat-kuliah",
+  "version": "1.0.0",
+  "description": "Bot WhatsApp pengingat jadwal kuliah, tugas, dan ujian untuk grup kelas",
+  "main": "src/index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "^6.7.16",
+    "better-sqlite3": "^11.8.1",
+    "dotenv": "^16.4.7",
+    "express": "^4.22.3",
+    "pino": "^9.6.0",
+    "qrcode-terminal": "^0.12.0"
+  }
+}
