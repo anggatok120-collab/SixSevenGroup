@@ -126,6 +126,9 @@ function go(view) {
   S.view = view;
   if (location.hash !== '#' + view) history.replaceState(null, '', '#' + view);
   $('#shell').classList.remove('nav-open');
+  // Animasi masuk hanya saat pindah menu, bukan setiap data diperbarui.
+  const c = $('#content'); c.classList.remove('enter'); void c.offsetWidth; c.classList.add('enter');
+  clearTimeout(go.t); go.t = setTimeout(() => c.classList.remove('enter'), 900);
   render();
   window.scrollTo(0, 0);
   $('#pageTitle').focus({ preventScroll: true });
@@ -148,7 +151,7 @@ function render() {
   $('#pageTitle').textContent = t; $('#pageTitle').title = sub; $('#pageSub').textContent = `${HARI[tn.dow]}, ${tn.d} ${BULAN_PANJANG[tn.m]} ${tn.y}`;
   document.title = `${t} · Six Seven 67`;
   const aktif = S.data.tugas.filter((x) => !x.selesai).length;
-  $('#bellCount').textContent = aktif ? `${aktif} aktif` : 'Beres';
+  $('#bellCount').textContent = `${aktif} tugas aktif`;
   $('#bellBtn').setAttribute('aria-label', aktif ? `${aktif} tugas aktif, buka daftar tugas` : 'Tidak ada tugas aktif, buka daftar tugas');
   const b = S.data.bot || {};
   $('#botDot').classList.toggle('on', !!(b.wa && b.grup));
@@ -157,7 +160,28 @@ function render() {
   ({ dashboard: viewDashboard, jadwal: viewJadwal, tugas: viewTugas, ujian: viewUjian, pengingat: viewPengingat, status: viewStatus, akun: viewAkun, profil: viewProfil })[S.view]();
 }
 
-const empty = (icon, title, hint, action = '') => `<div class="empty"><i class="ph-duotone ph-${icon}"></i><b>${title}</b><p>${hint}</p>${action}</div>`;
+// Ilustrasi garis sederhana untuk keadaan kosong (warna mengikuti teks, jadi tetap hitam-putih).
+const ILLUS = {
+  calendar: '<rect x="10" y="14" width="44" height="40" rx="7"/><path d="M10 25h44M21 9v9M43 9v9"/><path d="M32 33v12M26 39h12" class="accent"/>',
+  tasks: '<rect x="14" y="10" width="36" height="46" rx="6"/><path d="M25 10v-1a3 3 0 0 1 3-3h8a3 3 0 0 1 3 3v1"/><path d="M21 25l3 3 5-6M21 37l3 3 5-6" class="accent"/><path d="M34 26h9M34 38h9"/>',
+  exam: '<path d="M16 8h24l10 10v38H16z"/><path d="M40 8v10h10"/><path d="M23 30h18M23 38h18M23 46h10"/><path d="M46 40l8-8 4 4-8 8-5 1z" class="accent"/>',
+  coffee: '<path d="M14 26h30v14a12 12 0 0 1-12 12h-6a12 12 0 0 1-12-12z"/><path d="M44 30h3a6 6 0 0 1 0 12h-4"/><path d="M22 18c0-3 3-3 3-6M30 18c0-3 3-3 3-6M38 18c0-3 3-3 3-6" class="accent"/><path d="M12 57h36"/>',
+  done: '<circle cx="32" cy="34" r="18"/><path d="M24 34l6 6 11-12" class="accent"/><path d="M50 10v6M47 13h6M12 12v4M10 14h4M54 46v4M52 48h4"/>',
+  inbox: '<path d="M10 36l7-22h30l7 22v14a4 4 0 0 1-4 4H14a4 4 0 0 1-4-4z"/><path d="M10 36h13l3 6h12l3-6h13" class="accent"/>',
+  search: '<circle cx="28" cy="28" r="15"/><path d="M39 39l13 13" class="accent"/><path d="M22 28h12"/>',
+};
+const ILLUS_OF = { 'calendar-blank': 'calendar', 'calendar-dots': 'calendar', 'list-checks': 'tasks', exam: 'exam', coffee: 'coffee', 'check-circle': 'done', confetti: 'done', tray: 'inbox', 'magnifying-glass': 'search' };
+const illus = (icon) => { const k = ILLUS_OF[icon]; return k ? `<svg class="illus" viewBox="0 0 64 64" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ILLUS[k]}</svg>` : `<i class="ph-duotone ph-${icon}"></i>`; };
+const empty = (icon, title, hint, action = '') => `<div class="empty">${illus(icon)}<b>${title}</b><p>${hint}</p>${action}</div>`;
+// Keadaan kosong di dalam panel dashboard: ikon, judul, penjelasan, dan tombol kecil opsional.
+const panelEmpty = (icon, title, hint, type, label) => `<div class="panel-empty">${illus(icon)}<b>${title}</b><p>${hint}</p>${type && canEdit() ? `<button class="btn btn-secondary btn-sm" data-add="${type}"><i class="ph ph-plus"></i>${label}</button>` : ''}</div>`;
+// Kepala halaman: ikon, judul, penjelasan singkat, angka ringkas, dan tombol aksi.
+const pageHead = (icon, title, desc, stats = [], action = '') => `<section class="page-head">
+  <span class="ph-tile"><i class="ph ph-${icon}" aria-hidden="true"></i></span>
+  <div class="ph-text"><h2>${title}</h2><p>${desc}</p></div>
+  ${stats.length ? `<dl class="ph-stats">${stats.map(([v, l]) => `<div><dt>${l}</dt><dd>${v}</dd></div>`).join('')}</dl>` : ''}
+  ${action ? `<div class="ph-action">${action}</div>` : ''}
+</section>`;
 const addBtn = (type, label) => canEdit() ? `<button class="btn btn-primary" data-add="${type}"><i class="ph ph-plus"></i>${label}</button>` : '';
 
 // ---------- Dashboard ----------
@@ -221,6 +245,67 @@ function taskItem(t) {
     <div class="task-main" data-detail="tugas" data-id="${t.id}"><span class="task-title">${esc(t.judul)}</span><span class="task-meta"><span>${esc(t.matkul)}</span><span>${relDay(t.ms)}</span>${t.prioritas === 'tinggi' ? '<span class="hi">Prioritas tinggi</span>' : ''}</span></div>
     <span class="tag" data-tone="${tone}">${label}</span></div>`;
 }
+// Kalimat penyemangat harian (berganti tiap hari).
+const QUOTES = [
+  'Sedikit demi sedikit, lama-lama jadi sarjana.',
+  'Kerjakan yang paling dekat tenggatnya dulu, sisanya menyusul.',
+  'Catatan rapi hari ini, belajar ringan menjelang ujian.',
+  'Datang tepat waktu itu setengah dari paham materi.',
+  'Satu tugas selesai lebih baik dari tiga tugas dipikirkan.',
+  'Istirahat juga bagian dari rencana belajar.',
+  'Tanya teman sekelas bukan kalah, itu strategi.',
+  'Mulai 25 menit saja. Biasanya sisanya jadi lancar.',
+  'Baca ulang slide kemarin selama lima menit sebelum kelas.',
+  'Tenggat bukan musuh, tenggat itu pengingat.',
+  'Kelas pagi lebih mudah kalau tidurnya cukup.',
+  'Progres kecil setiap hari tetap progres.',
+  'Simpan file tugas dengan nama yang jelas. Kamu di masa depan akan berterima kasih.',
+  'Kalau buntu, ganti tempat belajar sebentar.',
+];
+const quoteOfDay = () => { const t = w(now()); return QUOTES[(t.y * 372 + t.m * 31 + t.d) % QUOTES.length]; };
+function fmtCountdown(ms) {
+  if (ms <= 0) return 'sekarang';
+  const s = Math.floor(ms / 1000); const d = Math.floor(s / 86400); const h = Math.floor((s % 86400) / 3600); const m = Math.floor((s % 3600) / 60); const sec = s % 60;
+  if (d) return `${d} hari ${h} jam`;
+  if (h) return `${h} jam ${m} menit`;
+  return `${m} menit ${String(sec).padStart(2, '0')} detik`;
+}
+const clockText = (ms) => { const d = new Date(ms + TZ); const p = (x) => String(x).padStart(2, '0'); return `${p(d.getUTCHours())}<span class="colon">:</span>${p(d.getUTCMinutes())}<small>${p(d.getUTCSeconds())}</small>`; };
+// Acara berikutnya untuk hitung mundur: kelas yang sedang/akan berlangsung atau ujian terdekat.
+function nextEvent() {
+  const n = now(); const c = nextClass();
+  const u = S.data.ujian.filter((x) => x.ms > n).sort((a, b) => a.ms - b.ms)[0];
+  const ev = [];
+  if (c) ev.push({ kind: c.start <= n ? 'Sedang berlangsung' : 'Kelas berikutnya', title: c.k.matkul, sub: `${tgl(c.start)} · ${c.k.mulai.replace(':', '.')}${c.k.ruang ? ` · ${c.k.ruang}` : ''}`, at: c.start <= n ? c.end : c.start, live: c.start <= n, id: c.k.id, type: 'kelas' });
+  if (u) ev.push({ kind: 'Ujian terdekat', title: `${u.jenis} ${u.matkul}`, sub: `${tgl(u.ms)} · ${hm(u.ms).replace(':', '.')}${u.ruang ? ` · ${u.ruang}` : ''}`, at: u.ms, id: u.id, type: 'ujian' });
+  return ev.sort((a, b) => (b.live - a.live) || a.at - b.at)[0] || null;
+}
+let clockTimer = null;
+function startClock() {
+  if (clockTimer) return;
+  clockTimer = setInterval(() => {
+    if (S.view !== 'dashboard') return;
+    const n = now();
+    const c = $('[data-clock]'); if (c) c.innerHTML = clockText(n);
+    const cd = $('[data-countdown]');
+    if (cd) {
+      const left = Number(cd.dataset.countdown) - n;
+      if (left <= 0) { viewDashboard(); return; }
+      cd.textContent = fmtCountdown(left);
+    }
+  }, 1000);
+}
+// Angka di kartu metrik naik dari 0 saat halaman dibuka.
+function countUp(root) {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  $$('[data-count]', root).forEach((el) => {
+    const to = Number(el.dataset.count); const suf = el.dataset.suffix || ''; if (!(to > 0)) return;
+    const t0 = performance.now();
+    const step = (t) => { const k = Math.min(1, (t - t0) / 650); el.textContent = Math.round(to * (1 - Math.pow(1 - k, 3))) + suf; if (k < 1) requestAnimationFrame(step); };
+    requestAnimationFrame(step);
+  });
+}
+
 function viewDashboard() {
   const n = now(); const sod = startOfDay(n); const today = w(n).dow;
   const aktif = S.data.tugas.filter((t) => !t.selesai).sort((a, b) => a.ms - b.ms);
@@ -233,6 +318,7 @@ function viewDashboard() {
   const jam = w(n).h; const salam = jam < 11 ? 'Selamat pagi' : jam < 15 ? 'Selamat siang' : jam < 18 ? 'Selamat sore' : 'Selamat malam';
   const tn = w(n); const tanggal = `${HARI[tn.dow]}, ${tn.d} ${BULAN_PANJANG[tn.m]} ${tn.y}`;
   const b = S.data.bot || {};
+  const ev = nextEvent();
 
   // jadwal: hari ini / pekan ini / hari terpilih
   const offset = (today + 6) % 7;
@@ -240,11 +326,11 @@ function viewDashboard() {
   let list, hint, title = 'Jadwal hari ini';
   if (S.dashScope === 'week') {
     list = weekDays.filter((d) => d > sod).flatMap((d) => sessionsOn(d)); title = 'Jadwal pekan ini';
-    hint = list.length ? `${list.length} sesi sampai ${HARI[w(weekDays[6]).dow]}` : 'Tidak ada kelas lagi pekan ini';
+    hint = list.length ? `${list.length} sesi sampai ${HARI[w(weekDays[6]).dow]}` : 'Sisa pekan ini';
   } else if (S.dashScope === 'day' && S.dashDay && S.dashDay !== sod) {
     list = sessionsOn(S.dashDay); title = `Jadwal ${HARI[w(S.dashDay).dow]}`; hint = `${list.length} sesi · ${w(S.dashDay).d} ${BULAN_PANJANG[w(S.dashDay).m]}`;
   } else {
-    list = todaySessions; hint = list.length ? `${list.length} sesi · kuliah dan praktikum` : 'Tidak ada kelas hari ini';
+    list = todaySessions; hint = `${HARI[w(sod).dow]}, ${w(sod).d} ${BULAN_PANJANG[w(sod).m]}${list.length ? ` · ${list.length} sesi` : ''}`;
   }
   const selDay = S.dashScope === 'day' && S.dashDay ? S.dashDay : S.dashScope === 'today' ? sod : null;
   const strip = weekDays.map((d) => {
@@ -258,47 +344,68 @@ function viewDashboard() {
     ...ujianNext.slice(0, 3).map((u) => { const dd = Math.round((startOfDay(u.ms) - sod) / DAY); return { tone: dd <= 3 ? 'warning' : '', title: `${u.jenis} ${u.matkul}`, detail: u.ruang ? `Ruang ${u.ruang}` : 'Ruang belum diisi', time: relDay(u.ms), id: u.id, type: 'ujian' }; }),
   ];
   const pct = total ? Math.round(selesai / total * 100) : 0;
+  const wkDays = weekDays.map((d) => { const t = w(d); return { ms: d, label: HARI[t.dow].slice(0, 3), full: `${HARI[t.dow]} ${t.d} ${BULAN[t.m]}`, today: d === sod, kelas: S.data.kelas.filter((k) => k.hari === t.dow).length, tenggat: aktif.filter((x) => dayKey(x.ms) === dayKey(d)).length, ujian: S.data.ujian.filter((u) => dayKey(u.ms) === dayKey(d)).length }; });
+  const wk = { days: wkDays, max: Math.max(0, ...wkDays.map((d) => d.kelas)), kelas: wkDays.reduce((a, d) => a + d.kelas, 0), tenggat: wkDays.reduce((a, d) => a + d.tenggat, 0), ujian: wkDays.reduce((a, d) => a + d.ujian, 0) };
 
   $('#content').innerHTML = `
-  <section class="greet">
-    <div><h2>${salam}, ${esc(S.user.nama.split(' ')[0])}</h2>
-      <p>${tanggal} · ${todaySessions.length ? `${todaySessions.length} kelas` : 'tidak ada kelas'} dan ${aktif.length} tugas menunggu</p></div>
-    ${canEdit() ? '<button class="btn btn-primary" data-add="tugas"><i class="ph ph-plus"></i>Tugas baru</button>' : ''}
+  <section class="hero">
+    <div class="hero-main">
+      <span class="eyebrow">${tanggal}</span>
+      <h2>${salam}, ${esc(S.user.nama.split(' ')[0])}</h2>
+      <p>${todaySessions.length ? `${todaySessions.length} kelas` : 'Tidak ada kelas'} hari ini dan ${aktif.length ? `${aktif.length} tugas menunggu` : 'tidak ada tugas yang menunggu'}.</p>
+      <blockquote class="quote"><i class="ph ph-quotes" aria-hidden="true"></i>${quoteOfDay()}</blockquote>
+      <div class="hero-actions">${canEdit() ? '<button class="btn btn-primary" data-add="tugas"><i class="ph ph-plus"></i>Tugas baru</button>' : ''}<button class="btn btn-secondary" data-view="jadwal"><i class="ph ph-calendar-blank"></i>Lihat jadwal</button></div>
+    </div>
+    <div class="hero-side">
+      <div class="clock" aria-label="Jam sekarang"><span data-clock>${clockText(n)}</span><em>WIB</em></div>
+      ${ev ? `<button class="next-ev" data-detail="${ev.type}" data-id="${ev.id}" ${ev.live ? 'data-live="true"' : ''}>
+        <span class="eyebrow">${ev.live ? '<i class="pulse" aria-hidden="true"></i>' : ''}${ev.kind}</span>
+        <b>${esc(ev.title)}</b><small>${esc(ev.sub)}</small>
+        <span class="cd">${ev.live ? 'Selesai dalam ' : 'Mulai dalam '}<strong data-countdown="${ev.at}">${fmtCountdown(ev.at - n)}</strong></span></button>`
+        : '<div class="next-ev empty-ev"><span class="eyebrow">Berikutnya</span><b>Belum ada agenda</b><small>Isi jadwal kuliah atau ujian supaya hitung mundur muncul di sini.</small></div>'}
+    </div>
   </section>
   <section class="metrics">
-    <article class="metric"><span class="metric-label"><i class="ph ph-book-open"></i>Kelas hari ini</span><strong>${todaySessions.length} sesi</strong><small>${nc ? `Berikutnya ${nc.k.mulai.replace(':', '.')}${nc.i ? ` (${HARI[w(nc.start).dow]})` : ''} · ${esc(nc.k.ruang || nc.k.matkul)}` : 'Belum ada jadwal'}</small></article>
-    <article class="metric"><span class="metric-label"><i class="ph ph-list-checks"></i>Tugas aktif</span><strong>${aktif.length} tugas</strong><small data-tone="${dueToday ? 'warning' : ''}">${dueToday ? `${dueToday} jatuh tempo hari ini` : aktif[0] ? `Terdekat ${relDay(aktif[0].ms)}` : 'Semua beres'}</small></article>
-    <article class="metric"><span class="metric-label"><i class="ph ph-clipboard-text"></i>Ujian terdekat</span><strong>${u0 ? (uDays === 0 ? 'Hari ini' : `${uDays} hari`) : '–'}</strong><small>${u0 ? `${esc(u0.jenis)} ${esc(u0.matkul)} · ${w(u0.ms).d} ${BULAN[w(u0.ms).m]}` : 'Belum ada ujian'}</small></article>
+    <article class="metric"><span class="metric-label"><i class="ph ph-book-open"></i>Kelas hari ini</span><strong data-count="${todaySessions.length}" data-suffix=" sesi">${todaySessions.length} sesi</strong><small>${nc ? `Berikutnya ${nc.k.mulai.replace(':', '.')}${nc.i ? ` (${HARI[w(nc.start).dow]})` : ''} · ${esc(nc.k.ruang || nc.k.matkul)}` : 'Belum ada jadwal'}</small></article>
+    <article class="metric"><span class="metric-label"><i class="ph ph-list-checks"></i>Tugas aktif</span><strong data-count="${aktif.length}" data-suffix=" tugas">${aktif.length} tugas</strong><small data-tone="${dueToday ? 'warning' : ''}">${dueToday ? `${dueToday} jatuh tempo hari ini` : aktif[0] ? `Terdekat ${relDay(aktif[0].ms)}` : 'Semua beres'}</small></article>
+    <article class="metric"><span class="metric-label"><i class="ph ph-clipboard-text"></i>Ujian terdekat</span><strong ${u0 && uDays ? `data-count="${uDays}" data-suffix=" hari"` : ''}>${u0 ? (uDays === 0 ? 'Hari ini' : `${uDays} hari`) : '–'}</strong><small>${u0 ? `${esc(u0.jenis)} ${esc(u0.matkul)} · ${w(u0.ms).d} ${BULAN[w(u0.ms).m]}` : 'Belum ada ujian'}</small></article>
     <article class="metric"><span class="metric-label"><i class="ph ph-whatsapp-logo"></i>Bot WhatsApp</span><strong>${b.wa ? 'Aktif' : 'Offline'}</strong><small data-tone="${b.wa && b.grup ? '' : 'warning'}">${b.wa ? (b.grup ? 'Mengirim ke grup kelas' : 'Grup belum diatur') : 'Pengingat tertunda'}</small></article>
   </section>
   <section class="dash-grid">
     <div class="panel">
       <div class="panel-head"><div><h2>${title}</h2><span>${hint}</span></div>
         <div class="segment" role="group" aria-label="Rentang jadwal"><button data-scope="today" aria-pressed="${S.dashScope !== 'week'}">Hari ini</button><button data-scope="week" aria-pressed="${S.dashScope === 'week'}">Pekan ini</button></div></div>
-      <div class="sessions">${list.length ? list.map((x) => sessionRow(x, S.dashScope === 'week')).join('') : `<p class="soft">${S.data.kelas.length ? 'Tidak ada kelas di rentang ini. Pilih hari lain di bawah.' : 'Jadwal kuliah belum diisi.'}</p>${!S.data.kelas.length && canEdit() ? addBtn('kelas', 'Tambah jadwal') : ''}`}</div>
+      ${list.length ? `<div class="sessions">${list.map((x) => sessionRow(x, S.dashScope === 'week')).join('')}</div>` : S.data.kelas.length
+        ? panelEmpty('coffee', S.dashScope === 'week' ? 'Tidak ada kelas lagi pekan ini' : 'Tidak ada kelas', 'Pilih hari lain di bawah untuk melihat jadwalnya.')
+        : panelEmpty('calendar-blank', 'Jadwal kuliah belum diisi', 'Tambahkan jadwal mingguan supaya bot bisa mengingatkan grup sebelum kelas.', 'kelas', 'Tambah jadwal')}
       <div class="week" role="group" aria-label="Agenda pekan">${strip}</div>
     </div>
     <div class="panel">
-      <div class="panel-head"><div><h2>Tugas mendekat</h2><span>${aktif.length} dari ${total} belum selesai</span></div></div>
-      <div class="tasks">${aktif.length ? aktif.slice(0, 5).map(taskItem).join('') : '<p class="soft">Semua tugas sudah selesai. Waktu yang tersisa bisa dipakai untuk mereview materi.</p>'}</div>
-      <button class="ghost-btn" data-view="tugas">Kelola semua tugas<i class="ph ph-arrow-right"></i></button>
+      <div class="panel-head"><div><h2>Tugas mendekat</h2><span>${total ? `${aktif.length} dari ${total} belum selesai` : 'Belum ada tugas'}</span></div></div>
+      ${aktif.length ? `<div class="tasks">${aktif.slice(0, 5).map(taskItem).join('')}</div>` : total
+        ? panelEmpty('check-circle', 'Semua tugas selesai', 'Tidak ada tenggat yang menunggu. Waktu yang tersisa bisa dipakai untuk mereview materi.')
+        : panelEmpty('list-checks', 'Belum ada tugas', 'Tugas yang ditambahkan akan muncul di sini, diurutkan dari tenggat terdekat.', 'tugas', 'Tambah tugas')}
+      ${total ? '<button class="ghost-btn panel-foot" data-view="tugas">Kelola semua tugas<i class="ph ph-arrow-right"></i></button>' : ''}
     </div>
   </section>
   <section class="dash-grid">
     <div class="panel">
-      <div class="panel-head"><div><h2>Pengingat</h2><span>${reminders.length ? `${reminders.length} ujian mendatang · bot mengingatkan grup otomatis` : 'Bot mengingatkan grup otomatis'}</span></div></div>
-      <div class="reminders">${reminders.length ? reminders.map((r) => `<div class="reminder" data-tone="${r.tone}" data-detail="${r.type}" data-id="${r.id}" role="button" tabindex="0"><i class="rdot" aria-hidden="true"></i><div><span><b>${esc(r.title)}</b><small>${esc(r.detail)}</small></span><time>${r.time}</time></div></div>`).join('') : '<p class="soft">Belum ada ujian mendatang.</p>'}</div>
+      <div class="panel-head"><div><h2>Pengingat</h2><span>${reminders.length ? `${reminders.length} ujian mendatang · bot mengingatkan grup otomatis` : 'Ujian mendatang'}</span></div></div>
+      ${reminders.length ? `<div class="reminders">${reminders.map((r) => `<div class="reminder" data-tone="${r.tone}" data-detail="${r.type}" data-id="${r.id}" role="button" tabindex="0"><i class="rdot" aria-hidden="true"></i><div><span><b>${esc(r.title)}</b><small>${esc(r.detail)}</small></span><time>${r.time}</time></div></div>`).join('')}</div>`
+        : panelEmpty('exam', 'Belum ada ujian terjadwal', 'Bot otomatis mengingatkan grup H-7, H-1, dan pagi hari ujian.', 'ujian', 'Tambah ujian')}
     </div>
     <div class="panel">
-      <div class="panel-head"><div><h2>Akses cepat</h2></div></div>
-      <div class="quick">
-        <button class="quicklink" data-view="jadwal"><i class="ph ph-book-open"></i><span>Jadwal kuliah pekan ini</span><i class="ph ph-caret-right"></i></button>
-        <button class="quicklink" data-view="ujian"><i class="ph ph-clipboard-text"></i><span>Jadwal ujian</span><i class="ph ph-caret-right"></i></button>
-        <button class="quicklink" data-view="tugas"><i class="ph ph-list-checks"></i><span>Semua tugas aktif</span><i class="ph ph-caret-right"></i></button>
+      <div class="panel-head"><div><h2>Ringkasan pekan</h2><span>${wk.kelas} kelas · ${wk.tenggat} tenggat · ${wk.ujian} ujian</span></div></div>
+      <div class="wchart" role="img" aria-label="Jumlah kelas per hari pekan ini: ${wk.days.map((d) => `${d.label} ${d.kelas}`).join(', ')}">
+        ${wk.days.map((d, i) => `<button class="wcol" data-pick-day="${d.ms}" data-today="${d.today}" style="--h:${d.kelas ? Math.max(8, Math.round(d.kelas / wk.max * 100)) : 0}%;--i:${i}" aria-label="${d.full}: ${d.kelas} kelas, ${d.tenggat} tenggat, ${d.ujian} ujian">
+          <span class="wnum">${d.kelas || ''}</span><span class="wtrack"><i></i></span><span class="wmarks">${d.tenggat ? '<i class="m-t" title="Tenggat"></i>' : ''}${d.ujian ? '<i class="m-u" title="Ujian"></i>' : ''}</span><span class="wlbl">${d.label}</span></button>`).join('')}
       </div>
-      <div class="progress"><div><span>Progres tugas</span><strong>${pct}%</strong></div><div class="bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100" aria-label="Progres tugas"><i style="width:${pct}%"></i></div></div>
+      <div class="legend"><span><i class="lg-bar"></i>Kelas</span><span><i class="m-t"></i>Tenggat tugas</span><span><i class="m-u"></i>Ujian</span></div>
+      <div class="progress panel-foot"><div><span>Progres tugas</span><strong>${total ? `${selesai} dari ${total} selesai · ${pct}%` : 'Belum ada tugas'}</strong></div><div class="bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100" aria-label="Progres tugas"><i style="width:${pct}%"></i></div></div>
     </div>
   </section>`;
+  startClock();
+  if ($('#content').classList.contains('enter')) countUp($('#content'));
 }
 
 // ---------- Jadwal ----------
@@ -316,7 +423,7 @@ function viewJadwal() {
       </div>`).join('') : '<div class="none">Tidak ada kelas</div>'}</div>`;
   }).join('');
   $('#content').innerHTML = `
-    <div class="toolbar"><div class="toolbar-left"><span class="muted">${S.data.kelas.length} kelas per minggu. Bot mengingatkan grup sebelum tiap kelas dimulai.</span></div>${addBtn('kelas', 'Tambah jadwal')}</div>
+    ${pageHead('book-open', 'Jadwal mingguan', 'Jadwal rutin yang dipakai bot untuk mengingatkan grup sebelum tiap kelas dimulai.', [[S.data.kelas.length, 'Kelas / minggu'], [new Set(S.data.kelas.map((k) => k.hari)).size, 'Hari kuliah'], [S.data.kelas.filter((k) => /praktikum|lab/i.test(`${k.matkul} ${k.ruang || ''}`)).length, 'Praktikum'], [S.data.kelas.filter((k) => k.hari === today).length, 'Hari ini']], addBtn('kelas', 'Tambah jadwal'))}
     ${S.data.kelas.length ? `<div class="board" style="--cols:${hari.length}">${cols}</div>` : `<div class="card">${empty('calendar-dots', 'Belum ada jadwal', canEdit() ? 'Tambahkan jadwal kuliah mingguan untuk mulai.' : 'Admin belum mengisi jadwal kuliah.', addBtn('kelas', 'Tambah sekarang'))}</div>`}`;
 }
 
@@ -344,8 +451,10 @@ function viewTugas() {
   const kosong = q ? empty('magnifying-glass', 'Tidak ada hasil', 'Coba kata kunci lain.', '<button class="btn btn-secondary" data-clear-q>Bersihkan pencarian</button>')
     : S.filter === 'selesai' ? empty('check-circle', 'Belum ada tugas selesai', 'Tugas yang dicentang akan pindah ke sini.')
       : empty('confetti', 'Tidak ada tugas aktif', 'Semua beres. Tambahkan tugas baru kalau ada.', addBtn('tugas', 'Tambah sekarang'));
+  const nT = now(); const aktifT = all.filter((t) => !t.selesai);
   $('#content').innerHTML = `
-    <div class="toolbar"><div class="toolbar-left"><label class="search"><i class="ph ph-magnifying-glass"></i><input id="q" placeholder="Cari tugas atau mata kuliah…" value="${esc(S.q)}"></label><div class="segmented">${seg}</div></div>${addBtn('tugas', 'Tambah tugas')}</div>
+    ${pageHead('list-checks', 'Daftar tugas', 'Semua tugas kelas beserta tenggatnya. Bot mengingatkan grup H-3, H-1, dan 3 jam sebelum tenggat.', [[aktifT.length, 'Aktif'], [aktifT.filter((t) => t.ms - nT < 3 * DAY).length, '≤ 3 hari'], [aktifT.filter((t) => t.prioritas === 'tinggi').length, 'Prioritas tinggi'], [all.length - aktifT.length, 'Selesai']], addBtn('tugas', 'Tambah tugas'))}
+    <div class="toolbar"><div class="toolbar-left"><label class="search"><i class="ph ph-magnifying-glass"></i><input id="q" placeholder="Cari tugas atau mata kuliah…" value="${esc(S.q)}"></label><div class="segmented">${seg}</div></div></div>
     <div class="card">${list.length ? `<div class="table"><div class="thead"><span>Status</span><span>Tugas</span><span>Mata kuliah</span><span>Tenggat</span><span>Prioritas</span><span style="text-align:right">Aksi</span></div>${rows}</div>` : kosong}</div>`;
   const qi = $('#q'); qi.oninput = () => { S.q = qi.value; const pos = qi.selectionStart; viewTugas(); const n = $('#q'); n.focus(); n.setSelectionRange(pos, pos); };
 }
@@ -370,7 +479,7 @@ function viewUjian() {
     </div>`;
   }).join('');
   $('#content').innerHTML = `
-    <div class="toolbar"><div class="toolbar-left"><span class="muted">Bot mengingatkan grup H-7, H-1, dan pagi hari-H ujian.</span></div>${addBtn('ujian', 'Tambah ujian')}</div>
+    ${pageHead('clipboard-text', 'Jadwal ujian', 'UTS, UAS, kuis, dan ujian praktikum. Bot mengingatkan grup H-7, H-1, dan pagi hari-H.', [[list.filter((u) => u.ms >= n).length, 'Mendatang'], [(() => { const u = list.find((x) => x.ms >= n); return u ? `${Math.max(0, Math.round((startOfDay(u.ms) - startOfDay(n)) / DAY))} hari` : '–'; })(), 'Terdekat'], [list.filter((u) => u.ms < n).length, 'Selesai']], addBtn('ujian', 'Tambah ujian'))}
     <div class="card">${list.length ? `<div class="table ujian"><div class="thead"><span>Jenis</span><span>Mata kuliah</span><span>Waktu</span><span>Ruang</span><span>Status</span><span style="text-align:right">Aksi</span></div>${rows}</div>`
       : empty('exam', 'Belum ada ujian', canEdit() ? 'Tambahkan jadwal UTS, UAS, atau kuis.' : 'Belum ada ujian terjadwal.', addBtn('ujian', 'Tambah sekarang'))}</div>`;
 }
@@ -407,7 +516,8 @@ function viewPengingat() {
   </div>`).join('');
   const tabs = [['pagi', 'Hari ini'], ['besok', 'Besok'], ['tugas', 'Tugas'], ['ujian', 'Ujian']];
   const n = now();
-  $('#content').innerHTML = `<div class="split">
+  $('#content').innerHTML = `
+    ${pageHead('bell', 'Pusat pengingat', 'Atur kapan bot WhatsApp mengirim pengingat ke grup kelas. Pratinjau pesan ada di sebelah kanan.', [[PLANS.filter((pl) => p[pl.id].on).length + ' / ' + PLANS.length, 'Jenis aktif']])}<div class="split">
     <form class="card" id="pForm"><div class="card-head"><h2><i class="ph-fill ph-whatsapp-logo"></i>Jadwal pengingat otomatis</h2></div>
       <div class="rows" style="gap:10px">${plans}</div>
       <div style="display:flex;justify-content:flex-end;margin-top:16px"><button class="btn btn-primary" id="pSave"><i class="ph ph-floppy-disk"></i>Simpan &amp; aktifkan</button></div>
@@ -444,6 +554,7 @@ function viewStatus() {
   const tile = (ok, icon, title, sub) => `<div class="tile ${ok ? 'ok' : 'warn'}"><i class="ph-fill ph-${ok ? 'check-circle' : 'warning-circle'}"></i><b>${title}</b><small>${sub}</small></div>`;
   const numTile = (icon, label, val) => `<div class="tile num-tile"><small><i class="ph ph-${icon}"></i> ${label}</small><strong>${val}</strong></div>`;
   $('#content').innerHTML = `
+    ${pageHead('robot', 'Status bot', 'Kesehatan bot WhatsApp, isi database, dan riwayat pesan yang dikirim ke grup.', [[s.wa ? 'Online' : 'Offline', 'WhatsApp'], [s.gagal24, 'Gagal 24 jam']])}
     <div class="card"><div class="card-head"><h2><i class="ph ph-heartbeat"></i>Kesehatan sistem</h2><button class="btn btn-secondary btn-sm" data-reload-status><i class="ph ph-arrows-clockwise"></i>Periksa ulang</button></div>
       <div class="tiles">
         ${tile(s.wa, 'whatsapp-logo', 'WhatsApp', s.wa ? `Terhubung${s.nomor ? ` sebagai +${esc(s.nomor)}` : ''}` : 'Belum terhubung')}
@@ -469,14 +580,16 @@ function viewAkun() {
   if (!S.akun) { $('#content').innerHTML = '<div class="card muted">Memuat akun…</div>'; return; }
   const roleBadge = (r) => badge([r === 'admin' ? 'b-urgent' : r === 'editor' ? 'b-info' : 'b-normal', ROLE_LABEL[r]]);
   $('#content').innerHTML = `
-    <div class="toolbar"><div class="toolbar-left"><span class="muted"><b>Admin</b> mengatur semuanya · <b>Editor</b> mengubah jadwal, tugas, ujian · <b>Anggota</b> hanya melihat.</span></div><button class="btn btn-primary" data-add="akun"><i class="ph ph-user-plus"></i>Tambah akun</button></div>
+    ${pageHead('users', 'Akun kelas', '<b>Admin</b> mengatur semuanya, <b>Editor</b> mengubah jadwal, tugas, dan ujian, <b>Anggota</b> hanya melihat.', [[S.akun.length, 'Akun'], [S.akun.filter((a) => a.role === 'admin').length, 'Admin'], [S.akun.filter((a) => a.role === 'editor').length, 'Editor'], [S.akun.filter((a) => a.wa).length, 'Login WA']], '<button class="btn btn-primary" data-add="akun"><i class="ph ph-user-plus"></i>Tambah akun</button>')}
     <div class="card"><div class="rows">${S.akun.map((a) => `<div class="row"><span class="avatar">${esc(a.nama[0] || '?').toUpperCase()}</span><div class="grow"><div class="title">${esc(a.nama)}${a.id === S.user.id ? ' <span class="muted">(kamu)</span>' : ''}</div><div class="sub">@${esc(a.username)}${a.wa ? ` · <i class="ph ph-whatsapp-logo" aria-hidden="true"></i> +${esc(a.wa)}` : ' · <span class="muted">WA belum diisi</span>'}</div></div>${roleBadge(a.role)}
       <button class="tiny-btn" data-edit="akun" data-id="${a.id}" aria-label="Ubah"><i class="ph ph-pencil-simple"></i></button>${a.id !== S.user.id ? `<button class="tiny-btn danger" data-del="akun" data-id="${a.id}" aria-label="Hapus"><i class="ph ph-trash"></i></button>` : '<span style="width:30px"></span>'}</div>`).join('')}</div></div>`;
 }
 
 // ---------- Profil ----------
 function viewProfil() {
-  $('#content').innerHTML = `<form class="card" id="profForm" style="max-width:560px">
+  const izin = { admin: ['Mengelola jadwal, tugas, dan ujian', 'Mengatur pengingat bot', 'Mengelola akun anggota'], editor: ['Mengelola jadwal, tugas, dan ujian', 'Melihat semua data kelas'], viewer: ['Melihat jadwal, tugas, dan ujian', 'Menandai progres di dashboard'] }[S.user.role] || [];
+  $('#content').innerHTML = `${pageHead('user-circle', S.user.nama, `@${esc(S.user.username)} · ${ROLE_LABEL[S.user.role]}`)}
+  <div class="profil-grid"><form class="card" id="profForm">
     <div class="card-head"><h2><i class="ph ph-user-circle"></i>Akun kamu</h2>${badge(['b-info', ROLE_LABEL[S.user.role]])}</div>
     <div class="rows" style="gap:14px">
       <label class="field"><span>Username</span><input value="${esc(S.user.username)}" disabled></label>
@@ -485,7 +598,13 @@ function viewProfil() {
       <label class="field"><span>Password baru</span><input type="password" name="passwordBaru" minlength="8" autocomplete="new-password" placeholder="Kosongkan kalau tidak diganti"></label></div>
       <p class="form-error" id="profErr"></p>
       <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><button type="button" class="btn btn-secondary" data-logout><i class="ph ph-sign-out"></i>Keluar</button><button class="btn btn-primary"><i class="ph ph-floppy-disk"></i>Simpan profil</button></div>
-    </div></form>`;
+    </div></form>
+    <div class="stack">
+      <div class="card"><div class="card-head"><h2><i class="ph ph-shield-check"></i>Yang bisa kamu lakukan</h2></div>
+        <ul class="checklist">${izin.map((x) => `<li><i class="ph ph-check" aria-hidden="true"></i>${x}</li>`).join('')}</ul></div>
+      <div class="card"><div class="card-head"><h2><i class="ph ph-whatsapp-logo"></i>Masuk lewat WhatsApp</h2></div>
+        <p class="muted" style="margin:0">Kirim <b>login</b> ke bot WhatsApp dari nomor yang terdaftar di akunmu, lalu ketuk link yang dibalas bot. Nomor diatur oleh admin di menu Management Akun.</p></div>
+    </div></div>`;
   $('#profForm').onsubmit = async (e) => {
     e.preventDefault();
     try { await api('/api/auth/me', { method: 'PUT', body: Object.fromEntries(new FormData(e.target)) }); S.user.nama = new FormData(e.target).get('nama') || S.user.nama; setUserChip(); e.target.passwordLama.value = ''; e.target.passwordBaru.value = ''; $('#profErr').textContent = ''; toast('Profil disimpan.'); }
