@@ -470,7 +470,7 @@ function viewAkun() {
   const roleBadge = (r) => badge([r === 'admin' ? 'b-urgent' : r === 'editor' ? 'b-info' : 'b-normal', ROLE_LABEL[r]]);
   $('#content').innerHTML = `
     <div class="toolbar"><div class="toolbar-left"><span class="muted"><b>Admin</b> mengatur semuanya · <b>Editor</b> mengubah jadwal, tugas, ujian · <b>Anggota</b> hanya melihat.</span></div><button class="btn btn-primary" data-add="akun"><i class="ph ph-user-plus"></i>Tambah akun</button></div>
-    <div class="card"><div class="rows">${S.akun.map((a) => `<div class="row"><span class="avatar">${esc(a.nama[0] || '?').toUpperCase()}</span><div class="grow"><div class="title">${esc(a.nama)}${a.id === S.user.id ? ' <span class="muted">(kamu)</span>' : ''}</div><div class="sub">@${esc(a.username)}</div></div>${roleBadge(a.role)}
+    <div class="card"><div class="rows">${S.akun.map((a) => `<div class="row"><span class="avatar">${esc(a.nama[0] || '?').toUpperCase()}</span><div class="grow"><div class="title">${esc(a.nama)}${a.id === S.user.id ? ' <span class="muted">(kamu)</span>' : ''}</div><div class="sub">@${esc(a.username)}${a.wa ? ` · <i class="ph ph-whatsapp-logo" aria-hidden="true"></i> +${esc(a.wa)}` : ' · <span class="muted">WA belum diisi</span>'}</div></div>${roleBadge(a.role)}
       <button class="tiny-btn" data-edit="akun" data-id="${a.id}" aria-label="Ubah"><i class="ph ph-pencil-simple"></i></button>${a.id !== S.user.id ? `<button class="tiny-btn danger" data-del="akun" data-id="${a.id}" aria-label="Hapus"><i class="ph ph-trash"></i></button>` : '<span style="width:30px"></span>'}</div>`).join('')}</div></div>`;
 }
 
@@ -516,6 +516,7 @@ const FORMS = {
     <label class="field"><span>Nama</span><input name="nama" required value="${esc(v.nama)}"></label>
     <label class="field"><span>Username</span><input name="username" required value="${esc(v.username)}" ${v.id ? 'disabled' : ''} autocapitalize="none" placeholder="huruf kecil, tanpa spasi"></label>
     <label class="field"><span>Peran</span><select name="role">${['viewer', 'editor', 'admin'].map((r) => `<option value="${r}" ${(v.role || 'viewer') === r ? 'selected' : ''}>${ROLE_LABEL[r]}</option>`).join('')}</select></label>
+    <label class="field"><span>Nomor WhatsApp (opsional)</span><input name="wa" type="tel" inputmode="tel" value="${v.wa ? '+' + esc(v.wa) : ''}" placeholder="081234567890"><small class="muted">Kalau diisi, pemilik akun bisa masuk dengan mengirim <b>login</b> ke bot WhatsApp.</small></label>
     <label class="field"><span>${v.id ? 'Password baru (opsional)' : 'Password'}</span><input type="password" name="password" minlength="8" ${v.id ? '' : 'required'} autocomplete="new-password"></label>` },
 };
 const findItem = (type, id) => (type === 'akun' ? S.akun : S.data[type]).find((x) => x.id === id);

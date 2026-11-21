@@ -88,3 +88,47 @@ test('pengingat & status bot', async () => {
     assert.equal(s.grupNama, 'Kelas'); assert.equal(s.gagal24, 1); assert.equal(s.log.length, 3);
   } finally { srv.close(); }
 });
+
+test('masuk lewat WhatsApp: link sekali pakai', async () => {
+  const { normalWa, senderNumbers, isLoginRequest, createLoginToken, loginReply } = require('../src/walogin');
+  assert.equal(normalWa('0812-3456-7890'), '6281234567890');
+  assert.equal(normalWa('+62 812 3456 7890'), '6281234567890');
+  assert.equal(normalWa('12'), null);
+  assert.deepEqual(senderNumbers({ remoteJid: '123@lid', senderPn: '6281234567890@s.whatsapp.net' }), ['6281234567890']);
+  assert.ok(isLoginRequest('login') && isLoginRequest(' Masuk ') && isLoginRequest('/login'));
+  assert.ok(!isLoginRequest('masuk kelas jam berapa'));
+
+  const bot = { status: () => ({ wa: true, nomor: '6285199282919' }), send: async () => {} };
+  const { db, srv, req, login } = setup(bot);
+  try {
+    const adm = await login('admin', 'rahasia123');
+    assert.deepEqual((await req('/api/auth/wa')).json, { aktif: true, nomor: '6285199282919' });
+    assert.equal((await req('/api/akun', { method: 'POST', token: adm, body: { username: 'sari', nama: 'Sari', role: 'viewer', password: 'password-sari', wa: 'abc' } })).status, 400);
+    const sari = await req('/api/akun', { method: 'POST', token: adm, body: { username: 'sari', nama: 'Sari', role: 'viewer', password: 'password-sari', wa: '0812 3456 7890' } });
+    assert.equal(sari.status, 200);
+    assert.equal((await req('/api/akun', { token: adm })).json.akun.find((a) => a.username === 'sari').wa, '6281234567890');
+    // nomor yang sama tidak boleh dipakai akun lain
+    assert.equal((await req('/api/akun', { method: 'POST', token: adm, body: { username: 'budi', nama: 'Budi', role: 'viewer', password: 'password-budi', wa: '+6281234567890' } })).status, 400);
+
+    assert.equal(createLoginToken(db, ['6289999999999']).error, 'unknown');
+    const r = createLoginToken(db, ['6281234567890']);
+    assert.equal(r.akun.username, 'sari');
+    assert.match(loginReply(r, 'https://contoh.id/'), /https:\/\/contoh\.id\/login\?wa=/);
+    assert.equal((await req('/api/auth/wa', { method: 'POST', body: { token: 'x'.repeat(32) } })).status, 401);
+    const ok = await req('/api/auth/wa', { method: 'POST', body: { token: r.token } });
+    assert.equal(ok.status, 200);
+    assert.equal((await req('/api/auth/me', { token: ok.json.token })).json.user.username, 'sari');
+    // sekali pakai
+    assert.equal((await req('/api/auth/wa', { method: 'POST', body: { token: r.token } })).status, 401);
+    // kedaluwarsa
+    const old = createLoginToken(db, ['6281234567890'], Date.now() - 11 * 60000);
+    assert.equal((await req('/api/auth/wa', { method: 'POST', body: { token: old.token } })).status, 401);
+    // batas 3 link per 10 menit
+    createLoginToken(db, ['6281234567890']);
+    assert.equal(createLoginToken(db, ['6281234567890']).error, undefined);
+    assert.equal(createLoginToken(db, ['6281234567890']).error, 'limit');
+    // hapus nomor
+    assert.equal((await req(`/api/akun/${sari.json.id}`, { method: 'PUT', token: adm, body: { wa: '' } })).status, 200);
+    assert.equal(createLoginToken(db, ['6281234567890']).error, 'unknown');
+  } finally { srv.close(); }
+});

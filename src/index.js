@@ -12,6 +12,7 @@ const { handle } = require('./commands');
 const { dueReminders } = require('./reminders');
 const { createWeb } = require('./web');
 const { getSettings } = require('./settings');
+const { isLoginRequest, senderNumbers, createLoginToken, loginReply } = require('./walogin');
 
 const log = pino({ level: process.env.LOG_LEVEL || 'info' });
 const cfg = loadConfig();
@@ -108,6 +109,19 @@ async function start() {
     for (const m of messages) {
       if (!m.message || m.key.fromMe) continue;
       const text = textOf(m);
+      const chat = m.key.remoteJid || '';
+      const diGrup = chat.endsWith('@g.us');
+      // Di grup hanya /login (kata "masuk" biasa tidak dibalas); di chat pribadi "login" atau "masuk" cukup.
+      const pribadi = /@(s\.whatsapp\.net|lid)$/.test(chat);
+      if (isLoginRequest(text) && (pribadi || (diGrup && /^\s*[/!.]/.test(text)))) {
+        try {
+          const reply = diGrup
+            ? 'Untuk keamanan, minta link masuk lewat chat pribadi ke nomor bot ini: kirim *login*.'
+            : loginReply(createLoginToken(db, senderNumbers(m.key)), process.env.WEB_URL);
+          await sock.sendMessage(chat, { text: reply }, { quoted: m });
+        } catch (err) { log.error({ err }, 'gagal memproses permintaan login'); }
+        continue;
+      }
       if (!/^[/!.]\w/.test(text)) continue;
       try {
         const reply = handle(db, text, { isAdmin: await isAdmin(m), chatJid: m.key.remoteJid });

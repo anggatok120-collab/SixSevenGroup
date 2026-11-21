@@ -21,6 +21,7 @@ const MENU = `🤖 *Bot Pengingat Kuliah*
 /hapustugas 3 · /hapusujian 2 · /hapuskelas 5
 
 /web – alamat web pengelola
+login – kirim di chat pribadi ke bot untuk dapat link masuk web
 /groupid – tampilkan ID chat ini
 
 Prefix boleh / ! atau .`;
