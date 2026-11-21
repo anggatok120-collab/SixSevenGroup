@@ -4,17 +4,17 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Masuk · Six Seven 67</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23181b23'/%3E%3Crect x='.5' y='.5' width='31' height='31' rx='8.5' fill='none' stroke='%236fa8ff' stroke-opacity='.6'/%3E%3Ctext x='16' y='21' font-family='Arial' font-weight='700' font-size='13' text-anchor='middle' fill='%23f2f4f8'%3E67%3C/text%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23101012'/%3E%3Crect x='.5' y='.5' width='31' height='31' rx='8.5' fill='none' stroke='%23f5f5f7' stroke-opacity='.6'/%3E%3Ctext x='16' y='21' font-family='Arial' font-weight='700' font-size='13' text-anchor='middle' fill='%23f2f4f8'%3E67%3C/text%3E%3C/svg%3E">
 <link rel="stylesheet" href="/vendor/inter/index.css">
 <link rel="stylesheet" href="/vendor/phosphor/regular/style.css">
 <style>
-:root { --bg:#08090c; --surface:#101218; --raised:#181b23; --glass:rgba(255,255,255,.06); --border:rgba(255,255,255,.1); --border-strong:rgba(255,255,255,.18); --text:#f2f4f8; --muted:#9aa2b1; --subtle:#6d7686; --primary:#6fa8ff; --primary-strong:#2f6fe0; --on-primary:#06080d; --danger:#ff7d8a; --focus:rgba(122,176,255,.65); color-scheme: dark; }
+:root { --bg:#050506; --surface:#101012; --raised:#1a1a1d; --glass:#101012; --border:rgba(255,255,255,.1); --border-strong:rgba(255,255,255,.2); --text:#f5f5f7; --muted:#a1a1aa; --subtle:#8a8a93; --primary:#f5f5f7; --primary-strong:#d4d4d8; --on-primary:#0a0a0b; --danger:#f87171; --focus:rgba(255,255,255,.75); color-scheme: dark; }
 * { box-sizing: border-box; }
 body { margin: 0; min-height: 100dvh; display: grid; place-items: center; padding: 24px 16px; font: 15px/1.5 "Inter Variable", "Inter", system-ui, sans-serif; color: var(--text); background: var(--bg); -webkit-font-smoothing: antialiased; }
-body::before { content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none; background: radial-gradient(60rem 40rem at 10% -10%, rgba(111,168,255,.16), transparent 60%), radial-gradient(50rem 36rem at 110% 10%, rgba(79,216,164,.08), transparent 60%), radial-gradient(40rem 30rem at 50% 120%, rgba(47,111,224,.12), transparent 60%); }
-.card { width: min(25rem, 100%); padding: 32px; border-radius: 22px; background: linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.03)); border: 1px solid var(--border); box-shadow: 0 24px 60px rgba(0,0,0,.45); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
+body::before { display: none; }
+.card { width: min(25rem, 100%); padding: 32px; border-radius: 16px; background: var(--surface); border: 1px solid var(--border); }
 .brand { display: flex; align-items: center; gap: 12px; margin-bottom: 28px; }
-.mark { width: 40px; height: 40px; flex: none; border-radius: 12px; display: grid; place-items: center; font-weight: 700; font-size: 15px; background: var(--raised); border: 1px solid rgba(111,168,255,.45); box-shadow: 0 0 0 4px rgba(111,168,255,.08); }
+.mark { width: 40px; height: 40px; flex: none; border-radius: 12px; display: grid; place-items: center; font-weight: 700; font-size: 15px; background: var(--raised); border: 1px solid rgba(255,255,255,.34); }
 .brand b { display: block; font-size: 15px; font-weight: 600; }
 .brand small { display: block; color: var(--muted); font-size: 12px; }
 h1 { margin: 0 0 6px; font-size: 24px; line-height: 1.25; font-weight: 650; letter-spacing: -.01em; }
@@ -23,12 +23,12 @@ label { display: block; font-size: 13px; font-weight: 500; color: var(--muted); 
 .input { position: relative; margin-bottom: 16px; }
 .input i { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--subtle); font-size: 18px; pointer-events: none; }
 .input input { width: 100%; height: 46px; padding: 0 14px 0 42px; border-radius: 12px; border: 1px solid var(--border); background: rgba(255,255,255,.04); color: var(--text); font: inherit; font-size: 16px; transition: border-color .15s, box-shadow .15s; }
-.input input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(111,168,255,.2); }
+.input input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(255,255,255,.18); }
 button { width: 100%; height: 46px; border: 0; border-radius: 12px; background: var(--primary); color: var(--on-primary); font: 600 15px "Inter Variable", "Inter", sans-serif; cursor: pointer; margin-top: 8px; display: flex; align-items: center; justify-content: center; gap: 8px; transition: filter .15s; }
 button:hover { filter: brightness(1.08); }
 button:disabled { opacity: .6; cursor: wait; }
 button:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
-.error { display: none; margin-bottom: 16px; padding: 10px 14px; border: 1px solid rgba(255,125,138,.35); background: rgba(255,125,138,.1); color: var(--danger); border-radius: 12px; font-size: 13px; font-weight: 500; }
+.error { display: none; margin-bottom: 16px; padding: 10px 14px; border: 1px solid rgba(248,113,113,.35); background: rgba(248,113,113,.1); color: var(--danger); border-radius: 12px; font-size: 13px; font-weight: 500; }
 .error.show { display: block; }
 .foot { margin: 24px 0 0; padding-top: 18px; border-top: 1px solid var(--border); color: var(--subtle); font-size: 13px; text-align: center; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
