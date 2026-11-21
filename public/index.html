@@ -7,15 +7,12 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23181b23'/%3E%3Crect x='.5' y='.5' width='31' height='31' rx='8.5' fill='none' stroke='%236fa8ff' stroke-opacity='.6'/%3E%3Ctext x='16' y='21' font-family='Arial' font-weight='700' font-size='13' text-anchor='middle' fill='%23f2f4f8'%3E67%3C/text%3E%3C/svg%3E">
 <link rel="stylesheet" href="/vendor/inter/index.css">
 <link rel="stylesheet" href="/vendor/mono/500.css">
-<link rel="stylesheet" href="/vendor/phosphor/regular/style.css">
-<link rel="stylesheet" href="/vendor/phosphor/fill/style.css">
-<link rel="stylesheet" href="/vendor/phosphor/bold/style.css">
-<link rel="stylesheet" href="/vendor/phosphor/duotone/style.css">
+<link rel="stylesheet" href="/icons.css">
 <link rel="stylesheet" href="/app.css">
 </head>
 <body>
 <a class="skip" href="#content">Langsung ke konten</a>
-<div class="boot" id="boot"><i class="ph-fill ph-books"></i><b>Menyiapkan Six Seven 67…</b><small>Memeriksa akun dan menyinkronkan data.</small></div>
+<div class="boot" id="boot"><i class="ic icon-library"></i><b>Menyiapkan Six Seven 67…</b><small>Memeriksa akun dan menyinkronkan data.</small></div>
 
 <div class="aurora" aria-hidden="true"></div>
 <div class="shell" id="shell" aria-busy="true">
@@ -29,7 +26,7 @@
       <div class="bot-pill"><span class="dot" id="botDot" aria-hidden="true"></span><span id="botText" role="status">Memeriksa bot…</span></div>
       <div class="user-card">
         <button class="profile-chip" id="profileBtn" aria-label="Buka profil saya"><span class="avatar" id="avatar" aria-hidden="true"></span><span class="who"><b id="userName"></b><small id="userRole"></small></span></button>
-        <button class="tiny-btn" id="logoutBtn" aria-label="Keluar" title="Keluar"><i class="ph ph-sign-out"></i></button>
+        <button class="tiny-btn" id="logoutBtn" aria-label="Keluar" title="Keluar"><i class="ic icon-log-out"></i></button>
       </div>
     </div>
   </aside>
@@ -37,11 +34,11 @@
 
   <div class="main">
     <header class="topbar">
-      <button class="icon-btn menu-btn" id="menuBtn" aria-label="Buka menu"><i class="ph ph-list"></i></button>
+      <button class="icon-btn menu-btn" id="menuBtn" aria-label="Buka menu"><i class="ic icon-menu"></i></button>
       <div class="page-title"><p id="pageSub"></p><h1 id="pageTitle" tabindex="-1"></h1></div>
-      <label class="top-search"><i class="ph ph-magnifying-glass"></i><input type="search" id="globalSearch" placeholder="Cari mata kuliah, tugas…" aria-label="Cari mata kuliah atau tugas"></label>
+      <label class="top-search"><i class="ic icon-search"></i><input type="search" id="globalSearch" placeholder="Cari mata kuliah, tugas…" aria-label="Cari mata kuliah atau tugas"></label>
       <div class="top-actions">
-        <button class="pill-btn" id="bellBtn" aria-label="Tugas aktif"><i class="ph ph-bell"></i><span id="bellCount">0</span></button>
+        <button class="pill-btn" id="bellBtn" aria-label="Tugas aktif"><i class="ic icon-bell"></i><span id="bellCount">0</span></button>
       </div>
     </header>
     <main class="content" id="content" tabindex="-1"></main>
@@ -49,12 +46,12 @@
 </div>
 
 <dialog class="modal" id="modal"><form id="modalForm" novalidate>
-  <div class="modal-head"><div><div class="eyebrow" id="mEyebrow"></div><h2 id="mTitle"></h2></div><button type="button" class="tiny-btn" data-close aria-label="Tutup"><i class="ph ph-x"></i></button></div>
+  <div class="modal-head"><div><div class="eyebrow" id="mEyebrow"></div><h2 id="mTitle"></h2></div><button type="button" class="tiny-btn" data-close aria-label="Tutup"><i class="ic icon-x"></i></button></div>
   <div class="modal-body" id="mBody"></div>
   <div class="modal-foot" id="mFoot"></div>
 </form></dialog>
 
-<div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true"><i class="ph-fill ph-check-circle"></i><p id="toastText"></p><button class="tiny-btn" id="toastClose" aria-label="Tutup"><i class="ph ph-x"></i></button></div>
+<div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true"><i class="ic icon-circle-check"></i><p id="toastText"></p><button class="tiny-btn" id="toastClose" aria-label="Tutup"><i class="ic icon-x"></i></button></div>
 
 <script src="/app.js"></script>
 </body>

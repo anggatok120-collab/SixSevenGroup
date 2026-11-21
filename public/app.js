@@ -63,7 +63,7 @@ function toast(msg, kind = 'success') {
   const t = $('#toast');
   t.classList.toggle('error', kind === 'error');
   t.setAttribute('role', kind === 'error' ? 'alert' : 'status');
-  $('i', t).className = kind === 'error' ? 'ph-fill ph-warning-circle' : 'ph-fill ph-check-circle';
+  $('i', t).className = kind === 'error' ? 'ic icon-circle-alert' : 'ic icon-circle-check';
   $('#toastText').textContent = msg;
   t.classList.add('show');
   clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 3600);
@@ -73,11 +73,12 @@ $('#toastClose').onclick = () => $('#toast').classList.remove('show');
 // ---------- Navigasi ----------
 const NAV = [
   { title: 'Ringkasan', items: [
-    { id: 'dashboard', label: 'Dashboard', icon: 'squares-four' },
+    { id: 'dashboard', label: 'Dashboard', icon: 'layout-dashboard' },
   ] },
   { title: 'Jadwal', items: [
     { id: 'jadwal', label: 'Jadwal Kuliah', icon: 'book-open' },
-    { id: 'ujian', label: 'Jadwal Ujian', icon: 'clipboard-text' },
+    { id: 'praktikum', label: 'Jadwal Praktikum', icon: 'flask-conical' },
+    { id: 'ujian', label: 'Jadwal Ujian', icon: 'clipboard-check' },
   ] },
   { title: 'Pekerjaan', items: [
     { id: 'tugas', label: 'Tugas', icon: 'list-checks', badge: () => S.data.tugas.filter((t) => !t.selesai).length },
@@ -85,13 +86,14 @@ const NAV = [
   ] },
   { title: 'Akun', items: [
     { id: 'akun', label: 'Management Akun', icon: 'users', roles: ['admin'] },
-    { id: 'status', label: 'Status Bot', icon: 'robot', roles: ['admin'] },
-    { id: 'profil', label: 'Profil', icon: 'user' },
+    { id: 'status', label: 'Status Bot', icon: 'bot', roles: ['admin'] },
+    { id: 'profil', label: 'Profil', icon: 'user-round' },
   ] },
 ];
 const META = {
   dashboard: ['Dashboard', 'Ringkasan kelas, tugas, dan ujian kamu'],
   jadwal: ['Jadwal Kuliah', 'Jadwal rutin mingguan yang dipakai bot untuk mengingatkan grup'],
+  praktikum: ['Jadwal Praktikum', 'Sesi praktikum dan lab dari jadwal mingguan'],
   tugas: ['Tugas', 'Daftar tugas beserta tenggatnya'],
   ujian: ['Ujian', 'UTS, UAS, kuis, dan praktikum'],
   pengingat: ['Pusat Pengingat', 'Atur kapan bot WhatsApp mengirim pengingat ke grup'],
@@ -107,7 +109,7 @@ function renderNav() {
     if (!items.length) return '';
     return `<div class="nav-group"><div class="nav-title">${g.title}</div>${items.map((it) => {
       const on = S.view === it.id; const b = it.badge ? it.badge() : 0;
-      return `<button data-view="${it.id}" class="${on ? 'active' : ''}" ${on ? 'aria-current="page"' : ''}><i class="ph ph-${it.icon}"></i><span>${it.label}</span>${b ? `<em class="nav-badge" aria-label="${b} tugas aktif">${b}</em>` : ''}</button>`;
+      return `<button data-view="${it.id}" class="${on ? 'active' : ''}" ${on ? 'aria-current="page"' : ''}><i class="ic icon-${it.icon}"></i><span>${it.label}</span>${b ? `<em class="nav-badge" aria-label="${b} tugas aktif">${b}</em>` : ''}</button>`;
     }).join('')}</div>`;
   }).join('');
 }
@@ -127,7 +129,7 @@ function go(view) {
 
 // Ikon dekoratif disembunyikan dari pembaca layar; label tetap di teks/aria-label tombol.
 function a11yPass() {
-  queueMicrotask(() => $$('i[class*="ph-"]:not([aria-hidden])').forEach((i) => i.setAttribute('aria-hidden', 'true')));
+  queueMicrotask(() => $$('i[class*="icon-"]:not([aria-hidden])').forEach((i) => i.setAttribute('aria-hidden', 'true')));
 }
 
 // ---------- Render utama ----------
@@ -144,11 +146,11 @@ function render() {
   $('#botDot').classList.toggle('on', !!(b.wa && b.grup));
   $('#botText').textContent = b.wa ? (b.grup ? 'Bot WA aktif' : 'Bot aktif, grup belum diatur') : 'Bot WA offline';
   a11yPass();
-  ({ dashboard: viewDashboard, jadwal: viewJadwal, tugas: viewTugas, ujian: viewUjian, pengingat: viewPengingat, status: viewStatus, akun: viewAkun, profil: viewProfil })[S.view]();
+  ({ dashboard: viewDashboard, jadwal: () => viewJadwal(), praktikum: () => viewJadwal(true), tugas: viewTugas, ujian: viewUjian, pengingat: viewPengingat, status: viewStatus, akun: viewAkun, profil: viewProfil })[S.view]();
 }
 
-const empty = (icon, title, hint, action = '') => `<div class="empty"><i class="ph-duotone ph-${icon}"></i><b>${title}</b><p>${hint}</p>${action}</div>`;
-const addBtn = (type, label) => canEdit() ? `<button class="btn btn-primary" data-add="${type}"><i class="ph ph-plus"></i>${label}</button>` : '';
+const empty = (icon, title, hint, action = '') => `<div class="empty"><i class="ic icon-${icon}"></i><b>${title}</b><p>${hint}</p>${action}</div>`;
+const addBtn = (type, label) => canEdit() ? `<button class="btn btn-primary" data-add="${type}"><i class="ic icon-plus"></i>${label}</button>` : '';
 
 // ---------- Dashboard ----------
 function nextClass() {
@@ -167,8 +169,8 @@ function nextClass() {
 function taskRow(t, compact) {
   const done = t.selesai;
   return `<div class="row clickable ${done ? 'done' : ''}" data-detail="tugas" data-id="${t.id}">
-    <button class="check ${done ? 'on' : ''}" data-toggle="${t.id}" ${canEdit() ? '' : 'disabled'} aria-pressed="${!!done}" aria-label="${done ? 'Tandai belum selesai' : 'Tandai selesai'}: ${esc(t.judul)}"><i class="ph-bold ph-check"></i></button>
-    <div class="grow"><div class="title">${esc(t.judul)}</div><div class="sub"><span class="chip">${esc(t.matkul)}</span>${compact ? '' : `<span>${tgl(t.ms)} · ${hm(t.ms)}</span>`}${t.prioritas === 'tinggi' ? '<span class="pri-high"><i class="ph-fill ph-fire"></i>Tinggi</span>' : ''}</div></div>
+    <button class="check ${done ? 'on' : ''}" data-toggle="${t.id}" ${canEdit() ? '' : 'disabled'} aria-pressed="${!!done}" aria-label="${done ? 'Tandai belum selesai' : 'Tandai selesai'}: ${esc(t.judul)}"><i class="ic icon-check"></i></button>
+    <div class="grow"><div class="title">${esc(t.judul)}</div><div class="sub"><span class="chip">${esc(t.matkul)}</span>${compact ? '' : `<span>${tgl(t.ms)} · ${hm(t.ms)}</span>`}${t.prioritas === 'tinggi' ? '<span class="pri-high"><i class="ic icon-flame"></i>Tinggi</span>' : ''}</div></div>
     ${badge(dueBadge(t.ms, done))}
   </div>`;
 }
@@ -180,21 +182,12 @@ function sessionsOn(dayMs) {
   });
 }
 function sessionRow(x, showDay) {
-  const k = x.k; const praktikum = /praktikum|lab/i.test(k.matkul + ' ' + (k.ruang || ''));
-  const tag = x.live ? '<span class="tag" data-tone="live"><i class="ph ph-broadcast"></i>Berlangsung</span>' : x.past ? '<span class="tag" data-tone="done">Selesai</span>' : `<span class="tag">${praktikum ? 'Praktikum' : 'Kuliah'}</span>`;
-  return `<div class="session" data-live="${x.live}" data-past="${x.past}" data-detail="kelas" data-id="${k.id}" role="button" tabindex="0">
+  const k = x.k;
+  const tag = x.live ? '<span class="tag" data-tone="live"><i class="ic icon-radio"></i>Berlangsung</span>' : `<span class="tag">${isPraktikum(k) ? 'Praktikum' : 'Kuliah'}</span>`;
+  return `<div class="session" data-live="${x.live}" data-detail="kelas" data-id="${k.id}" role="button" tabindex="0">
     <span class="session-time"><strong>${k.mulai.replace(':', '.')}</strong><span>${(k.selesai || '').replace(':', '.')}</span></span>
     <span class="session-main"><b>${esc(k.matkul)}</b><span class="session-meta">${showDay ? `<span>${HARI[w(x.dayMs).dow]}</span>` : ''}${k.ruang ? `<span>${esc(k.ruang)}</span>` : ''}${k.dosen ? `<span>${esc(k.dosen)}</span>` : ''}</span></span>
     ${tag}</div>`;
-}
-function dueTone(ms, done) {
-  if (done) return ['success', 'Selesai'];
-  const n = now(); const diff = Math.round((startOfDay(ms) - startOfDay(n)) / DAY);
-  if (ms < n) return ['danger', 'Terlambat'];
-  if (diff === 0) return ['danger', 'Hari ini'];
-  if (diff === 1) return ['warning', 'Besok'];
-  if (diff <= 3) return ['warning', `${diff} hari lagi`];
-  return ['', `${diff} hari lagi`];
 }
 function relDay(ms) {
   const diff = Math.round((startOfDay(ms) - startOfDay(now())) / DAY);
@@ -205,11 +198,10 @@ function relDay(ms) {
   return `${tgl(ms)}, ${jam}`;
 }
 function taskItem(t) {
-  const done = !!t.selesai; const [tone, label] = dueTone(t.ms, done);
+  const done = !!t.selesai;
   return `<div class="task" data-done="${done}">
-    <button class="task-check" role="checkbox" aria-checked="${done}" data-toggle="${t.id}" ${canEdit() ? '' : 'disabled'} aria-label="Tandai ${esc(t.judul)} ${done ? 'belum selesai' : 'selesai'}">${done ? '<i class="ph-bold ph-check"></i>' : ''}</button>
-    <div class="task-main" data-detail="tugas" data-id="${t.id}"><span class="task-title">${esc(t.judul)}</span><span class="task-meta"><span>${esc(t.matkul)}</span><span>${relDay(t.ms)}</span>${t.prioritas === 'tinggi' ? '<span class="hi">Prioritas tinggi</span>' : ''}</span></div>
-    <span class="tag" data-tone="${tone}">${label}</span></div>`;
+    <button class="task-check" role="checkbox" aria-checked="${done}" data-toggle="${t.id}" ${canEdit() ? '' : 'disabled'} aria-label="Tandai ${esc(t.judul)} ${done ? 'belum selesai' : 'selesai'}">${done ? '<i class="ic icon-check"></i>' : ''}</button>
+    <div class="task-main" data-detail="tugas" data-id="${t.id}"><span class="task-title">${esc(t.judul)}</span><span class="task-meta"><span>${esc(t.matkul)}</span><span>${relDay(t.ms)}</span></span></div></div>`;
 }
 function viewDashboard() {
   const n = now(); const sod = startOfDay(n); const today = w(n).dow;
@@ -253,13 +245,13 @@ function viewDashboard() {
   <section class="greet">
     <div><h2>${salam}, ${esc(S.user.nama.split(' ')[0])}</h2>
       <p>${tanggal} · ${todaySessions.length ? `${todaySessions.length} kelas` : 'tidak ada kelas'} dan ${aktif.length} tugas menunggu</p></div>
-    ${canEdit() ? '<button class="btn btn-primary" data-add="tugas"><i class="ph ph-plus"></i>Tugas baru</button>' : ''}
+    ${canEdit() ? '<button class="btn btn-primary" data-add="tugas"><i class="ic icon-plus"></i>Tugas baru</button>' : ''}
   </section>
   <section class="metrics">
-    <article class="metric"><span class="metric-label"><i class="ph ph-book-open"></i>Kelas hari ini</span><strong>${todaySessions.length} sesi</strong><small>${nc ? `Berikutnya ${nc.k.mulai.replace(':', '.')}${nc.i ? ` (${HARI[w(nc.start).dow]})` : ''} · ${esc(nc.k.ruang || nc.k.matkul)}` : 'Belum ada jadwal'}</small></article>
-    <article class="metric"><span class="metric-label"><i class="ph ph-list-checks"></i>Tugas aktif</span><strong>${aktif.length} tugas</strong><small data-tone="${dueToday ? 'warning' : ''}">${dueToday ? `${dueToday} jatuh tempo hari ini` : aktif[0] ? `Terdekat ${relDay(aktif[0].ms)}` : 'Semua beres'}</small></article>
-    <article class="metric"><span class="metric-label"><i class="ph ph-clipboard-text"></i>Ujian terdekat</span><strong>${u0 ? (uDays === 0 ? 'Hari ini' : `${uDays} hari`) : '–'}</strong><small>${u0 ? `${esc(u0.jenis)} ${esc(u0.matkul)} · ${w(u0.ms).d} ${BULAN[w(u0.ms).m]}` : 'Belum ada ujian'}</small></article>
-    <article class="metric"><span class="metric-label"><i class="ph ph-whatsapp-logo"></i>Bot WhatsApp</span><strong>${b.wa ? 'Aktif' : 'Offline'}</strong><small data-tone="${b.wa && b.grup ? '' : 'warning'}">${b.wa ? (b.grup ? 'Mengirim ke grup kelas' : 'Grup belum diatur') : 'Pengingat tertunda'}</small></article>
+    <article class="metric"><span class="metric-label"><i class="ic icon-book-open"></i>Kelas hari ini</span><strong>${todaySessions.length} sesi</strong><small>${nc ? `Berikutnya ${nc.k.mulai.replace(':', '.')}${nc.i ? ` (${HARI[w(nc.start).dow]})` : ''} · ${esc(nc.k.ruang || nc.k.matkul)}` : 'Belum ada jadwal'}</small></article>
+    <article class="metric"><span class="metric-label"><i class="ic icon-list-checks"></i>Tugas aktif</span><strong>${aktif.length} tugas</strong><small data-tone="${dueToday ? 'warning' : ''}">${dueToday ? `${dueToday} jatuh tempo hari ini` : aktif[0] ? `Terdekat ${relDay(aktif[0].ms)}` : 'Semua beres'}</small></article>
+    <article class="metric"><span class="metric-label"><i class="ic icon-clipboard-check"></i>Ujian terdekat</span><strong>${u0 ? (uDays === 0 ? 'Hari ini' : `${uDays} hari`) : '–'}</strong><small>${u0 ? `${esc(u0.jenis)} ${esc(u0.matkul)} · ${w(u0.ms).d} ${BULAN[w(u0.ms).m]}` : 'Belum ada ujian'}</small></article>
+    <article class="metric"><span class="metric-label"><i class="ic icon-message-circle"></i>Bot WhatsApp</span><strong>${b.wa ? 'Aktif' : 'Offline'}</strong><small data-tone="${b.wa && b.grup ? '' : 'warning'}">${b.wa ? (b.grup ? 'Mengirim ke grup kelas' : 'Grup belum diatur') : 'Pengingat tertunda'}</small></article>
   </section>
   <section class="dash-grid">
     <div class="panel">
@@ -270,8 +262,8 @@ function viewDashboard() {
     </div>
     <div class="panel">
       <div class="panel-head"><div><h2>Tugas mendekat</h2><span>${aktif.length} dari ${total} belum selesai</span></div></div>
-      <div class="tasks">${aktif.length ? aktif.slice(0, 5).map(taskItem).join('') : '<p class="soft">Semua tugas sudah selesai. Waktu yang tersisa bisa dipakai untuk mereview materi.</p>'}</div>
-      <button class="ghost-btn" data-view="tugas">Kelola semua tugas<i class="ph ph-arrow-right"></i></button>
+      <div class="tasks">${total ? [...aktif.slice(0, 4), ...S.data.tugas.filter((t) => t.selesai).sort((a, b) => b.ms - a.ms)].slice(0, Math.max(4, Math.min(aktif.length, 5))).map(taskItem).join('') : '<p class="soft">Semua tugas sudah selesai. Waktu yang tersisa bisa dipakai untuk mereview materi.</p>'}</div>
+      <button class="ghost-btn" data-view="tugas">Kelola semua tugas<i class="ic icon-arrow-right"></i></button>
     </div>
   </section>
   <section class="dash-grid">
@@ -282,9 +274,9 @@ function viewDashboard() {
     <div class="panel">
       <div class="panel-head"><div><h2>Akses cepat</h2></div></div>
       <div class="quick">
-        <button class="quicklink" data-view="jadwal"><i class="ph ph-book-open"></i><span>Jadwal kuliah pekan ini</span><i class="ph ph-caret-right"></i></button>
-        <button class="quicklink" data-view="ujian"><i class="ph ph-clipboard-text"></i><span>Jadwal ujian</span><i class="ph ph-caret-right"></i></button>
-        <button class="quicklink" data-view="tugas"><i class="ph ph-list-checks"></i><span>Semua tugas aktif</span><i class="ph ph-caret-right"></i></button>
+        <button class="quicklink" data-view="jadwal"><i class="ic icon-book-open"></i><span>Jadwal kuliah pekan ini</span><i class="ic icon-chevron-right"></i></button>
+        <button class="quicklink" data-view="ujian"><i class="ic icon-clipboard-check"></i><span>Jadwal ujian</span><i class="ic icon-chevron-right"></i></button>
+        <button class="quicklink" data-view="tugas"><i class="ic icon-list-checks"></i><span>Semua tugas aktif</span><i class="ic icon-chevron-right"></i></button>
       </div>
       <div class="progress"><div><span>Progres tugas</span><strong>${pct}%</strong></div><div class="bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100" aria-label="Progres tugas"><i style="width:${pct}%"></i></div></div>
     </div>
@@ -292,22 +284,24 @@ function viewDashboard() {
 }
 
 // ---------- Jadwal ----------
-function viewJadwal() {
+const isPraktikum = (k) => /praktikum|lab/i.test(`${k.matkul} ${k.ruang || ''}`);
+function viewJadwal(praktikum = false) {
   const today = w(now()).dow;
-  const ada = (h) => S.data.kelas.some((k) => k.hari === h);
+  const semua = praktikum ? S.data.kelas.filter(isPraktikum) : S.data.kelas;
+  const ada = (h) => semua.some((k) => k.hari === h);
   const hari = [1, 2, 3, 4, 5, ...(ada(6) ? [6] : []), ...(ada(0) ? [0] : [])];
   const cols = hari.map((h) => {
-    const list = S.data.kelas.filter((k) => k.hari === h).sort((a, b) => a.mulai.localeCompare(b.mulai));
+    const list = semua.filter((k) => k.hari === h).sort((a, b) => a.mulai.localeCompare(b.mulai));
     return `<div class="col ${h === today ? 'today' : ''}"><div class="col-head"><b>${HARI[h]}</b><small>${list.length} kelas</small></div>
       ${list.length ? list.map((k) => `<div class="class-card" data-detail="kelas" data-id="${k.id}" role="button" tabindex="0">
         <span class="time">${k.mulai}${k.selesai ? ' – ' + k.selesai : ''}</span><span class="name">${esc(k.matkul)}</span>
-        <div class="meta">${k.ruang ? `<span><i class="ph ph-map-pin"></i>${esc(k.ruang)}</span>` : ''}${k.dosen ? `<span><i class="ph ph-chalkboard-teacher"></i>${esc(k.dosen)}</span>` : ''}</div>
-        ${canEdit() ? `<div class="actions"><button class="tiny-btn" data-edit="kelas" data-id="${k.id}" aria-label="Ubah"><i class="ph ph-pencil-simple"></i></button><button class="tiny-btn danger" data-del="kelas" data-id="${k.id}" aria-label="Hapus"><i class="ph ph-trash"></i></button></div>` : ''}
+        <div class="meta">${k.ruang ? `<span><i class="ic icon-map-pin"></i>${esc(k.ruang)}</span>` : ''}${k.dosen ? `<span><i class="ic icon-presentation"></i>${esc(k.dosen)}</span>` : ''}</div>
+        ${canEdit() ? `<div class="actions"><button class="tiny-btn" data-edit="kelas" data-id="${k.id}" aria-label="Ubah"><i class="ic icon-pencil"></i></button><button class="tiny-btn danger" data-del="kelas" data-id="${k.id}" aria-label="Hapus"><i class="ic icon-trash-2"></i></button></div>` : ''}
       </div>`).join('') : '<div class="none">Tidak ada kelas</div>'}</div>`;
   }).join('');
   $('#content').innerHTML = `
-    <div class="toolbar"><div class="toolbar-left"><span class="muted">${S.data.kelas.length} kelas per minggu. Bot mengingatkan grup sebelum tiap kelas dimulai.</span></div>${addBtn('kelas', 'Tambah jadwal')}</div>
-    ${S.data.kelas.length ? `<div class="board" style="--cols:${hari.length}">${cols}</div>` : `<div class="card">${empty('calendar-dots', 'Belum ada jadwal', canEdit() ? 'Tambahkan jadwal kuliah mingguan untuk mulai.' : 'Admin belum mengisi jadwal kuliah.', addBtn('kelas', 'Tambah sekarang'))}</div>`}`;
+    <div class="toolbar"><div class="toolbar-left"><span class="muted">${praktikum ? `${semua.length} sesi praktikum per minggu. Nama mata kuliah atau ruang yang memuat "Praktikum" atau "Lab" otomatis masuk ke sini.` : `${semua.length} kelas per minggu. Bot mengingatkan grup sebelum tiap kelas dimulai.`}</span></div>${addBtn('kelas', 'Tambah jadwal')}</div>
+    ${semua.length ? `<div class="board" style="--cols:${hari.length}">${cols}</div>` : `<div class="card">${praktikum ? empty('flask-conical', 'Belum ada praktikum', 'Tambahkan jadwal dengan nama seperti "Praktikum Kimia" atau ruang "Lab".', addBtn('kelas', 'Tambah sekarang')) : empty('calendar-days', 'Belum ada jadwal', canEdit() ? 'Tambahkan jadwal kuliah mingguan untuk mulai.' : 'Admin belum mengisi jadwal kuliah.', addBtn('kelas', 'Tambah sekarang'))}</div>`}`;
 }
 
 // ---------- Tugas ----------
@@ -320,22 +314,22 @@ function viewTugas() {
     .sort((a, b) => (S.filter === 'selesai' ? b.ms - a.ms : a.ms - b.ms));
   const seg = ['aktif', 'selesai', 'semua'].map((f) => `<button class="${S.filter === f ? 'on' : ''}" data-filter="${f}" aria-pressed="${S.filter === f}">${f[0].toUpperCase() + f.slice(1)}<em>${cnt[f]}</em></button>`).join('');
   const rows = list.map((t) => {
-    const pri = t.prioritas === 'tinggi' ? '<span class="pri-high"><i class="ph-fill ph-fire"></i>Tinggi</span>' : '<span class="pri-normal">Normal</span>';
+    const pri = t.prioritas === 'tinggi' ? '<span class="pri-high"><i class="ic icon-flame"></i>Tinggi</span>' : '<span class="pri-normal">Normal</span>';
     return `<div class="trow ${t.selesai ? 'done' : ''}">
-      <div><button class="check ${t.selesai ? 'on' : ''}" data-toggle="${t.id}" ${canEdit() ? '' : 'disabled'} aria-pressed="${!!t.selesai}" aria-label="${t.selesai ? 'Tandai belum selesai' : 'Tandai selesai'}: ${esc(t.judul)}"><i class="ph-bold ph-check"></i></button></div>
+      <div><button class="check ${t.selesai ? 'on' : ''}" data-toggle="${t.id}" ${canEdit() ? '' : 'disabled'} aria-pressed="${!!t.selesai}" aria-label="${t.selesai ? 'Tandai belum selesai' : 'Tandai selesai'}: ${esc(t.judul)}"><i class="ic icon-check"></i></button></div>
       <div style="min-width:0;cursor:pointer" data-detail="tugas" data-id="${t.id}"><div class="title">${esc(t.judul)}</div>${t.catatan ? `<div class="note">${esc(t.catatan)}</div>` : ''}
         <div class="m-meta"><span class="chip">${esc(t.matkul)}</span>${badge(dueBadge(t.ms, t.selesai))}<span>${tgl(t.ms)} · ${hm(t.ms)}</span>${t.prioritas === 'tinggi' ? pri : ''}</div></div>
       <div class="d-only"><span class="chip">${esc(t.matkul)}</span></div>
       <div class="d-only"><div>${tgl(t.ms)} · ${hm(t.ms)}</div>${badge(dueBadge(t.ms, t.selesai))}</div>
       <div class="d-only">${pri}</div>
-      <div class="row-actions">${canEdit() ? `<button class="tiny-btn" data-edit="tugas" data-id="${t.id}" aria-label="Ubah"><i class="ph ph-pencil-simple"></i></button><button class="tiny-btn danger" data-del="tugas" data-id="${t.id}" aria-label="Hapus"><i class="ph ph-trash"></i></button>` : ''}</div>
+      <div class="row-actions">${canEdit() ? `<button class="tiny-btn" data-edit="tugas" data-id="${t.id}" aria-label="Ubah"><i class="ic icon-pencil"></i></button><button class="tiny-btn danger" data-del="tugas" data-id="${t.id}" aria-label="Hapus"><i class="ic icon-trash-2"></i></button>` : ''}</div>
     </div>`;
   }).join('');
-  const kosong = q ? empty('magnifying-glass', 'Tidak ada hasil', 'Coba kata kunci lain.', '<button class="btn btn-secondary" data-clear-q>Bersihkan pencarian</button>')
-    : S.filter === 'selesai' ? empty('check-circle', 'Belum ada tugas selesai', 'Tugas yang dicentang akan pindah ke sini.')
-      : empty('confetti', 'Tidak ada tugas aktif', 'Semua beres. Tambahkan tugas baru kalau ada.', addBtn('tugas', 'Tambah sekarang'));
+  const kosong = q ? empty('search', 'Tidak ada hasil', 'Coba kata kunci lain.', '<button class="btn btn-secondary" data-clear-q>Bersihkan pencarian</button>')
+    : S.filter === 'selesai' ? empty('circle-check', 'Belum ada tugas selesai', 'Tugas yang dicentang akan pindah ke sini.')
+      : empty('party-popper', 'Tidak ada tugas aktif', 'Semua beres. Tambahkan tugas baru kalau ada.', addBtn('tugas', 'Tambah sekarang'));
   $('#content').innerHTML = `
-    <div class="toolbar"><div class="toolbar-left"><label class="search"><i class="ph ph-magnifying-glass"></i><input id="q" placeholder="Cari tugas atau mata kuliah…" value="${esc(S.q)}"></label><div class="segmented">${seg}</div></div>${addBtn('tugas', 'Tambah tugas')}</div>
+    <div class="toolbar"><div class="toolbar-left"><label class="search"><i class="ic icon-search"></i><input id="q" placeholder="Cari tugas atau mata kuliah…" value="${esc(S.q)}"></label><div class="segmented">${seg}</div></div>${addBtn('tugas', 'Tambah tugas')}</div>
     <div class="card">${list.length ? `<div class="table"><div class="thead"><span>Status</span><span>Tugas</span><span>Mata kuliah</span><span>Tenggat</span><span>Prioritas</span><span style="text-align:right">Aksi</span></div>${rows}</div>` : kosong}</div>`;
   const qi = $('#q'); qi.oninput = () => { S.q = qi.value; const pos = qi.selectionStart; viewTugas(); const n = $('#q'); n.focus(); n.setSelectionRange(pos, pos); };
 }
@@ -352,26 +346,26 @@ function viewUjian() {
     return `<div class="trow ${lewat ? 'done' : ''}">
       <div><span class="badge b-warn">${esc(u.jenis)}</span></div>
       <div style="min-width:0;cursor:pointer" data-detail="ujian" data-id="${u.id}"><div class="title">${esc(u.matkul)}</div>
-        <div class="m-meta"><span>${tgl(u.ms)} · ${hm(u.ms)}</span>${u.ruang ? `<span><i class="ph ph-map-pin"></i> ${esc(u.ruang)}</span>` : ''}${lewat ? badge(['b-normal', 'Selesai']) : badge(dueBadge(u.ms))}</div></div>
+        <div class="m-meta"><span>${tgl(u.ms)} · ${hm(u.ms)}</span>${u.ruang ? `<span><i class="ic icon-map-pin"></i> ${esc(u.ruang)}</span>` : ''}${lewat ? badge(['b-normal', 'Selesai']) : badge(dueBadge(u.ms))}</div></div>
       <div class="d-only">${tgl(u.ms)} · ${hm(u.ms)}</div>
       <div class="d-only">${u.ruang ? esc(u.ruang) : '<span class="muted">–</span>'}</div>
       <div class="d-only">${lewat ? badge(['b-normal', 'Selesai']) : badge(dueBadge(u.ms))}</div>
-      <div class="row-actions">${canEdit() ? `<button class="tiny-btn" data-edit="ujian" data-id="${u.id}" aria-label="Ubah"><i class="ph ph-pencil-simple"></i></button><button class="tiny-btn danger" data-del="ujian" data-id="${u.id}" aria-label="Hapus"><i class="ph ph-trash"></i></button>` : ''}</div>
+      <div class="row-actions">${canEdit() ? `<button class="tiny-btn" data-edit="ujian" data-id="${u.id}" aria-label="Ubah"><i class="ic icon-pencil"></i></button><button class="tiny-btn danger" data-del="ujian" data-id="${u.id}" aria-label="Hapus"><i class="ic icon-trash-2"></i></button>` : ''}</div>
     </div>`;
   }).join('');
   $('#content').innerHTML = `
     <div class="toolbar"><div class="toolbar-left"><span class="muted">Bot mengingatkan grup H-7, H-1, dan pagi hari-H ujian.</span></div>${addBtn('ujian', 'Tambah ujian')}</div>
     <div class="card">${list.length ? `<div class="table ujian"><div class="thead"><span>Jenis</span><span>Mata kuliah</span><span>Waktu</span><span>Ruang</span><span>Status</span><span style="text-align:right">Aksi</span></div>${rows}</div>`
-      : empty('exam', 'Belum ada ujian', canEdit() ? 'Tambahkan jadwal UTS, UAS, atau kuis.' : 'Belum ada ujian terjadwal.', addBtn('ujian', 'Tambah sekarang'))}</div>`;
+      : empty('clipboard-check', 'Belum ada ujian', canEdit() ? 'Tambahkan jadwal UTS, UAS, atau kuis.' : 'Belum ada ujian terjadwal.', addBtn('ujian', 'Tambah sekarang'))}</div>`;
 }
 
 // ---------- Pengingat (admin) ----------
 const PLANS = [
-  { id: 'pagi', icon: 'sun-horizon', title: 'Ringkasan pagi', desc: 'Kelas hari ini, tugas ≤ 3 hari, dan ujian minggu ini', preview: 'pagi' },
-  { id: 'besok', icon: 'moon-stars', title: 'Persiapan besok (H-1)', desc: 'Jadwal besok dan tugas yang tenggatnya sampai besok', preview: 'besok' },
-  { id: 'kelas', icon: 'chalkboard-teacher', title: 'Kelas akan dimulai', desc: 'Dikirim beberapa menit sebelum tiap kelas' },
+  { id: 'pagi', icon: 'sunrise', title: 'Ringkasan pagi', desc: 'Kelas hari ini, tugas ≤ 3 hari, dan ujian minggu ini', preview: 'pagi' },
+  { id: 'besok', icon: 'moon-star', title: 'Persiapan besok (H-1)', desc: 'Jadwal besok dan tugas yang tenggatnya sampai besok', preview: 'besok' },
+  { id: 'kelas', icon: 'presentation', title: 'Kelas akan dimulai', desc: 'Dikirim beberapa menit sebelum tiap kelas' },
   { id: 'tugas', icon: 'list-checks', title: 'Tenggat tugas', desc: 'Dikirim untuk tiap tugas aktif menjelang tenggat', preview: 'tugas' },
-  { id: 'ujian', icon: 'exam', title: 'Pengingat ujian', desc: 'Menjelang ujian dan pagi hari-H', preview: 'ujian' },
+  { id: 'ujian', icon: 'clipboard-check', title: 'Pengingat ujian', desc: 'Menjelang ujian dan pagi hari-H', preview: 'ujian' },
 ];
 const LEADS_TUGAS = [[4320, 'H-3'], [1440, 'H-1'], [360, '6 jam'], [180, '3 jam'], [60, '1 jam']];
 const LEADS_UJIAN = [[10080, 'H-7'], [4320, 'H-3'], [1440, 'H-1']];
@@ -391,24 +385,24 @@ function viewPengingat() {
     ujian: `${leadChecks('ujian', LEADS_UJIAN)}<label class="inline-field">Pagi hari-H <input type="time" name="ujian.pagiJam" value="${p.ujian.pagiJam || ''}"></label>`,
   };
   const plans = PLANS.map((pl) => `<div class="plan">
-    <div class="plan-head"><i class="ph-duotone ph-${pl.icon} ic"></i><div class="grow"><b>${pl.title}</b><small>${pl.desc}</small></div>
+    <div class="plan-head"><i class="ic icon-${pl.icon} ic"></i><div class="grow"><b>${pl.title}</b><small>${pl.desc}</small></div>
       <label class="switch" title="Aktif/nonaktif"><input type="checkbox" name="${pl.id}.on" ${p[pl.id].on ? 'checked' : ''}><span></span></label></div>
-    <div class="plan-body">${body[pl.id]}${pl.preview ? `<button type="button" class="btn btn-secondary btn-sm" data-send="${pl.preview}"><i class="ph ph-paper-plane-tilt"></i>Kirim sekarang</button>` : ''}</div>
+    <div class="plan-body">${body[pl.id]}${pl.preview ? `<button type="button" class="btn btn-secondary btn-sm" data-send="${pl.preview}"><i class="ic icon-send"></i>Kirim sekarang</button>` : ''}</div>
   </div>`).join('');
   const tabs = [['pagi', 'Hari ini'], ['besok', 'Besok'], ['tugas', 'Tugas'], ['ujian', 'Ujian']];
   const n = now();
   $('#content').innerHTML = `<div class="split">
-    <form class="card" id="pForm"><div class="card-head"><h2><i class="ph-fill ph-whatsapp-logo"></i>Jadwal pengingat otomatis</h2></div>
+    <form class="card" id="pForm"><div class="card-head"><h2><i class="ic icon-message-circle"></i>Jadwal pengingat otomatis</h2></div>
       <div class="rows" style="gap:10px">${plans}</div>
-      <div style="display:flex;justify-content:flex-end;margin-top:16px"><button class="btn btn-primary" id="pSave"><i class="ph ph-floppy-disk"></i>Simpan &amp; aktifkan</button></div>
+      <div style="display:flex;justify-content:flex-end;margin-top:16px"><button class="btn btn-primary" id="pSave"><i class="ic icon-save"></i>Simpan &amp; aktifkan</button></div>
     </form>
     <div class="stack">
-      <div class="card"><div class="card-head"><h2><i class="ph ph-eye"></i>Pratinjau pesan</h2></div>
+      <div class="card"><div class="card-head"><h2><i class="ic icon-eye"></i>Pratinjau pesan</h2></div>
         <div class="segmented" style="margin-bottom:12px">${tabs.map(([k, l]) => `<button class="${previewTab === k ? 'on' : ''}" data-ptab="${k}">${l}</button>`).join('')}</div>
-        <div class="phone"><div class="phone-head"><span class="avatar"><i class="ph-fill ph-users-three"></i></span><div><b>Grup kelas</b><small>Bot Pengingat Kuliah</small></div></div>
+        <div class="phone"><div class="phone-head"><span class="avatar"><i class="ic icon-users"></i></span><div><b>Grup kelas</b><small>Bot Pengingat Kuliah</small></div></div>
           <div class="chat"><span class="date-chip">${tgl(n)}</span><div class="bubble"><pre>${waFormat(S.pengingat.preview[previewTab])}</pre><small>${hm(n)}</small></div></div></div>
       </div>
-      <div class="card muted" style="font-size:12.5px"><i class="ph ph-info"></i> Pengingat pagi dan H-1 dilewati kalau tidak ada kelas, tugas, atau ujian. Semua waktu dalam WIB.</div>
+      <div class="card muted" style="font-size:12.5px"><i class="ic icon-info"></i> Pengingat pagi dan H-1 dilewati kalau tidak ada kelas, tugas, atau ujian. Semua waktu dalam WIB.</div>
     </div></div>`;
   $('#pForm').onsubmit = async (e) => {
     e.preventDefault();
@@ -431,23 +425,23 @@ const LOG_MODE = { pagi: 'Ringkasan pagi', besok: 'Persiapan besok', kelas: 'Kel
 function viewStatus() {
   const s = S.status;
   if (!s) { $('#content').innerHTML = '<div class="card muted">Memeriksa bot…</div>'; return; }
-  const tile = (ok, icon, title, sub) => `<div class="tile ${ok ? 'ok' : 'warn'}"><i class="ph-fill ph-${ok ? 'check-circle' : 'warning-circle'}"></i><b>${title}</b><small>${sub}</small></div>`;
-  const numTile = (icon, label, val) => `<div class="tile num-tile"><small><i class="ph ph-${icon}"></i> ${label}</small><strong>${val}</strong></div>`;
+  const tile = (ok, icon, title, sub) => `<div class="tile ${ok ? 'ok' : 'warn'}"><i class="ic icon-${ok ? 'circle-check' : 'circle-alert'}"></i><b>${title}</b><small>${sub}</small></div>`;
+  const numTile = (icon, label, val) => `<div class="tile num-tile"><small><i class="ic icon-${icon}"></i> ${label}</small><strong>${val}</strong></div>`;
   $('#content').innerHTML = `
-    <div class="card"><div class="card-head"><h2><i class="ph ph-heartbeat"></i>Kesehatan sistem</h2><button class="btn btn-secondary btn-sm" data-reload-status><i class="ph ph-arrows-clockwise"></i>Periksa ulang</button></div>
+    <div class="card"><div class="card-head"><h2><i class="ic icon-heart-pulse"></i>Kesehatan sistem</h2><button class="btn btn-secondary btn-sm" data-reload-status><i class="ic icon-refresh-cw"></i>Periksa ulang</button></div>
       <div class="tiles">
         ${tile(s.wa, 'whatsapp-logo', 'WhatsApp', s.wa ? `Terhubung${s.nomor ? ` sebagai +${esc(s.nomor)}` : ''}` : 'Belum terhubung')}
         ${tile(!!s.grupJid, 'users-three', 'Grup tujuan', s.grupJid ? esc(s.grupNama || s.grupJid) : 'GROUP_JID belum diisi')}
         ${tile(true, 'clock', 'Penjadwal', 'Memeriksa pengingat tiap menit')}
         ${tile(s.gagal24 === 0, 'paper-plane-tilt', 'Pengiriman 24 jam', s.gagal24 ? `${s.gagal24} pesan gagal` : 'Tidak ada kegagalan')}
       </div></div>
-    <div class="tiles">${numTile('calendar-dots', 'Kelas / minggu', s.jumlah.kelas)}${numTile('list-checks', 'Tugas aktif', s.jumlah.tugasAktif)}${numTile('exam', 'Ujian mendatang', s.jumlah.ujian)}${numTile('users', 'Akun', s.jumlah.akun)}</div>
+    <div class="tiles">${numTile('calendar-days', 'Kelas / minggu', s.jumlah.kelas)}${numTile('list-checks', 'Tugas aktif', s.jumlah.tugasAktif)}${numTile('clipboard-check', 'Ujian mendatang', s.jumlah.ujian)}${numTile('users', 'Akun', s.jumlah.akun)}</div>
     <div class="split">
-      <div class="card"><div class="card-head"><h2><i class="ph ph-clock-counter-clockwise"></i>Riwayat pengiriman</h2></div>
-        <div class="rows">${s.log.length ? s.log.map((l) => `<div class="row"><div class="grow"><div class="title">${LOG_MODE[l.mode] || esc(l.mode)}</div><div class="sub">${tgl(l.at)} · ${hm(l.at)}${l.detail ? ` · ${esc(l.detail)}` : ''}</div></div>${badge(l.status === 'terkirim' ? ['b-done', 'Terkirim'] : ['b-urgent', 'Gagal'])}</div>`).join('') : empty('tray', 'Belum ada riwayat', 'Pesan yang dikirim bot akan tercatat di sini.')}</div></div>
-      <div class="card"><div class="card-head"><h2><i class="ph ph-flask"></i>Kirim pesan percobaan</h2></div>
+      <div class="card"><div class="card-head"><h2><i class="ic icon-history"></i>Riwayat pengiriman</h2></div>
+        <div class="rows">${s.log.length ? s.log.map((l) => `<div class="row"><div class="grow"><div class="title">${LOG_MODE[l.mode] || esc(l.mode)}</div><div class="sub">${tgl(l.at)} · ${hm(l.at)}${l.detail ? ` · ${esc(l.detail)}` : ''}</div></div>${badge(l.status === 'terkirim' ? ['b-done', 'Terkirim'] : ['b-urgent', 'Gagal'])}</div>`).join('') : empty('inbox', 'Belum ada riwayat', 'Pesan yang dikirim bot akan tercatat di sini.')}</div></div>
+      <div class="card"><div class="card-head"><h2><i class="ic icon-flask-conical"></i>Kirim pesan percobaan</h2></div>
         <p class="muted" style="margin:0 0 14px;font-size:13px">Kirim satu pesan uji ke grup untuk memastikan bot bisa mengirim.</p>
-        <button class="btn btn-primary" data-test-send ${s.wa && s.grupJid ? '' : 'disabled'}><i class="ph ph-paper-plane-tilt"></i>Kirim tes ke grup</button></div>
+        <button class="btn btn-primary" data-test-send ${s.wa && s.grupJid ? '' : 'disabled'}><i class="ic icon-send"></i>Kirim tes ke grup</button></div>
     </div>`;
 }
 
@@ -459,22 +453,22 @@ function viewAkun() {
   if (!S.akun) { $('#content').innerHTML = '<div class="card muted">Memuat akun…</div>'; return; }
   const roleBadge = (r) => badge([r === 'admin' ? 'b-urgent' : r === 'editor' ? 'b-info' : 'b-normal', ROLE_LABEL[r]]);
   $('#content').innerHTML = `
-    <div class="toolbar"><div class="toolbar-left"><span class="muted"><b>Admin</b> mengatur semuanya · <b>Editor</b> mengubah jadwal, tugas, ujian · <b>Anggota</b> hanya melihat.</span></div><button class="btn btn-primary" data-add="akun"><i class="ph ph-user-plus"></i>Tambah akun</button></div>
+    <div class="toolbar"><div class="toolbar-left"><span class="muted"><b>Admin</b> mengatur semuanya · <b>Editor</b> mengubah jadwal, tugas, ujian · <b>Anggota</b> hanya melihat.</span></div><button class="btn btn-primary" data-add="akun"><i class="ic icon-user-plus"></i>Tambah akun</button></div>
     <div class="card"><div class="rows">${S.akun.map((a) => `<div class="row"><span class="avatar">${esc(a.nama[0] || '?').toUpperCase()}</span><div class="grow"><div class="title">${esc(a.nama)}${a.id === S.user.id ? ' <span class="muted">(kamu)</span>' : ''}</div><div class="sub">@${esc(a.username)}</div></div>${roleBadge(a.role)}
-      <button class="tiny-btn" data-edit="akun" data-id="${a.id}" aria-label="Ubah"><i class="ph ph-pencil-simple"></i></button>${a.id !== S.user.id ? `<button class="tiny-btn danger" data-del="akun" data-id="${a.id}" aria-label="Hapus"><i class="ph ph-trash"></i></button>` : '<span style="width:30px"></span>'}</div>`).join('')}</div></div>`;
+      <button class="tiny-btn" data-edit="akun" data-id="${a.id}" aria-label="Ubah"><i class="ic icon-pencil"></i></button>${a.id !== S.user.id ? `<button class="tiny-btn danger" data-del="akun" data-id="${a.id}" aria-label="Hapus"><i class="ic icon-trash-2"></i></button>` : '<span style="width:30px"></span>'}</div>`).join('')}</div></div>`;
 }
 
 // ---------- Profil ----------
 function viewProfil() {
   $('#content').innerHTML = `<form class="card" id="profForm" style="max-width:560px">
-    <div class="card-head"><h2><i class="ph ph-user-circle"></i>Akun kamu</h2>${badge(['b-info', ROLE_LABEL[S.user.role]])}</div>
+    <div class="card-head"><h2><i class="ic icon-circle-user"></i>Akun kamu</h2>${badge(['b-info', ROLE_LABEL[S.user.role]])}</div>
     <div class="rows" style="gap:14px">
       <label class="field"><span>Username</span><input value="${esc(S.user.username)}" disabled></label>
       <label class="field"><span>Nama</span><input name="nama" value="${esc(S.user.nama)}" required></label>
       <div class="grid2"><label class="field"><span>Password lama</span><input type="password" name="passwordLama" autocomplete="current-password"></label>
       <label class="field"><span>Password baru</span><input type="password" name="passwordBaru" minlength="8" autocomplete="new-password" placeholder="Kosongkan kalau tidak diganti"></label></div>
       <p class="form-error" id="profErr"></p>
-      <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><button type="button" class="btn btn-secondary" data-logout><i class="ph ph-sign-out"></i>Keluar</button><button class="btn btn-primary"><i class="ph ph-floppy-disk"></i>Simpan profil</button></div>
+      <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><button type="button" class="btn btn-secondary" data-logout><i class="ic icon-log-out"></i>Keluar</button><button class="btn btn-primary"><i class="ic icon-save"></i>Simpan profil</button></div>
     </div></form>`;
   $('#profForm').onsubmit = async (e) => {
     e.preventDefault();
@@ -518,7 +512,7 @@ function openForm(type, id) {
   $('#mTitle').textContent = `${id ? 'Ubah' : 'Tambah'} ${f.label}`;
   const matkul = [...new Set([...S.data.kelas, ...S.data.tugas, ...S.data.ujian].map((x) => x.matkul))].sort();
   $('#mBody').innerHTML = f.fields(v) + `<datalist id="dlMatkul">${matkul.map((m) => `<option value="${esc(m)}">`).join('')}</datalist><p class="form-error" id="mErr"></p>`;
-  $('#mFoot').innerHTML = `<button type="button" class="btn btn-secondary" data-close>Batal</button><button class="btn btn-primary" id="mSubmit"><i class="ph ph-floppy-disk"></i>Simpan</button>`;
+  $('#mFoot').innerHTML = `<button type="button" class="btn btn-secondary" data-close>Batal</button><button class="btn btn-primary" id="mSubmit"><i class="ic icon-save"></i>Simpan</button>`;
   $('#modal').showModal(); a11yPass();
   setTimeout(() => $('#mBody input:not([disabled]), #mBody select')?.focus(), 30);
 }
@@ -534,7 +528,7 @@ function openDetail(type, id) {
   $('#mTitle').textContent = type === 'tugas' ? v.judul : v.matkul;
   $('#mBody').innerHTML = `<dl class="detail-list">${rows.filter(([, val]) => val).map(([k, val]) => `<div><dt>${k}</dt><dd>${['Status'].includes(k) ? val : esc(val).replace(/\n/g, '<br>')}</dd></div>`).join('')}</dl>`;
   $('#mFoot').innerHTML = canEdit()
-    ? `<button type="button" class="btn btn-danger left" data-del="${type}" data-id="${id}"><i class="ph ph-trash"></i>Hapus</button><button type="button" class="btn btn-secondary" data-close>Tutup</button><button type="button" class="btn btn-primary" data-edit="${type}" data-id="${id}"><i class="ph ph-pencil-simple"></i>Ubah</button>`
+    ? `<button type="button" class="btn btn-danger left" data-del="${type}" data-id="${id}"><i class="ic icon-trash-2"></i>Hapus</button><button type="button" class="btn btn-secondary" data-close>Tutup</button><button type="button" class="btn btn-primary" data-edit="${type}" data-id="${id}"><i class="ic icon-pencil"></i>Ubah</button>`
     : '<button type="button" class="btn btn-secondary" data-close>Tutup</button>';
   $('#modal').showModal();
 }
@@ -612,7 +606,7 @@ document.addEventListener('click', async (e) => {
   if ('send' in d || 'testSend' in d) {
     const label = 'send' in d ? `Kirim pesan "${{ pagi: 'ringkasan hari ini', besok: 'persiapan besok', tugas: 'daftar tugas', ujian: 'daftar ujian' }[d.send]}" ke grup sekarang?` : 'Kirim pesan percobaan ke grup?';
     if (!confirm(label)) return;
-    el.disabled = true; const old = el.innerHTML; el.innerHTML = '<i class="ph ph-spinner"></i>Mengirim…';
+    el.disabled = true; const old = el.innerHTML; el.innerHTML = '<i class="ic icon-loader-circle"></i>Mengirim…';
     try { await api('send' in d ? `/api/pengingat/kirim/${d.send}` : '/api/status/tes', { method: 'POST' }); toast('Pesan terkirim ke grup.'); if ('testSend' in d) loadStatus(); }
     catch (err) { toast(err.message, 'error'); }
     el.disabled = false; el.innerHTML = old;
