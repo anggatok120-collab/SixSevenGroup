@@ -5,11 +5,12 @@ const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const HARI = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
 const HARI3 = ['MIN', 'SEN', 'SEL', 'RAB', 'KAM', 'JUM', 'SAB'];
+const BULAN_PANJANG = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
 const BULAN = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
 const ROLE_LABEL = { admin: 'Admin', editor: 'Editor', viewer: 'Anggota' };
 const DAY = 864e5, TZ = 7 * 36e5; // WIB
 
-const S = { user: null, view: 'dashboard', data: { kelas: [], tugas: [], ujian: [], bot: {} }, skew: 0, filter: 'aktif', q: '', qUjian: '', pengingat: null, status: null, akun: null };
+const S = { dashScope: 'today', dashDay: null, user: null, view: 'dashboard', data: { kelas: [], tugas: [], ujian: [], bot: {} }, skew: 0, filter: 'aktif', q: '', qUjian: '', pengingat: null, status: null, akun: null };
 let token = null;
 try { token = sessionStorage.getItem('token'); } catch {}
 const canEdit = () => ['admin', 'editor'].includes(S.user?.role);
@@ -71,17 +72,21 @@ $('#toastClose').onclick = () => $('#toast').classList.remove('show');
 
 // ---------- Navigasi ----------
 const NAV = [
-  { title: 'Aktivitas', items: [
+  { title: 'Ringkasan', items: [
     { id: 'dashboard', label: 'Dashboard', icon: 'squares-four' },
-    { id: 'jadwal', label: 'Jadwal Kuliah', icon: 'calendar-dots' },
-    { id: 'tugas', label: 'Tugas', icon: 'list-checks', badge: () => S.data.tugas.filter((t) => !t.selesai).length },
-    { id: 'ujian', label: 'Ujian', icon: 'exam' },
   ] },
-  { title: 'Manajemen', items: [
-    { id: 'pengingat', label: 'Pengingat', icon: 'bell-ringing', roles: ['admin'] },
+  { title: 'Jadwal', items: [
+    { id: 'jadwal', label: 'Jadwal Kuliah', icon: 'book-open' },
+    { id: 'ujian', label: 'Jadwal Ujian', icon: 'clipboard-text' },
+  ] },
+  { title: 'Pekerjaan', items: [
+    { id: 'tugas', label: 'Tugas', icon: 'list-checks', badge: () => S.data.tugas.filter((t) => !t.selesai).length },
+    { id: 'pengingat', label: 'Pengingat', icon: 'bell', roles: ['admin'] },
+  ] },
+  { title: 'Akun', items: [
+    { id: 'akun', label: 'Management Akun', icon: 'users', roles: ['admin'] },
     { id: 'status', label: 'Status Bot', icon: 'robot', roles: ['admin'] },
-    { id: 'akun', label: 'Kelola Akun', icon: 'users-three', roles: ['admin'] },
-    { id: 'profil', label: 'Profil Saya', icon: 'user-circle' },
+    { id: 'profil', label: 'Profil', icon: 'user' },
   ] },
 ];
 const META = {
@@ -102,7 +107,7 @@ function renderNav() {
     if (!items.length) return '';
     return `<div class="nav-group"><div class="nav-title">${g.title}</div>${items.map((it) => {
       const on = S.view === it.id; const b = it.badge ? it.badge() : 0;
-      return `<button data-view="${it.id}" class="${on ? 'active' : ''}" ${on ? 'aria-current="page"' : ''}><i class="${on ? 'ph-fill' : 'ph'} ph-${it.icon}"></i><span>${it.label}</span>${b ? `<em class="nav-badge" aria-label="${b} tugas aktif">${b}</em>` : ''}</button>`;
+      return `<button data-view="${it.id}" class="${on ? 'active' : ''}" ${on ? 'aria-current="page"' : ''}><i class="ph ph-${it.icon}"></i><span>${it.label}</span>${b ? `<em class="nav-badge" aria-label="${b} tugas aktif">${b}</em>` : ''}</button>`;
     }).join('')}</div>`;
   }).join('');
 }
@@ -123,19 +128,17 @@ function go(view) {
 // Ikon dekoratif disembunyikan dari pembaca layar; label tetap di teks/aria-label tombol.
 function a11yPass() {
   queueMicrotask(() => $$('i[class*="ph-"]:not([aria-hidden])').forEach((i) => i.setAttribute('aria-hidden', 'true')));
-  const dark = document.documentElement.dataset.theme !== 'light';
-  $('#themeBtn').setAttribute('aria-pressed', String(!dark));
-  $('#themeBtn').setAttribute('aria-label', dark ? 'Ganti ke tema terang' : 'Ganti ke tema gelap');
 }
 
 // ---------- Render utama ----------
 function render() {
   renderNav();
   const [t, sub] = META[S.view];
-  $('#pageTitle').textContent = t; $('#pageSub').textContent = sub;
-  document.title = `${t} · Pengingat Kuliah`;
+  const tn = w(now());
+  $('#pageTitle').textContent = t; $('#pageTitle').title = sub; $('#pageSub').textContent = `${HARI[tn.dow]}, ${tn.d} ${BULAN_PANJANG[tn.m]} ${tn.y}`;
+  document.title = `${t} · Six Seven 67`;
   const aktif = S.data.tugas.filter((x) => !x.selesai).length;
-  $('#bellCount').textContent = aktif; $('#bellCount').classList.toggle('hidden', !aktif);
+  $('#bellCount').textContent = aktif ? `${aktif} aktif` : 'Beres';
   $('#bellBtn').setAttribute('aria-label', aktif ? `${aktif} tugas aktif, buka daftar tugas` : 'Tidak ada tugas aktif, buka daftar tugas');
   const b = S.data.bot || {};
   $('#botDot').classList.toggle('on', !!(b.wa && b.grup));
@@ -169,59 +172,121 @@ function taskRow(t, compact) {
     ${badge(dueBadge(t.ms, done))}
   </div>`;
 }
+function sessionsOn(dayMs) {
+  const n = now(); const dow = w(dayMs).dow;
+  return S.data.kelas.filter((k) => k.hari === dow).sort((a, b) => a.mulai.localeCompare(b.mulai)).map((k) => {
+    const start = atToday(dayMs, k.mulai); const end = k.selesai ? atToday(dayMs, k.selesai) : start + 100 * 6e4;
+    return { k, start, end, dayMs, live: start <= n && n < end, past: end <= n };
+  });
+}
+function sessionRow(x, showDay) {
+  const k = x.k; const praktikum = /praktikum|lab/i.test(k.matkul + ' ' + (k.ruang || ''));
+  const tag = x.live ? '<span class="tag" data-tone="live"><i class="ph ph-broadcast"></i>Berlangsung</span>' : x.past ? '<span class="tag" data-tone="done">Selesai</span>' : `<span class="tag">${praktikum ? 'Praktikum' : 'Kuliah'}</span>`;
+  return `<div class="session" data-live="${x.live}" data-past="${x.past}" data-detail="kelas" data-id="${k.id}" role="button" tabindex="0">
+    <span class="session-time"><strong>${k.mulai.replace(':', '.')}</strong><span>${(k.selesai || '').replace(':', '.')}</span></span>
+    <span class="session-main"><b>${esc(k.matkul)}</b><span class="session-meta">${showDay ? `<span>${HARI[w(x.dayMs).dow]}</span>` : ''}${k.ruang ? `<span>${esc(k.ruang)}</span>` : ''}${k.dosen ? `<span>${esc(k.dosen)}</span>` : ''}</span></span>
+    ${tag}</div>`;
+}
+function dueTone(ms, done) {
+  if (done) return ['success', 'Selesai'];
+  const n = now(); const diff = Math.round((startOfDay(ms) - startOfDay(n)) / DAY);
+  if (ms < n) return ['danger', 'Terlambat'];
+  if (diff === 0) return ['danger', 'Hari ini'];
+  if (diff === 1) return ['warning', 'Besok'];
+  if (diff <= 3) return ['warning', `${diff} hari lagi`];
+  return ['', `${diff} hari lagi`];
+}
+function relDay(ms) {
+  const diff = Math.round((startOfDay(ms) - startOfDay(now())) / DAY);
+  const jam = hm(ms).replace(':', '.');
+  if (diff === 0) return `Hari ini, ${jam}`;
+  if (diff === 1) return `Besok, ${jam}`;
+  if (diff > 1 && diff < 7) return `${HARI[w(ms).dow]}, ${jam}`;
+  return `${tgl(ms)}, ${jam}`;
+}
+function taskItem(t) {
+  const done = !!t.selesai; const [tone, label] = dueTone(t.ms, done);
+  return `<div class="task" data-done="${done}">
+    <button class="task-check" role="checkbox" aria-checked="${done}" data-toggle="${t.id}" ${canEdit() ? '' : 'disabled'} aria-label="Tandai ${esc(t.judul)} ${done ? 'belum selesai' : 'selesai'}">${done ? '<i class="ph-bold ph-check"></i>' : ''}</button>
+    <div class="task-main" data-detail="tugas" data-id="${t.id}"><span class="task-title">${esc(t.judul)}</span><span class="task-meta"><span>${esc(t.matkul)}</span><span>${relDay(t.ms)}</span>${t.prioritas === 'tinggi' ? '<span class="hi">Prioritas tinggi</span>' : ''}</span></div>
+    <span class="tag" data-tone="${tone}">${label}</span></div>`;
+}
 function viewDashboard() {
-  const n = now(); const today = w(n).dow;
+  const n = now(); const sod = startOfDay(n); const today = w(n).dow;
   const aktif = S.data.tugas.filter((t) => !t.selesai).sort((a, b) => a.ms - b.ms);
-  const kelasHariIni = S.data.kelas.filter((k) => k.hari === today);
-  const selesai = S.data.tugas.filter((t) => t.selesai).length;
-  const ujianDekat = S.data.ujian.filter((u) => u.ms > n && u.ms - n <= 14 * DAY);
-  const mendesak = aktif.filter((t) => t.ms - n < 2 * DAY).length;
-  const jam = w(n).h; const salam = jam < 11 ? 'Selamat pagi' : jam < 15 ? 'Selamat siang' : jam < 18 ? 'Selamat sore' : 'Selamat malam';
-  const kalimat = aktif.length
-    ? `Ada <b>${aktif.length} tugas aktif</b>${mendesak ? `, ${mendesak} di antaranya tenggatnya kurang dari 2 hari` : ''}. ${kelasHariIni.length ? `Hari ini ada ${kelasHariIni.length} kelas.` : 'Hari ini tidak ada kelas.'}`
-    : `Semua tugas beres. ${kelasHariIni.length ? `Hari ini ada ${kelasHariIni.length} kelas.` : 'Hari ini tidak ada kelas, selamat istirahat.'}`;
-
+  const total = S.data.tugas.length; const selesai = total - aktif.length;
+  const dueToday = aktif.filter((t) => startOfDay(t.ms) <= sod).length;
+  const todaySessions = sessionsOn(sod);
   const nc = nextClass();
-  let ticket = empty('calendar-blank', 'Belum ada jadwal', 'Tambahkan jadwal kuliah supaya kelas berikutnya muncul di sini.', addBtn('kelas', 'Tambah jadwal'));
-  if (nc) {
-    const mins = Math.round((nc.start - n) / 6e4);
-    const cd = nc.start <= n ? 'Sedang berlangsung' : nc.i === 0 ? `Mulai ${relMinutes(mins)} lagi` : nc.i === 1 ? `Besok, pukul ${nc.k.mulai} WIB` : `${HARI[nc.k.hari]}, pukul ${nc.k.mulai} WIB`;
-    ticket = `<div class="ticket"><div class="ticket-stub"><b>${HARI3[nc.k.hari]}</b><strong>${nc.k.mulai}</strong><small class="muted">${nc.k.selesai || ''}</small></div>
-      <div class="ticket-body"><h3>${esc(nc.k.matkul)}</h3><span class="countdown"><i class="ph ph-timer"></i> ${cd}</span>
-      <div class="meta">${nc.k.ruang ? `<span><i class="ph ph-map-pin"></i>${esc(nc.k.ruang)}</span>` : ''}${nc.k.dosen ? `<span><i class="ph ph-chalkboard-teacher"></i>${esc(nc.k.dosen)}</span>` : ''}</div></div></div>
-      <button class="link-btn" data-view="jadwal" style="margin-top:10px">Lihat jadwal lengkap <i class="ph ph-arrow-right"></i></button>`;
-  }
+  const ujianNext = S.data.ujian.filter((u) => u.ms > n).sort((a, b) => a.ms - b.ms);
+  const u0 = ujianNext[0]; const uDays = u0 ? Math.max(0, Math.round((startOfDay(u0.ms) - sod) / DAY)) : null;
+  const jam = w(n).h; const salam = jam < 11 ? 'Selamat pagi' : jam < 15 ? 'Selamat siang' : jam < 18 ? 'Selamat sore' : 'Selamat malam';
+  const tn = w(n); const tanggal = `${HARI[tn.dow]}, ${tn.d} ${BULAN_PANJANG[tn.m]} ${tn.y}`;
+  const b = S.data.bot || {};
 
-  // strip mingguan Senin–Minggu
-  const sod = startOfDay(n); const offset = (today + 6) % 7;
-  const days = Array.from({ length: 7 }, (_, i) => sod + (i - offset) * DAY);
-  const strip = days.map((ms) => {
-    const t = w(ms); const k = dayKey(ms);
-    const hasK = S.data.kelas.some((x) => x.hari === t.dow);
-    const hasT = S.data.tugas.some((x) => !x.selesai && dayKey(x.ms) === k);
-    const hasU = S.data.ujian.some((x) => dayKey(x.ms) === k);
-    const label = `${HARI[t.dow]} ${t.d} ${BULAN[t.m]}: ${[hasK && 'ada kelas', hasT && 'ada tenggat tugas', hasU && 'ada ujian'].filter(Boolean).join(', ') || 'kosong'}`;
-    return `<button class="day-cell ${ms === sod ? 'today' : ''}" data-day="${ms}" aria-label="${label}" ${ms === sod ? 'aria-current="date"' : ''}><small>${HARI3[t.dow]}</small><b>${t.d}</b><span class="dots">${hasK ? '<i class="d-kelas"></i>' : ''}${hasT ? '<i class="d-tugas"></i>' : ''}${hasU ? '<i class="d-ujian"></i>' : ''}</span></button>`;
+  // jadwal: hari ini / pekan ini / hari terpilih
+  const offset = (today + 6) % 7;
+  const weekDays = Array.from({ length: 7 }, (_, i) => sod + (i - offset) * DAY);
+  let list, hint, title = 'Jadwal hari ini';
+  if (S.dashScope === 'week') {
+    list = weekDays.filter((d) => d > sod).flatMap((d) => sessionsOn(d)); title = 'Jadwal pekan ini';
+    hint = list.length ? `${list.length} sesi sampai ${HARI[w(weekDays[6]).dow]}` : 'Tidak ada kelas lagi pekan ini';
+  } else if (S.dashScope === 'day' && S.dashDay && S.dashDay !== sod) {
+    list = sessionsOn(S.dashDay); title = `Jadwal ${HARI[w(S.dashDay).dow]}`; hint = `${list.length} sesi · ${w(S.dashDay).d} ${BULAN_PANJANG[w(S.dashDay).m]}`;
+  } else {
+    list = todaySessions; hint = list.length ? `${list.length} sesi · kuliah dan praktikum` : 'Tidak ada kelas hari ini';
+  }
+  const selDay = S.dashScope === 'day' && S.dashDay ? S.dashDay : S.dashScope === 'today' ? sod : null;
+  const strip = weekDays.map((d) => {
+    const t = w(d); const cnt = S.data.kelas.filter((k) => k.hari === t.dow).length;
+    const hasU = S.data.ujian.some((u) => dayKey(u.ms) === dayKey(d)); const hasT = aktif.some((x) => dayKey(x.ms) === dayKey(d));
+    const label = `${HARI[t.dow]} ${t.d} ${BULAN[t.m]}, ${cnt} kelas${hasT ? ', ada tenggat tugas' : ''}${hasU ? ', ada ujian' : ''}`;
+    return `<button class="wday" data-pick-day="${d}" data-active="${d === selDay}" data-today="${d === sod}" aria-pressed="${d === selDay}" aria-label="${label}"><span>${HARI[t.dow].slice(0, 3)}</span><strong>${t.d}</strong><i class="wbar" data-has="${cnt > 0}" data-alert="${hasU || hasT}"></i></button>`;
   }).join('');
 
+  const reminders = [
+    ...ujianNext.slice(0, 3).map((u) => { const dd = Math.round((startOfDay(u.ms) - sod) / DAY); return { tone: dd <= 3 ? 'warning' : '', title: `${u.jenis} ${u.matkul}`, detail: u.ruang ? `Ruang ${u.ruang}` : 'Ruang belum diisi', time: relDay(u.ms), id: u.id, type: 'ujian' }; }),
+  ];
+  const pct = total ? Math.round(selesai / total * 100) : 0;
+
   $('#content').innerHTML = `
-  <section class="hero">
-    <div><div class="eyebrow">${tgl(n)} · ${w(n).y || ""}</div><h2>${salam}, <em>${esc(S.user.nama.split(' ')[0])}</em>.</h2><p>${kalimat}</p></div>
-    ${canEdit() ? '<button class="btn btn-primary" data-add="tugas"><i class="ph ph-plus"></i>Tambah tugas</button>' : ''}
+  <section class="greet">
+    <div><h2>${salam}, ${esc(S.user.nama.split(' ')[0])}</h2>
+      <p>${tanggal} · ${todaySessions.length ? `${todaySessions.length} kelas` : 'tidak ada kelas'} dan ${aktif.length} tugas menunggu</p></div>
+    ${canEdit() ? '<button class="btn btn-primary" data-add="tugas"><i class="ph ph-plus"></i>Tugas baru</button>' : ''}
   </section>
   <section class="metrics">
-    <div class="metric red"><div class="metric-top">Sisa Tugas<i class="ph ph-list-checks"></i></div><strong>${aktif.length}</strong><small>${mendesak ? `${mendesak} tenggat < 2 hari` : 'tidak ada yang mendesak'}</small></div>
-    <div class="metric"><div class="metric-top">Kuliah Hari Ini<i class="ph ph-chalkboard-teacher"></i></div><strong>${kelasHariIni.length}</strong><small>${HARI[today]}</small></div>
-    <div class="metric mint"><div class="metric-top">Tugas Selesai<i class="ph ph-check-circle"></i></div><strong>${selesai}</strong><small>dari ${S.data.tugas.length} tugas</small></div>
-    <div class="metric amber"><div class="metric-top">Ujian 2 Minggu<i class="ph ph-exam"></i></div><strong>${ujianDekat.length}</strong><small>${ujianDekat[0] ? `terdekat ${tgl(ujianDekat[0].ms)}` : 'belum ada'}</small></div>
+    <article class="metric"><span class="metric-label"><i class="ph ph-book-open"></i>Kelas hari ini</span><strong>${todaySessions.length} sesi</strong><small>${nc ? `Berikutnya ${nc.k.mulai.replace(':', '.')}${nc.i ? ` (${HARI[w(nc.start).dow]})` : ''} · ${esc(nc.k.ruang || nc.k.matkul)}` : 'Belum ada jadwal'}</small></article>
+    <article class="metric"><span class="metric-label"><i class="ph ph-list-checks"></i>Tugas aktif</span><strong>${aktif.length} tugas</strong><small data-tone="${dueToday ? 'warning' : ''}">${dueToday ? `${dueToday} jatuh tempo hari ini` : aktif[0] ? `Terdekat ${relDay(aktif[0].ms)}` : 'Semua beres'}</small></article>
+    <article class="metric"><span class="metric-label"><i class="ph ph-clipboard-text"></i>Ujian terdekat</span><strong>${u0 ? (uDays === 0 ? 'Hari ini' : `${uDays} hari`) : '–'}</strong><small>${u0 ? `${esc(u0.jenis)} ${esc(u0.matkul)} · ${w(u0.ms).d} ${BULAN[w(u0.ms).m]}` : 'Belum ada ujian'}</small></article>
+    <article class="metric"><span class="metric-label"><i class="ph ph-whatsapp-logo"></i>Bot WhatsApp</span><strong>${b.wa ? 'Aktif' : 'Offline'}</strong><small data-tone="${b.wa && b.grup ? '' : 'warning'}">${b.wa ? (b.grup ? 'Mengirim ke grup kelas' : 'Grup belum diatur') : 'Pengingat tertunda'}</small></article>
   </section>
   <section class="dash-grid">
-    <div class="card"><div class="card-head"><h2><i class="ph ph-list-checks"></i>Agenda Tugas Aktif</h2><button class="link-btn" data-view="tugas">Buka tugas <i class="ph ph-arrow-right"></i></button></div>
-      <div class="rows">${aktif.length ? aktif.slice(0, 5).map((t) => taskRow(t)).join('') : empty('confetti', 'Tidak ada tugas aktif', 'Santai dulu. Tugas baru akan muncul di sini.', addBtn('tugas', 'Tambah tugas'))}</div></div>
-    <div class="stack">
-      <div class="card"><div class="card-head"><h2><i class="ph ph-clock"></i>Kelas Berikutnya</h2></div>${ticket}</div>
-      <div class="card"><div class="card-head"><h2><i class="ph ph-calendar-blank"></i>Kalender Mingguan</h2></div><div class="week">${strip}</div>
-        <div class="legend" aria-hidden="true"><span><i class="d-kelas"></i>Kelas</span><span><i class="d-tugas"></i>Tugas</span><span><i class="d-ujian"></i>Ujian</span></div></div>
+    <div class="panel">
+      <div class="panel-head"><div><h2>${title}</h2><span>${hint}</span></div>
+        <div class="segment" role="group" aria-label="Rentang jadwal"><button data-scope="today" aria-pressed="${S.dashScope !== 'week'}">Hari ini</button><button data-scope="week" aria-pressed="${S.dashScope === 'week'}">Pekan ini</button></div></div>
+      <div class="sessions">${list.length ? list.map((x) => sessionRow(x, S.dashScope === 'week')).join('') : `<p class="soft">${S.data.kelas.length ? 'Tidak ada kelas di rentang ini. Pilih hari lain di bawah.' : 'Jadwal kuliah belum diisi.'}</p>${!S.data.kelas.length && canEdit() ? addBtn('kelas', 'Tambah jadwal') : ''}`}</div>
+      <div class="week" role="group" aria-label="Agenda pekan">${strip}</div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><div><h2>Tugas mendekat</h2><span>${aktif.length} dari ${total} belum selesai</span></div></div>
+      <div class="tasks">${aktif.length ? aktif.slice(0, 5).map(taskItem).join('') : '<p class="soft">Semua tugas sudah selesai. Waktu yang tersisa bisa dipakai untuk mereview materi.</p>'}</div>
+      <button class="ghost-btn" data-view="tugas">Kelola semua tugas<i class="ph ph-arrow-right"></i></button>
+    </div>
+  </section>
+  <section class="dash-grid">
+    <div class="panel">
+      <div class="panel-head"><div><h2>Pengingat</h2><span>${reminders.length ? `${reminders.length} ujian mendatang · bot mengingatkan grup otomatis` : 'Bot mengingatkan grup otomatis'}</span></div></div>
+      <div class="reminders">${reminders.length ? reminders.map((r) => `<div class="reminder" data-tone="${r.tone}" data-detail="${r.type}" data-id="${r.id}" role="button" tabindex="0"><i class="rdot" aria-hidden="true"></i><div><span><b>${esc(r.title)}</b><small>${esc(r.detail)}</small></span><time>${r.time}</time></div></div>`).join('') : '<p class="soft">Belum ada ujian mendatang.</p>'}</div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><div><h2>Akses cepat</h2></div></div>
+      <div class="quick">
+        <button class="quicklink" data-view="jadwal"><i class="ph ph-book-open"></i><span>Jadwal kuliah pekan ini</span><i class="ph ph-caret-right"></i></button>
+        <button class="quicklink" data-view="ujian"><i class="ph ph-clipboard-text"></i><span>Jadwal ujian</span><i class="ph ph-caret-right"></i></button>
+        <button class="quicklink" data-view="tugas"><i class="ph ph-list-checks"></i><span>Semua tugas aktif</span><i class="ph ph-caret-right"></i></button>
+      </div>
+      <div class="progress"><div><span>Progres tugas</span><strong>${pct}%</strong></div><div class="bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100" aria-label="Progres tugas"><i style="width:${pct}%"></i></div></div>
     </div>
   </section>`;
 }
@@ -521,7 +586,7 @@ function openDay(ms) {
 
 // ---------- Event global ----------
 document.addEventListener('click', async (e) => {
-  const el = e.target.closest('[data-view],[data-add],[data-edit],[data-del],[data-detail],[data-toggle],[data-close],[data-filter],[data-day],[data-ptab],[data-send],[data-test-send],[data-reload-status],[data-clear-q],[data-logout]');
+  const el = e.target.closest('[data-view],[data-add],[data-edit],[data-del],[data-detail],[data-toggle],[data-close],[data-filter],[data-day],[data-pick-day],[data-scope],[data-ptab],[data-send],[data-test-send],[data-reload-status],[data-clear-q],[data-logout]');
   if (!el) return;
   const d = el.dataset; const id = Number(d.id);
   if ('toggle' in d) {
@@ -539,6 +604,8 @@ document.addEventListener('click', async (e) => {
   if ('filter' in d) { S.filter = d.filter; return viewTugas(); }
   if ('clearQ' in d) { S.q = ''; return viewTugas(); }
   if ('day' in d) return openDay(Number(d.day));
+  if ('pickDay' in d) { S.dashDay = Number(d.pickDay); S.dashScope = 'day'; return viewDashboard(); }
+  if ('scope' in d) { S.dashScope = d.scope; S.dashDay = null; return viewDashboard(); }
   if ('ptab' in d) { previewTab = d.ptab; return viewPengingat(); }
   if ('reloadStatus' in d) { S.status = null; viewStatus(); return loadStatus(); }
   if ('logout' in d) return logout();
@@ -552,7 +619,7 @@ document.addEventListener('click', async (e) => {
   }
 });
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' && e.target.matches('.class-card')) e.target.click();
+  if (e.key === 'Enter' && e.target.matches('.class-card, .session, .reminder')) e.target.click();
   if (e.key === 'Escape') $('#shell').classList.remove('nav-open');
 });
 $('#menuBtn').onclick = () => $('#shell').classList.add('nav-open');
@@ -560,12 +627,10 @@ $('#scrim').onclick = () => $('#shell').classList.remove('nav-open');
 $('#bellBtn').onclick = () => { S.filter = 'aktif'; go('tugas'); };
 $('#profileBtn').onclick = () => go('profil');
 $('#logoutBtn').onclick = () => logout();
-$('#themeBtn').onclick = () => {
-  const t = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
-  document.documentElement.dataset.theme = t;
-  try { localStorage.setItem('theme', t); } catch {}
-  a11yPass();
-};
+$('#globalSearch').addEventListener('input', (e) => {
+  S.q = e.target.value; S.filter = 'semua';
+  if (S.view !== 'tugas') { go('tugas'); e.target.focus(); } else viewTugas();
+});
 window.addEventListener('hashchange', () => { const v = location.hash.slice(1); if (v && v !== S.view) go(v); });
 
 // ---------- Sinkronisasi ----------

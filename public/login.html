@@ -3,49 +3,43 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Masuk · Pengingat Kuliah</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230a0a0a'/%3E%3Cpath d='M9 8h6v16H9zM17 8h6v16h-6z' fill='%23fafafa'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="/vendor/manrope/index.css">
-<link rel="stylesheet" href="/vendor/serif/latin-400.css">
-<link rel="stylesheet" href="/vendor/serif/latin-400-italic.css">
+<title>Masuk · Six Seven 67</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23181b23'/%3E%3Crect x='.5' y='.5' width='31' height='31' rx='8.5' fill='none' stroke='%236fa8ff' stroke-opacity='.6'/%3E%3Ctext x='16' y='21' font-family='Arial' font-weight='700' font-size='13' text-anchor='middle' fill='%23f2f4f8'%3E67%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="/vendor/inter/index.css">
 <link rel="stylesheet" href="/vendor/phosphor/regular/style.css">
-<link rel="stylesheet" href="/vendor/phosphor/fill/style.css">
-<link rel="stylesheet" href="/vendor/phosphor/bold/style.css">
-<link rel="stylesheet" href="/vendor/phosphor/duotone/style.css">
 <style>
-:root { --bg:#fafafa; --card:#fff; --line:#e5e5e5; --line-2:#d4d4d4; --ink:#0a0a0a; --muted:#525252; --inv:#0a0a0a; --inv-ink:#fafafa; color-scheme: light; }
-:root[data-theme="dark"] { --bg:#0a0a0a; --card:#111111; --line:#262626; --line-2:#333333; --ink:#fafafa; --muted:#a3a3a3; --inv:#fafafa; --inv-ink:#0a0a0a; color-scheme: dark; }
+:root { --bg:#08090c; --surface:#101218; --raised:#181b23; --glass:rgba(255,255,255,.06); --border:rgba(255,255,255,.1); --border-strong:rgba(255,255,255,.18); --text:#f2f4f8; --muted:#9aa2b1; --subtle:#6d7686; --primary:#6fa8ff; --primary-strong:#2f6fe0; --on-primary:#06080d; --danger:#ff7d8a; --focus:rgba(122,176,255,.65); color-scheme: dark; }
 * { box-sizing: border-box; }
-body { margin: 0; min-height: 100dvh; display: grid; place-items: center; padding: 24px 16px; font: 15px/1.55 "Manrope Variable", "Manrope", system-ui, sans-serif; color: var(--ink); background: var(--bg); -webkit-font-smoothing: antialiased; }
-.card { width: min(26rem, 100%); background: transparent; padding: 40px 0; }
-.brand { display: flex; align-items: center; gap: 12px; margin-bottom: 36px; }
-.tile { display: none; }
-.brand b { display: block; font: 400 26px/1 "Instrument Serif", Georgia, serif; } .brand { padding-bottom: 20px; border-bottom: 1px solid var(--ink); } .brand small { display: block; margin-top: 6px; letter-spacing: .14em; text-transform: uppercase; font-size: 11px !important; font-weight: 600; } .brand small { color: var(--muted); font-size: 12px; }
-.eyebrow { color: var(--muted); font-size: 11.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
-h1 { margin: 10px 0 32px; font: 400 clamp(40px, 9vw, 52px)/1.02 "Instrument Serif", Georgia, serif; letter-spacing: -.02em; text-wrap: balance; }
-label { display: block; font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin-bottom: 2px; }
+body { margin: 0; min-height: 100dvh; display: grid; place-items: center; padding: 24px 16px; font: 15px/1.5 "Inter Variable", "Inter", system-ui, sans-serif; color: var(--text); background: var(--bg); -webkit-font-smoothing: antialiased; }
+body::before { content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none; background: radial-gradient(60rem 40rem at 10% -10%, rgba(111,168,255,.16), transparent 60%), radial-gradient(50rem 36rem at 110% 10%, rgba(79,216,164,.08), transparent 60%), radial-gradient(40rem 30rem at 50% 120%, rgba(47,111,224,.12), transparent 60%); }
+.card { width: min(25rem, 100%); padding: 32px; border-radius: 22px; background: linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.03)); border: 1px solid var(--border); box-shadow: 0 24px 60px rgba(0,0,0,.45); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
+.brand { display: flex; align-items: center; gap: 12px; margin-bottom: 28px; }
+.mark { width: 40px; height: 40px; flex: none; border-radius: 12px; display: grid; place-items: center; font-weight: 700; font-size: 15px; background: var(--raised); border: 1px solid rgba(111,168,255,.45); box-shadow: 0 0 0 4px rgba(111,168,255,.08); }
+.brand b { display: block; font-size: 15px; font-weight: 600; }
+.brand small { display: block; color: var(--muted); font-size: 12px; }
+h1 { margin: 0 0 6px; font-size: 24px; line-height: 1.25; font-weight: 650; letter-spacing: -.01em; }
+.lead { margin: 0 0 24px; color: var(--muted); font-size: 13px; }
+label { display: block; font-size: 13px; font-weight: 500; color: var(--muted); margin-bottom: 6px; }
 .input { position: relative; margin-bottom: 16px; }
-.input i { position: absolute; left: 0; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 18px; pointer-events: none; }
-.input input { width: 100%; height: 48px; padding: 0 2px 0 30px; border-radius: 0; border: 0; border-bottom: 1px solid var(--line-2); background: transparent; color: var(--ink); font: inherit; font-size: 16px; transition: border-color .12s; }
-.input input:focus { outline: none; border-color: var(--ink); box-shadow: 0 1px 0 0 var(--ink); }
-button { width: 100%; height: 48px; border: 1px solid var(--inv); border-radius: 99px; background: var(--inv); color: var(--inv-ink); font: 600 14.5px "Manrope Variable", "Manrope", sans-serif; cursor: pointer; margin-top: 8px; display: flex; align-items: center; justify-content: center; gap: 8px; transition: opacity .12s; }
-button:hover { opacity: .86; }
-button:disabled { opacity: .5; cursor: wait; }
-button:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+.input i { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--subtle); font-size: 18px; pointer-events: none; }
+.input input { width: 100%; height: 46px; padding: 0 14px 0 42px; border-radius: 12px; border: 1px solid var(--border); background: rgba(255,255,255,.04); color: var(--text); font: inherit; font-size: 16px; transition: border-color .15s, box-shadow .15s; }
+.input input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(111,168,255,.2); }
+button { width: 100%; height: 46px; border: 0; border-radius: 12px; background: var(--primary); color: var(--on-primary); font: 600 15px "Inter Variable", "Inter", sans-serif; cursor: pointer; margin-top: 8px; display: flex; align-items: center; justify-content: center; gap: 8px; transition: filter .15s; }
+button:hover { filter: brightness(1.08); }
+button:disabled { opacity: .6; cursor: wait; }
+button:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+.error { display: none; margin-bottom: 16px; padding: 10px 14px; border: 1px solid rgba(255,125,138,.35); background: rgba(255,125,138,.1); color: var(--danger); border-radius: 12px; font-size: 13px; font-weight: 500; }
+.error.show { display: block; }
+.foot { margin: 24px 0 0; padding-top: 18px; border-top: 1px solid var(--border); color: var(--subtle); font-size: 13px; text-align: center; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
-.error { display: none; margin-bottom: 16px; padding: 10px 14px; border: 1px solid var(--ink); color: var(--ink); border-radius: 10px; font-size: 13px; font-weight: 700; }
-.error.show { display: flex; gap: 8px; align-items: center; }
-.error.show::before { content: "!"; flex: none; width: 20px; height: 20px; border-radius: 50%; background: var(--inv); color: var(--inv-ink); display: grid; place-items: center; font-size: 12px; font-weight: 800; }
-.foot { margin: 28px 0 0; padding-top: 20px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12.5px; text-align: center; }
-@media (max-width: 30rem) { body { padding: 0; place-items: stretch; } .card { padding: 40px 24px 32px; min-height: 100dvh; } }
+@media (max-width: 400px) { .card { padding: 24px 20px; } }
 </style>
-<script>try { document.documentElement.dataset.theme = localStorage.getItem('theme') || 'dark'; } catch (e) { document.documentElement.dataset.theme = 'dark'; }</script>
 </head>
 <body>
 <main class="card">
-  <div class="brand"><div class="tile"><i class="ph-fill ph-books" aria-hidden="true"></i></div><div><b>Pengingat Kuliah</b><small>Jadwal · Tugas · Ujian</small></div></div>
-  <div class="eyebrow">Akses Pengingat Kuliah</div>
-  <h1>Masuk untuk melihat <em>jadwal kuliah</em>.</h1>
+  <div class="brand"><span class="mark" aria-hidden="true">67</span><div><b>Six Seven 67</b><small>Manajemen Perkuliahan</small></div></div>
+  <h1>Masuk ke dashboard</h1>
+  <p class="lead">Jadwal kuliah, tugas, dan ujian kelas dalam satu tempat.</p>
   <div class="error" id="err" role="alert" aria-live="assertive"></div>
   <form id="f">
     <label for="u">Username</label>
