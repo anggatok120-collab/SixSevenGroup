@@ -601,3 +601,9 @@ dialog.modal[open]::backdrop { animation: fadein 200ms ease-out; }
   .ph-stats > div:nth-child(3):last-child { grid-column: 1 / -1; }
   .ph-stats dt { overflow: hidden; text-overflow: ellipsis; }
 }
+
+/* Ikon plus: SVG, ikut warna teks tombol (hitam di tombol putih) */
+.ic-plus { width: 14px; height: 14px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.btn-primary .ic-plus { color: var(--color-on-primary); }
+.btn-secondary .ic-plus { color: var(--color-text); }
+.btn-primary i, .btn-primary svg { color: var(--color-on-primary); }

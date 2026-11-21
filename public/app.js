@@ -178,7 +178,9 @@ const ILLUS_OF = { 'calendar-blank': 'calendar', 'calendar-dots': 'calendar', 'l
 const illus = (icon) => { const k = ILLUS_OF[icon]; return k ? `<svg class="illus" viewBox="0 0 64 64" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ILLUS[k]}</svg>` : `<i class="ph-duotone ph-${icon}"></i>`; };
 const empty = (icon, title, hint, action = '') => `<div class="empty">${illus(icon)}<b>${title}</b><p>${hint}</p>${action}</div>`;
 // Keadaan kosong di dalam panel dashboard: ikon, judul, penjelasan, dan tombol kecil opsional.
-const panelEmpty = (icon, title, hint, type, label) => `<div class="panel-empty">${illus(icon)}<b>${title}</b><p>${hint}</p>${type && canEdit() ? `<button class="btn btn-secondary btn-sm" data-add="${type}"><i class="ph-bold ph-plus"></i>${label}</button>` : ''}</div>`;
+// Plus digambar sebagai SVG (bukan font ikon) supaya di Windows tidak muncul pinggiran warna (ClearType).
+const PLUS = '<svg class="ic-plus" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10"/></svg>';
+const panelEmpty = (icon, title, hint, type, label) => `<div class="panel-empty">${illus(icon)}<b>${title}</b><p>${hint}</p>${type && canEdit() ? `<button class="btn btn-secondary btn-sm" data-add="${type}">${PLUS}${label}</button>` : ''}</div>`;
 // Kepala halaman: ikon, judul, penjelasan singkat, angka ringkas, dan tombol aksi.
 const pageHead = (icon, title, desc, stats = [], action = '') => `<section class="page-head">
   <span class="ph-tile"><i class="ph ph-${icon}" aria-hidden="true"></i></span>
@@ -186,7 +188,7 @@ const pageHead = (icon, title, desc, stats = [], action = '') => `<section class
   ${stats.length ? `<dl class="ph-stats">${stats.map(([v, l]) => `<div><dt>${l}</dt><dd${typeof v === 'number' && v > 0 ? ` data-count="${v}"` : ''}>${v}</dd></div>`).join('')}</dl>` : ''}
   ${action ? `<div class="ph-action">${action}</div>` : ''}
 </section>`;
-const addBtn = (type, label) => canEdit() ? `<button class="btn btn-primary" data-add="${type}"><i class="ph-bold ph-plus"></i>${label}</button>` : '';
+const addBtn = (type, label) => canEdit() ? `<button class="btn btn-primary" data-add="${type}">${PLUS}${label}</button>` : '';
 
 // ---------- Dashboard ----------
 function nextClass() {
@@ -358,7 +360,7 @@ function viewDashboard() {
       <h2>${salam}, ${esc(S.user.nama.split(' ')[0])}</h2>
       <p>${todaySessions.length ? `${todaySessions.length} kelas` : 'Tidak ada kelas'} hari ini dan ${aktif.length ? `${aktif.length} tugas menunggu` : 'tidak ada tugas yang menunggu'}.</p>
       <blockquote class="quote"><i class="ph ph-quotes" aria-hidden="true"></i>${quoteOfDay()}</blockquote>
-      <div class="hero-actions">${canEdit() ? '<button class="btn btn-primary" data-add="tugas"><i class="ph-bold ph-plus"></i>Tugas baru</button>' : ''}<button class="btn btn-secondary" data-view="jadwal"><i class="ph ph-calendar-blank"></i>Lihat jadwal</button></div>
+      <div class="hero-actions">${canEdit() ? `<button class="btn btn-primary" data-add="tugas">${PLUS}Tugas baru</button>` : ''}<button class="btn btn-secondary" data-view="jadwal"><i class="ph ph-calendar-blank"></i>Lihat jadwal</button></div>
     </div>
     <div class="hero-side">
       <div class="clock" aria-label="Jam sekarang"><span data-clock>${clockText(n)}</span><em>WIB</em></div>
