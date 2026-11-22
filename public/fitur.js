@@ -731,7 +731,9 @@ viewProfil = function viewProfilBaru() {
   if (grid) {
     const [tampilan, notif, foto, izin, kalender, wa] = $$('.stack > .card', grid);
     grid.className = 'profil-cards';
-    grid.replaceChildren(...[$('#profForm', grid), foto, tampilan, notif, kalender, wa, izin].filter(Boolean));
+    grid._kartu = [$('#profForm', grid), foto, tampilan, notif, kalender, wa, izin].filter(Boolean);
+    grid.replaceChildren(...grid._kartu);
+    susunProfil();
   }
   muatGambarAuth($('#content'));
   cekPush();
@@ -741,6 +743,22 @@ viewProfil = function viewProfilBaru() {
     catch (err) { toast(err.message, 'error'); }
   });
 };
+
+// Profil: bagi kartu ke beberapa kolom (sesuai lebar) dengan tinggi seimbang,
+// lalu kartu terakhir tiap kolom dipanjangkan supaya ujung bawah semua kolom rata.
+function susunProfil() {
+  const box = $('.profil-cards'); if (!box?._kartu) return;
+  const n = box.clientWidth >= 980 ? 3 : box.clientWidth >= 600 ? 2 : 1;
+  if (box._n === n) return; box._n = n;
+  box.style.setProperty('--n', n);
+  box.classList.add('menyusun');
+  const cols = Array.from({ length: n }, () => Object.assign(document.createElement('div'), { className: 'pcol' }));
+  box.replaceChildren(...cols);
+  for (const c of box._kartu) cols.reduce((a, b) => (b.offsetHeight < a.offsetHeight ? b : a)).append(c);
+  box.classList.remove('menyusun');
+}
+let fxTimerSusun;
+window.addEventListener('resize', () => { clearTimeout(fxTimerSusun); fxTimerSusun = setTimeout(() => { if (S.view === 'profil') susunProfil(); }, 120); });
 
 // Notifikasi push
 const b64ke8 = (s) => { const p = '='.repeat((4 - s.length % 4) % 4); const raw = atob((s + p).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(raw, (c) => c.charCodeAt(0)); };

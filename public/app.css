@@ -1001,3 +1001,9 @@ a.title:hover { text-decoration: underline; text-underline-offset: 3px; }
 /* Profil: kartu tersusun dalam kolom yang saling mengisi */
 .profil-cards { columns: 320px 3; column-gap: var(--space-4); }
 .profil-cards > .card { break-inside: avoid; margin: 0 0 var(--space-4); width: 100%; }
+
+.profil-cards { columns: auto; display: grid; grid-template-columns: repeat(var(--n, 1), minmax(0, 1fr)); gap: var(--space-4); align-items: stretch; }
+.profil-cards.menyusun { align-items: start; }
+.pcol { display: flex; flex-direction: column; gap: var(--space-4); min-width: 0; }
+.pcol > .card { margin: 0; }
+.profil-cards:not(.menyusun) .pcol > .card:last-child { flex: 1; }
