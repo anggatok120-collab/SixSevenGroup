@@ -114,3 +114,29 @@ test('perbaikan bug: pesan besok, sisa waktu lewat, tenggat diubah, jam kelas te
 
   assert.match(handle(db, '/tambahkelas Senin | 10:00-08:00 | Kalkulus', { isAdmin: true, now }), /selesai harus setelah/);
 });
+
+test('tanggal tidak valid ditolak, tidak digeser diam-diam', () => {
+  const now = at('2026-11-21 10:00');
+  for (const s of ['31-02 23:59', '15-13 10:00', '32-01', '28-11 25:00', '28-11 10:99']) assert.ok(Number.isNaN(parseUserDate(s, now)), s);
+  assert.ok(Number.isNaN(parseLocal('2026-02-30 08:00')));
+  assert.match(handle(db0(), '/tambahtugas Kalkulus | PR | 31-02 23:59', { isAdmin: true, now }), /Format/);
+});
+
+test('kelas lewat tengah malam diingatkan malam sebelumnya', () => {
+  const db = db0();
+  db.addKelas({ hari: 0, mulai: '00:15', selesai: null, matkul: 'Kelas Malam', ruang: null, dosen: null }); // Minggu
+  const s = getSettings(db, cfg);
+  const r = dueReminders(db, s, at('2026-11-21 23:46')); // Sabtu malam
+  assert.equal(r.filter((x) => x.mode === 'kelas').length, 1);
+  assert.equal(r[0].key, `kelas:1:2026-11-22`);
+});
+
+test('ubah data dengan id yang tidak ada tidak membuat mata kuliah baru', () => {
+  const db = db0();
+  assert.ok(!db.updateKelas(99, { hari: 1, mulai: '08:00', selesai: null, matkul: 'Hantu', ruang: null, dosen: null }));
+  assert.ok(!db.updateTugas(99, { matkul: 'Hantu', judul: 'x', deadline: Date.now() }));
+  assert.ok(!db.updateUjian(99, { matkul: 'Hantu', jenis: 'UTS', waktu: Date.now(), ruang: null }));
+  assert.equal(db.matkulAll().length, 0);
+});
+
+function db0() { return openDb(':memory:'); }

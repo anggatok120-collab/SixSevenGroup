@@ -3,3 +3,4 @@ auth/
 data/*.db*
 .env
 data/backups/
+REVISION

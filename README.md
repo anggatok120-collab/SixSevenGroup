@@ -14,7 +14,16 @@ Bot WhatsApp yang mengirim pengingat jadwal kelas, deadline tugas, dan ujian ke 
   - Pusat Pengingat (admin): nyalakan/matikan tiap jenis pengingat, atur jam, kirim sekarang, pratinjau pesan
   - Status Bot (admin): koneksi WA, grup tujuan, riwayat pengiriman, kirim pesan tes
   - Kelola Akun (admin) dan Profil (ganti nama/password)
-  - Tema gelap/terang, tampilan HP dengan menu geser
+  - Mata Kuliah dengan warna sendiri (dipakai di semua halaman) dan progres tugas per mata kuliah
+  - Kalender bulanan, Jadwal dalam bentuk papan atau grid jam (jadwal bentrok ditandai merah)
+  - Kelas batal & kuliah pengganti per tanggal, bisa langsung diumumkan ke grup; pengingat ikut menyesuaikan
+  - Status "sudah kumpul" per anggota untuk tiap tugas (web atau `/kumpul 3` di WA)
+  - Pengingat pribadi lewat chat WA untuk anggota yang belum kumpul (nyalakan di Pusat Pengingat)
+  - Pengumuman ke grup, langsung atau terjadwal
+  - Riwayat perubahan (admin): siapa mengubah apa
+  - Langganan kalender (.ics) untuk Google Calendar / kalender HP, dari menu Profil
+  - Bisa di-install di HP (PWA)
+  - Tampilan HP dengan menu geser
 - Semua waktu bisa diatur di `.env`
 
 ## Kebutuhan
@@ -78,6 +87,26 @@ sudo certbot --nginx -d kuliah.domainmu.com
 | Hapus | `/hapustugas 3`, `/hapusujian 2`, `/hapuskelas 5` |
 
 Tanggal boleh `28-11`, `28/11`, `28-11-2026`, atau `2026-11-28`. Tanpa jam berarti 23:59.
+
+## Deploy otomatis (GitHub Actions)
+Setiap push ke `main` menjalankan tes, lalu menyalin kode ke VPS dan me-restart bot dengan pm2
+(`.github/workflows/deploy.yml` + `deploy/remote.sh`). `.env`, `data/`, dan `auth/` di VPS tidak disentuh.
+Bisa juga dijalankan manual: tab **Actions** → *Tes & deploy ke VPS* → **Run workflow**.
+
+Isi secret di GitHub: **Settings → Secrets and variables → Actions → New repository secret**
+| Secret | Isi |
+|---|---|
+| `VPS_HOST` | IP VPS |
+| `VPS_PORT` | port SSH (default 22) |
+| `VPS_USER` | user SSH (default `root`) |
+| `VPS_SSH_KEY` | private key khusus deploy (disarankan), lihat di bawah |
+| `VPS_PASSWORD` | alternatif kalau tidak pakai key |
+| `VPS_APP_DIR` | folder bot di VPS (default `/root/wa-pengingat-kuliah`) |
+
+Membuat key deploy (jalankan di VPS), lalu salin seluruh isi private key ke secret `VPS_SSH_KEY`:
+```bash
+ssh-keygen -t ed25519 -N "" -C github-deploy -f ~/.ssh/github_deploy && cat ~/.ssh/github_deploy.pub >> ~/.ssh/authorized_keys && cat ~/.ssh/github_deploy
+```
 
 ## Pengembangan
 ```bash

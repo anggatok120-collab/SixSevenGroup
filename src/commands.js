@@ -1,5 +1,6 @@
 const { local, parseUserDate, parseHM, parseHari, pretty, HARI_LABEL } = require('./time');
 const { tugasLine, ujianLine, jadwalHari } = require('./format');
+const { kelasPada } = require('./jadwal');
 
 const MENU = `🤖 *Bot Pengingat Kuliah*
 
@@ -15,6 +16,9 @@ const MENU = `🤖 *Bot Pengingat Kuliah*
 /tambahtugas Basis Data | Laporan ERD | 28-11 23:59
 /tambahujian Kalkulus | UTS | 02-12 08:00 | R.301
 /importjadwal (lalu tiap baris: Hari | jam | matkul | ruang | dosen)
+
+*Pribadi*
+/kumpul 3 – tandai tugas no. 3 sudah kamu kumpulkan (nomor WA harus terdaftar di akun web)
 
 *Ubah (admin)*
 /selesai 3 – tandai tugas no. 3 selesai
@@ -41,7 +45,8 @@ function parseKelas(line) {
   return { kelas: { hari, mulai, selesai, matkul, ruang: ruang || null, dosen: dosen || null } };
 }
 
-function handle(db, text, { isAdmin = false, chatJid = '', now = Date.now(), webUrl = process.env.WEB_URL || '' } = {}) {
+function handle(db, text, { isAdmin = false, chatJid = '', now = Date.now(), webUrl = process.env.WEB_URL || '', akun = null, oleh = 'WhatsApp' } = {}) {
+  const catat = (aksi, jenis, ringkas) => db.addRiwayat?.(`${oleh} (WA)`, aksi, jenis, ringkas);
   const m = /^[/!.](\w+)\s*([\s\S]*)$/.exec(text.trim());
   if (!m) return null;
   const cmd = m[1].toLowerCase();
@@ -57,11 +62,9 @@ function handle(db, text, { isAdmin = false, chatJid = '', now = Date.now(), web
     case 'groupid':
       return `ID chat ini: ${chatJid}`;
     case 'hari':
-      return jadwalHari(db.kelasByHari(t.dow), t.dow);
-    case 'besok': {
-      const d = (t.dow + 1) % 7;
-      return jadwalHari(db.kelasByHari(d), d);
-    }
+      return jadwalHari(kelasPada(db, now), t.dow);
+    case 'besok':
+      return jadwalHari(kelasPada(db, now + 86400000), (t.dow + 1) % 7);
     case 'jadwal': {
       const all = db.kelasAll();
       if (!all.length) return 'Jadwal kelas masih kosong. Admin bisa isi pakai /tambahkelas atau /importjadwal.';
@@ -88,6 +91,7 @@ function handle(db, text, { isAdmin = false, chatJid = '', now = Date.now(), web
       const r = parseKelas(arg);
       if (r.error) return `❌ ${r.error}\nContoh: /tambahkelas Senin | 08:00-09:40 | Kalkulus | R.301`;
       const id = db.addKelas(r.kelas);
+      catat('tambah', 'jadwal', `${HARI_LABEL[r.kelas.hari]} ${r.kelas.mulai} ${r.kelas.matkul}`);
       return `✅ Kelas ditambahkan [${id}]: ${HARI_LABEL[r.kelas.hari]} ${r.kelas.mulai} *${r.kelas.matkul}*`;
     }
     case 'importjadwal': {
@@ -100,6 +104,7 @@ function handle(db, text, { isAdmin = false, chatJid = '', now = Date.now(), web
         if (r.error) gagal.push(`"${l}": ${r.error}`);
         else { db.addKelas(r.kelas); ok.push(r.kelas.matkul); }
       }
+      if (ok.length) catat('tambah', 'jadwal', `Import ${ok.length} kelas`);
       return `✅ ${ok.length} kelas ditambahkan.` + (gagal.length ? `\n❌ Gagal:\n${gagal.join('\n')}` : '');
     }
     case 'tambahtugas': {
@@ -108,6 +113,7 @@ function handle(db, text, { isAdmin = false, chatJid = '', now = Date.now(), web
       const deadline = parseUserDate(tgl || '', now);
       if (!matkul || !judul || Number.isNaN(deadline)) return '❌ Format: /tambahtugas Matkul | Judul tugas | 28-11 23:59';
       const id = db.addTugas({ matkul, judul, deadline });
+      catat('tambah', 'tugas', `${matkul}: ${judul}`);
       return `✅ Tugas ditambahkan [${id}]: *${matkul}* – ${judul}\n⏰ ${pretty(deadline)}`;
     }
     case 'tambahujian': {
@@ -116,6 +122,7 @@ function handle(db, text, { isAdmin = false, chatJid = '', now = Date.now(), web
       const waktu = parseUserDate(tgl || '', now);
       if (!matkul || !jenis || Number.isNaN(waktu)) return '❌ Format: /tambahujian Matkul | UTS | 02-12 08:00 | Ruang';
       const id = db.addUjian({ matkul, jenis, waktu, ruang: ruang || null });
+      catat('tambah', 'ujian', `${jenis} ${matkul}`);
       return `✅ Ujian ditambahkan [${id}]: *${jenis} ${matkul}*\n📅 ${pretty(waktu)}`;
     }
     case 'selesai': case 'hapustugas': case 'hapusujian': case 'hapuskelas': {
@@ -124,7 +131,16 @@ function handle(db, text, { isAdmin = false, chatJid = '', now = Date.now(), web
       if (!id) return `❌ Tulis nomornya, contoh: /${cmd} 3`;
       const fn = { selesai: db.selesaiTugas, hapustugas: db.delTugas, hapusujian: db.delUjian, hapuskelas: db.delKelas }[cmd];
       if (!fn(id)) return `❌ Nomor ${id} tidak ditemukan.`;
+      catat(cmd === 'selesai' ? 'ubah' : 'hapus', { selesai: 'tugas', hapustugas: 'tugas', hapusujian: 'ujian', hapuskelas: 'jadwal' }[cmd], cmd === 'selesai' ? `Tugas [${id}] ditandai selesai` : `Data [${id}] dihapus`);
       return cmd === 'selesai' ? `✅ Tugas [${id}] ditandai selesai. Mantap!` : `🗑️ Data [${id}] dihapus.`;
+    }
+    case 'kumpul': case 'batalkumpul': {
+      if (!akun) return 'Nomor WhatsApp ini belum terhubung ke akun web. Minta admin menambahkan nomormu di menu Management Akun.';
+      const id = parseInt(arg, 10);
+      const tg = id && db.tugasById(id);
+      if (!tg) return `❌ Tulis nomor tugasnya, contoh: /${cmd} 3`;
+      db.setKumpul(id, akun.id, cmd === 'kumpul');
+      return cmd === 'kumpul' ? `✅ Tugas [${id}] *${tg.matkul}: ${tg.judul}* ditandai sudah kamu kumpulkan.` : `↩️ Tugas [${id}] ditandai belum kamu kumpulkan.`;
     }
     default:
       return null;

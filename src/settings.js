@@ -1,7 +1,7 @@
 // Pengaturan pengingat: default dari .env, bisa diubah admin lewat web (disimpan di DB).
 const { parseHM } = require('./time');
 
-const MODES = ['pagi', 'besok', 'kelas', 'tugas', 'ujian'];
+const MODES = ['pagi', 'besok', 'kelas', 'tugas', 'ujian', 'pribadi'];
 
 function defaults(cfg) {
   return {
@@ -10,6 +10,7 @@ function defaults(cfg) {
     kelas: { on: true, menit: cfg.classLeadMin },
     tugas: { on: true, menit: cfg.taskLeadsMin },
     ujian: { on: true, menit: cfg.examLeadsMin, pagiJam: cfg.examMorningAt },
+    pribadi: { on: false, menit: [1440], ujian: true },
   };
 }
 
@@ -35,7 +36,7 @@ function validate(input, cfg) {
       o.menit = Number(x.menit);
       if (!(o.menit >= 5 && o.menit <= 180)) return { error: 'Menit pengingat kelas harus 5–180' };
     }
-    if (m === 'tugas' || m === 'ujian') {
+    if (m === 'tugas' || m === 'ujian' || m === 'pribadi') {
       const arr = (Array.isArray(x.menit) ? x.menit : []).map(Number).filter((n) => n > 0 && n <= 60 * 24 * 30);
       o.menit = [...new Set(arr)].sort((a, b) => b - a);
     }
@@ -43,6 +44,7 @@ function validate(input, cfg) {
       o.pagiJam = x.pagiJam === '' || x.pagiJam == null ? null : parseHM(x.pagiJam);
       if (x.pagiJam && !o.pagiJam) return { error: 'Jam pengingat pagi ujian tidak valid' };
     }
+    if (m === 'pribadi') o.ujian = !!x.ujian;
     out[m] = o;
   }
   return { value: out };

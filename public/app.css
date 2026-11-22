@@ -636,3 +636,123 @@ dialog.modal.confirm h2 { font-size: var(--text-heading-sm); line-height: 1.35; 
 /* Kotak centang tugas untuk anggota (hanya lihat) */
 .check:disabled, .task-check:disabled { opacity: .45; cursor: default; }
 @media (prefers-reduced-motion: reduce) { .mk-card:hover { transform: none; } }
+
+/* ===================== Fitur baru ===================== */
+/* Warna mata kuliah: aksen kecil supaya tetap selaras dengan tema monokrom */
+.mk-chip { color: var(--color-text); gap: 6px; }
+.mk-chip::before { content: ''; flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--mk); box-shadow: 0 0 0 3px color-mix(in srgb, var(--mk) 18%, transparent); }
+.mk-accent { box-shadow: inset 3px 0 0 var(--mk); }
+.row.mk-accent, .session.mk-accent { padding-left: calc(var(--space-3) + 6px); }
+.trow.mk-accent { box-shadow: inset 3px 0 0 color-mix(in srgb, var(--mk) 85%, transparent); }
+.mk-card { border-top: 2px solid var(--mk, var(--color-border)); }
+.mk-card .mk-badge { background: color-mix(in srgb, var(--mk) 16%, transparent); color: var(--mk); border-color: color-mix(in srgb, var(--mk) 35%, transparent); }
+.mk-prog { display: grid; gap: 6px; }
+.mk-prog > div:first-child { display: flex; justify-content: space-between; font-size: var(--text-caption); color: var(--color-text-subtle); }
+.mk-prog b { color: var(--color-text); font-family: var(--font-mono); font-weight: 500; }
+.mk-prog .bar i { background: var(--mk); }
+.mk-foot button.tag { cursor: pointer; font: inherit; font-size: var(--text-caption); }
+.swatches { border: 0; padding: 0; margin: 0; }
+.sw-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.sw { position: relative; cursor: pointer; }
+.sw input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.sw i { display: block; width: 28px; height: 28px; border-radius: 50%; background: var(--mk); border: 2px solid var(--color-surface); box-shadow: 0 0 0 1px var(--color-border); transition: transform 120ms ease-out, box-shadow 120ms ease-out; }
+.sw input:checked + i { box-shadow: 0 0 0 2px var(--color-text); transform: scale(1.08); }
+.sw input:focus-visible + i { outline: 2px solid var(--color-focus-ring); outline-offset: 3px; }
+
+/* Status kumpul per anggota */
+.kumpul-btn { display: inline-flex; align-items: center; gap: 5px; min-height: 28px; padding: 0 9px; border-radius: var(--radius-pill); border: 1px solid var(--color-border); background: transparent; color: var(--color-text-muted); font-size: var(--text-caption); font-weight: 500; white-space: nowrap; cursor: pointer; transition: background 140ms ease-out, color 140ms ease-out, border-color 140ms ease-out; }
+.kumpul-btn:hover { color: var(--color-text); border-color: var(--color-border-strong); }
+.kumpul-btn[aria-pressed="true"] { color: var(--color-success); border-color: rgba(79,216,164,.34); background: rgba(79,216,164,.10); }
+.kumpul-btn i { font-size: 14px; }
+.kumpul-btn em { font-style: normal; font-family: var(--font-mono); color: var(--color-text-subtle); font-size: 11px; }
+.kumpul-btn:disabled { opacity: .6; cursor: progress; }
+.kumpul-line { margin-top: 6px; }
+.task-side { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex: none; }
+.modal-foot .kumpul-btn { min-height: 40px; padding: 0 14px; font-size: var(--text-body-sm); }
+.detail-list dd div, .detail-list dd details { display: block; padding: 0; border: 0; }
+.kumpul-sum { display: grid !important; gap: 6px; margin-bottom: 8px; color: var(--color-text-muted); font-size: var(--text-body-sm); }
+.kumpul-sum b { color: var(--color-text); }
+.kumpul-sum .bar i { background: var(--color-success); }
+.detail-list details { margin-top: 4px; font-size: var(--text-body-sm); }
+.detail-list summary { cursor: pointer; color: var(--color-text-muted); }
+.detail-list details p { margin: 4px 0 0; color: var(--color-text); }
+
+/* Kelas batal & kuliah pengganti */
+.session[data-batal="true"] b, .row.is-batal .title { text-decoration: line-through; color: var(--color-text-subtle); }
+.session[data-batal="true"] { opacity: .75; }
+.toolbar-right { display: flex; gap: var(--space-2); flex-wrap: wrap; }
+.warn-note { color: var(--color-warning); font-size: var(--text-body-sm); border-color: rgba(245,192,115,.34); }
+
+/* Jadwal: grid jam */
+.tgrid-card { padding: var(--space-3); overflow-x: auto; }
+.tgrid { display: grid; grid-template-columns: 48px repeat(var(--cols), minmax(120px, 1fr)); gap: 6px; min-width: calc(48px + var(--cols) * 126px); }
+.tcol-head { height: 30px; display: grid; place-items: center; font-size: var(--text-caption); font-weight: 600; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: .06em; }
+.tcol.today .tcol-head { color: var(--color-text); }
+.tcol-body { position: relative; border-radius: var(--radius-control); background: repeating-linear-gradient(to bottom, var(--color-border) 0 1px, transparent 1px var(--hour)), var(--color-glass); }
+.tcol.today .tcol-body { box-shadow: inset 0 0 0 1px var(--color-border-strong); }
+.taxis .tcol-body { background: none; }
+.taxis span { position: absolute; right: 6px; transform: translateY(-50%); font-family: var(--font-mono); font-size: 11px; color: var(--color-text-subtle); }
+.taxis span:first-child { transform: none; }
+.tblock { position: absolute; display: flex; flex-direction: column; gap: 1px; overflow: hidden; padding: 4px 7px; border-radius: 9px; cursor: pointer; background: color-mix(in srgb, var(--mk) 16%, var(--color-surface)); border: 1px solid color-mix(in srgb, var(--mk) 40%, transparent); box-shadow: inset 3px 0 0 var(--mk); font-size: 12px; line-height: 1.3; transition: filter 140ms ease-out; }
+.tblock:hover { filter: brightness(1.15); }
+.tblock b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tblock span { color: var(--color-text-muted); font-family: var(--font-mono); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tblock em { font-style: normal; color: var(--color-danger); font-size: 11px; display: inline-flex; gap: 3px; align-items: center; }
+.tblock[data-clash="true"] { border: 1px dashed var(--color-danger); }
+
+/* Kalender bulanan */
+.cal-nav { display: flex; align-items: center; gap: var(--space-2); }
+.cal-card { padding: var(--space-3); }
+.cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.cal-dow { text-align: center; font-size: var(--text-caption); color: var(--color-text-subtle); font-weight: 600; padding: 4px 0 6px; text-transform: uppercase; letter-spacing: .06em; }
+.cal-cell { position: relative; min-height: 112px; padding: 6px; border-radius: 10px; border: 1px solid var(--color-border); background: var(--color-glass); cursor: pointer; min-width: 0; display: flex; flex-direction: column; gap: 4px; transition: border-color 140ms ease-out, background 140ms ease-out; }
+.cal-cell:hover { border-color: var(--color-border-strong); background: var(--color-glass-strong); }
+.cal-cell:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 1px; }
+.cal-cell[data-out="true"] { opacity: .38; }
+.cal-cell[data-past="true"]:not([data-out="true"]) .cal-num { color: var(--color-text-subtle); }
+.cal-cell[data-today="true"] { border-color: var(--color-text); }
+.cal-cell[data-today="true"] .cal-num { background: var(--color-primary); color: var(--color-on-primary); }
+.cal-top { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
+.cal-num { display: inline-grid; place-items: center; min-width: 24px; height: 24px; border-radius: 50%; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.cal-dots { display: flex; gap: 3px; }
+.cal-dots i, .lg-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--color-text-muted); }
+.cal-cell ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; min-width: 0; }
+.ev { display: flex; align-items: center; gap: 4px; min-width: 0; padding: 1px 5px; border-radius: 5px; font-size: 11px; line-height: 1.5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; background: color-mix(in srgb, var(--mk) 14%, transparent); color: var(--color-text); }
+.ev i { flex: none; color: var(--mk); font-size: 11px; }
+.ev.done { opacity: .55; text-decoration: line-through; }
+.ev-ujian { font-weight: 600; box-shadow: inset 2px 0 0 var(--mk); }
+.ev-batal { color: var(--color-danger); background: rgba(255,125,138,.10); text-decoration: line-through; }
+.ev-batal i { color: var(--color-danger); }
+.ev-more { font-size: 11px; color: var(--color-text-subtle); padding-left: 5px; }
+.cal-badge { display: none; }
+.cal-legend { margin-top: var(--space-3); }
+.cal-legend i { font-size: 12px; }
+
+/* Pengumuman & riwayat */
+.pg-teks { white-space: pre-wrap; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.rw-ic { display: inline-grid; place-items: center; width: 32px; height: 32px; flex: none; border-radius: 10px; background: var(--color-glass); border: 1px solid var(--color-border); color: var(--color-text-muted); }
+.rw-ic[data-tone="success"] { color: var(--color-success); }
+.rw-ic[data-tone="danger"] { color: var(--color-danger); }
+
+/* Langganan kalender */
+.copy-row { display: flex; gap: var(--space-2); }
+.copy-row input { flex: 1; min-width: 0; min-height: 36px; padding: 0 var(--space-3); border-radius: 10px; border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text-muted); font-family: var(--font-mono); font-size: 12px; }
+.cal-links { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-3); }
+
+@media (max-width: 640px) {
+  .cal-grid { gap: 2px; }
+  .cal-cell { min-height: 54px; padding: 4px; align-items: center; }
+  .cal-cell ul { display: none; }
+  .cal-top { flex-direction: column; gap: 2px; }
+  .cal-badge { display: grid; place-items: center; position: absolute; top: 3px; right: 3px; min-width: 15px; height: 15px; padding: 0 3px; border-radius: 8px; background: var(--color-warning); color: #111; font-size: 10px; font-weight: 700; }
+  .cal-dots i { width: 5px; height: 5px; }
+  .toolbar-right { width: 100%; }
+  .toolbar-right .btn { flex: 1; }
+  .task-side { flex-direction: row; }
+}
+.field[hidden] { display: none; }
+.warn-note { display: flex; align-items: center; gap: var(--space-2); }
+@media (max-width: 640px) {
+  .cal-badge { position: static; display: block; min-width: 0; width: 6px; height: 6px; padding: 0; font-size: 0; border-radius: 50%; margin-top: auto; }
+}
+.detail-list .kumpul-sum { grid-template-columns: 1fr !important; } .detail-list .kumpul-sum .bar { display: block; }

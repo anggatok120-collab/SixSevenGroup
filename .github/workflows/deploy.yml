@@ -1,0 +1,60 @@
+name: Tes & deploy ke VPS
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+concurrency:
+  group: deploy-vps
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm test
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    env:
+      HOST: ${{ secrets.VPS_HOST }}
+      PORT: ${{ secrets.VPS_PORT || '22' }}
+      USER: ${{ secrets.VPS_USER || 'root' }}
+      APP_DIR: ${{ secrets.VPS_APP_DIR || '/root/wa-pengingat-kuliah' }}
+      SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+      SSHPASS: ${{ secrets.VPS_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cek secret
+        run: |
+          if [ -z "$HOST" ]; then echo "::error::Secret VPS_HOST belum diisi (Settings > Secrets and variables > Actions)"; exit 1; fi
+          if [ -z "$SSH_KEY" ] && [ -z "$SSHPASS" ]; then echo "::error::Isi VPS_SSH_KEY (disarankan) atau VPS_PASSWORD"; exit 1; fi
+      - name: Siapkan SSH
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          ssh-keyscan -p "$PORT" -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          if [ -n "$SSH_KEY" ]; then
+            printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key && chmod 600 ~/.ssh/deploy_key
+            echo "SSH=ssh -p $PORT -i $HOME/.ssh/deploy_key -o BatchMode=yes" >> "$GITHUB_ENV"
+          else
+            sudo apt-get install -y sshpass >/dev/null
+            echo "SSH=sshpass -e ssh -p $PORT -o PubkeyAuthentication=no" >> "$GITHUB_ENV"
+          fi
+      - name: Salin kode ke VPS
+        run: |
+          git log -1 --format='%h %s' > REVISION
+          $SSH "$USER@$HOST" "mkdir -p '$APP_DIR' && (command -v rsync >/dev/null || (apt-get update -qq && apt-get install -y -qq rsync))"
+          # .env, database (data/), sesi WhatsApp (auth/), dan node_modules di VPS tidak disentuh.
+          rsync -az --delete \
+            --exclude '.git/' --exclude 'node_modules/' --exclude 'data/' --exclude 'auth/' --exclude '.env' --exclude '*.log' \
+            -e "$SSH" ./ "$USER@$HOST:$APP_DIR/"
+      - name: Pasang & restart bot
+        run: $SSH "$USER@$HOST" "bash '$APP_DIR/deploy/remote.sh' '$APP_DIR'"
