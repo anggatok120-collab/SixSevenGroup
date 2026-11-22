@@ -1,7 +1,8 @@
 // Pengaturan pengingat: default dari .env, bisa diubah admin lewat web (disimpan di DB).
 const { parseHM } = require('./time');
 
-const MODES = ['pagi', 'besok', 'kelas', 'tugas', 'ujian', 'pribadi'];
+const MODES = ['pagi', 'besok', 'kelas', 'tugas', 'ujian', 'pribadi', 'mingguan'];
+const EXTRA = ['tenang', 'jeda'];
 
 function defaults(cfg) {
   return {
@@ -11,13 +12,16 @@ function defaults(cfg) {
     tugas: { on: true, menit: cfg.taskLeadsMin },
     ujian: { on: true, menit: cfg.examLeadsMin, pagiJam: cfg.examMorningAt },
     pribadi: { on: false, menit: [1440], ujian: true },
+    mingguan: { on: true, jam: '19:00' },        // rekap agenda seminggu, tiap Minggu
+    tenang: { on: false, dari: '22:00', sampai: '05:00' }, // jam tenang: pesan ditunda
+    jeda: { sampai: null },                      // mode libur: semua pengingat berhenti sampai tanggal ini
   };
 }
 
 function getSettings(db, cfg) {
   const saved = db.getSetting('pengingat') || {};
   const d = defaults(cfg);
-  for (const m of MODES) d[m] = { ...d[m], ...(saved[m] || {}) };
+  for (const m of [...MODES, ...EXTRA]) d[m] = { ...d[m], ...(saved[m] || {}) };
   return d;
 }
 
@@ -28,7 +32,7 @@ function validate(input, cfg) {
   for (const m of MODES) {
     const x = (input && input[m]) || {};
     const o = { on: !!x.on };
-    if (m === 'pagi' || m === 'besok') {
+    if (m === 'pagi' || m === 'besok' || m === 'mingguan') {
       o.jam = parseHM(x.jam || cur[m].jam);
       if (!o.jam) return { error: `Jam pengingat ${m} tidak valid` };
     }
@@ -47,6 +51,11 @@ function validate(input, cfg) {
     if (m === 'pribadi') o.ujian = !!x.ujian;
     out[m] = o;
   }
+  const tn = (input && input.tenang) || {};
+  out.tenang = { on: !!tn.on, dari: parseHM(tn.dari || '22:00'), sampai: parseHM(tn.sampai || '05:00') };
+  if (!out.tenang.dari || !out.tenang.sampai) return { error: 'Jam tenang tidak valid' };
+  const j = (input && input.jeda) || {};
+  out.jeda = { sampai: j.sampai && /^\d{4}-\d{2}-\d{2}$/.test(j.sampai) ? j.sampai : null };
   return { value: out };
 }
 

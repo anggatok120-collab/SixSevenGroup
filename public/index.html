@@ -8,6 +8,7 @@
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" content="#050506">
+<script>try{var t=localStorage.getItem('tema')||'gelap';if(t==='auto')t=matchMedia('(prefers-color-scheme: light)').matches?'terang':'gelap';document.documentElement.dataset.theme=t;}catch(e){}</script>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Six Seven 67">
@@ -49,6 +50,8 @@
       <div class="page-title"><p id="pageSub"></p><h1 id="pageTitle" tabindex="-1"></h1></div>
       <label class="top-search"><i class="ph ph-magnifying-glass"></i><input type="search" id="globalSearch" placeholder="Cari mata kuliah, tugas…" aria-label="Cari mata kuliah atau tugas"></label>
       <div class="top-actions">
+        <button class="icon-btn" id="cariBtn" aria-label="Cari cepat (Ctrl+K)" title="Cari cepat (Ctrl+K)"><i class="ph ph-command"></i></button>
+        <button class="icon-btn" id="temaBtn" aria-label="Ganti tema terang/gelap" title="Ganti tema"><i class="ph ph-sun"></i></button>
         <button class="pill-btn" id="bellBtn" aria-label="Tugas aktif"><i class="ph ph-bell"></i><span id="bellCount">0</span></button>
       </div>
     </header>
@@ -70,6 +73,12 @@
 
 <div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true"><i class="ph-fill ph-check-circle"></i><p id="toastText"></p><button class="tiny-btn" id="toastClose" aria-label="Tutup"><i class="ph ph-x"></i></button></div>
 
+<dialog class="palette" id="palette" aria-label="Cari cepat">
+  <div class="pal-box"><i class="ph ph-magnifying-glass"></i><input id="palInput" placeholder="Cari menu, mata kuliah, tugas, ujian…" autocomplete="off" aria-label="Kata kunci"><kbd>Esc</kbd></div>
+  <div class="pal-list" id="palList" role="listbox"></div>
+</dialog>
+
 <script src="/app.js"></script>
+<script src="/fitur.js"></script>
 </body>
 </html>

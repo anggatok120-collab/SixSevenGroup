@@ -1,7 +1,22 @@
 // Service worker: aplikasi bisa di-install dan tampilan dasarnya tetap terbuka saat sinyal jelek.
 // Data (/api) selalu diambil langsung dari server, tidak pernah disimpan di cache.
-const CACHE = 'ss67-v1';
-const SHELL = ['/', '/login', '/app.css', '/app.js', '/logo.svg', '/manifest.webmanifest', '/icon-192.png'];
+const CACHE = 'ss67-v2';
+const SHELL = ['/', '/login', '/app.css', '/app.js', '/fitur.js', '/logo.svg', '/manifest.webmanifest', '/icon-192.png'];
+
+// Notifikasi push dari server (pengingat, pengumuman).
+self.addEventListener('push', (e) => {
+  let d = {}; try { d = e.data ? e.data.json() : {}; } catch { d = { title: 'Six Seven 67', body: e.data?.text() }; }
+  e.waitUntil(self.registration.showNotification(d.title || 'Six Seven 67', { body: d.body || '', icon: '/icon-192.png', badge: '/icon-192.png', tag: d.tag, data: { url: d.url || '/' } }));
+});
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  const url = e.notification.data?.url || '/';
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+    const w = list.find((c) => new URL(c.url).origin === location.origin);
+    if (w) { w.focus(); return w.navigate(url).catch(() => {}); }
+    return self.clients.openWindow(url);
+  }));
+});
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).catch(() => {}).then(() => self.skipWaiting()));

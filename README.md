@@ -22,7 +22,17 @@ Bot WhatsApp yang mengirim pengingat jadwal kelas, deadline tugas, dan ujian ke 
   - Pengumuman ke grup, langsung atau terjadwal
   - Riwayat perubahan (admin): siapa mengubah apa
   - Langganan kalender (.ics) untuk Google Calendar / kalender HP, dari menu Profil
-  - Bisa di-install di HP (PWA)
+  - Bisa di-install di HP (PWA) dengan notifikasi push
+  - Semester & hari libur: pengingat kelas berhenti otomatis saat libur atau di luar semester
+  - Halaman detail mata kuliah: kehadiran pribadi + batas tidak hadir, materi/link, kalkulator nilai, kontak dosen
+  - Tugas: link pengumpulan & soal, checklist langkah, tugas kelompok, tugas berulang mingguan; grup diberi tahu kalau tenggat diubah
+  - Ujian: materi/kisi-kisi jadi checklist belajar, "yang harus dibawa", link ujian online
+  - Pengingat: jam tenang, mode libur, rekap mingguan tiap Minggu
+  - Pengumuman: template, gambar, sematkan di dashboard, hanya-web; polling WhatsApp dengan hasil di web
+  - Akun: tambah banyak sekaligus (+ sapaan WA), link undangan dengan persetujuan admin, foto profil, terakhir aktif
+  - Riwayat: data terhapus bisa dikembalikan 30 hari; filter per orang dan jenis
+  - Status bot: antrean pesan 24 jam, grafik pesan per hari, pulihkan backup, peringatan ke admin kalau bot putus/gagal
+  - Tema gelap/terang, cari cepat (Ctrl+K), jadwal bisa digeser di grid jam dan disimpan sebagai gambar
   - Tampilan HP dengan menu geser
 - Semua waktu bisa diatur di `.env`
 
@@ -85,6 +95,10 @@ sudo certbot --nginx -d kuliah.domainmu.com
 | Tambah ujian | `/tambahujian Kalkulus \| UTS \| 02-12 08:00 \| R.301` |
 | Tandai tugas selesai | `/selesai 3` |
 | Hapus | `/hapustugas 3`, `/hapusujian 2`, `/hapuskelas 5` |
+| Agenda 7 hari | `/minggu` |
+| Cari | `/cari laporan` |
+| Info mata kuliah / materi | `/matkul kalkulus`, `/materi kalkulus` |
+| Tandai sudah kumpul (pribadi) | `/kumpul 3`, atau balas pesan pengingat tugas dengan `udah` |
 
 Tanggal boleh `28-11`, `28/11`, `28-11-2026`, atau `2026-11-28`. Tanpa jam berarti 23:59.
 

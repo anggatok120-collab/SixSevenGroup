@@ -20,13 +20,14 @@ function leadLabel(min) {
 
 const kelasLine = (k) => {
   const jam = `${k.mulai}${k.selesai ? '–' + k.selesai : ''}`;
+  if (k.libur) return `• ~${jam} ${k.matkul}~ 🏖️ *LIBUR* (${k.libur})`;
   if (k.batal) return `• ~${jam} ${k.matkul}~ ❌ *BATAL*${k.alasan ? ` (${k.alasan})` : ''}`;
   return `• ${jam} *${k.matkul}*${k.ruang ? ' @ ' + k.ruang : ''}${k.dosen ? ' (' + k.dosen + ')' : ''}${k.pengganti ? ' 🔁 _kuliah pengganti_' : ''}`;
 };
 
-const tugasLine = (t, now) => `• [${t.id}] *${t.matkul}*: ${t.judul}\n   ⏰ ${pretty(t.deadline)} (${sisa(t.deadline - now)})`;
+const tugasLine = (t, now) => `• [${t.id}] *${t.matkul}*: ${t.judul}${t.kelompok ? ' 👥' : ''}\n   ⏰ ${pretty(t.deadline)} (${sisa(t.deadline - now)})${t.link ? `\n   📤 Kumpul di: ${t.link}` : ''}`;
 
-const ujianLine = (u, now) => `• [${u.id}] *${u.jenis} ${u.matkul}*${u.ruang ? ' @ ' + u.ruang : ''}\n   📅 ${pretty(u.waktu)} (${sisa(u.waktu - now)})`;
+const ujianLine = (u, now) => `• [${u.id}] *${u.jenis} ${u.matkul}*${u.ruang ? ' @ ' + u.ruang : ''}\n   📅 ${pretty(u.waktu)} (${sisa(u.waktu - now)})${u.link ? `\n   🔗 ${u.link}` : ''}`;
 
 function jadwalHari(kelas, dow) {
   if (!kelas.length) return `*${HARI_LABEL[dow]}*: tidak ada kelas 🎉`;
