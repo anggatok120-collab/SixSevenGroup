@@ -1,14 +1,16 @@
 require('dotenv').config();
 const path = require('path');
+const fs = require('fs');
 const pino = require('pino');
 const qrcode = require('qrcode-terminal');
 const {
-  default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion,
+  default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, proto, getAggregateVotesInPollMessage,
 } = require('@whiskeysockets/baileys');
 
 const { openDb } = require('./db');
 const { loadConfig } = require('./config');
-const { handle } = require('./commands');
+const { handle, handleBalasan } = require('./commands');
+const { kirimPush, dariPesanWa } = require('./push');
 const { dueReminders } = require('./reminders');
 const { createWeb } = require('./web');
 const { startAutoBackup } = require('./backup');
@@ -18,7 +20,16 @@ const { ymd } = require('./jadwal');
 
 const log = pino({ level: process.env.LOG_LEVEL || 'info' });
 const cfg = loadConfig();
-const db = openDb();
+
+// Pemulihan backup dari web: file disiapkan sebelum restart, ditukar di sini sebelum database dibuka.
+const DB_FILE = path.join(__dirname, '..', 'data', 'kuliah.db');
+const RESTORE_FILE = `${DB_FILE}.restore`;
+if (fs.existsSync(RESTORE_FILE)) {
+  for (const ext of ['', '-wal', '-shm']) if (fs.existsSync(DB_FILE + ext)) fs.renameSync(DB_FILE + ext, `${DB_FILE}.sebelum-restore${ext}`);
+  fs.renameSync(RESTORE_FILE, DB_FILE);
+  log.warn('Database dipulihkan dari backup');
+}
+const db = openDb(DB_FILE);
 let sock = null;
 let ticker = null;
 let waConnected = false;
@@ -48,6 +59,26 @@ async function isAdmin(m) {
 
 const jeda = (ms) => new Promise((r) => setTimeout(r, ms));
 let ticking = false;
+let gagalBeruntun = 0;
+let putusSejak = null;
+const UPLOAD_DIR = path.join(__dirname, '..', 'data', 'uploads');
+const terakhirKabar = {};
+const jidDari = (nomor) => (String(nomor).includes('@') ? String(nomor) : `${String(nomor).replace(/\D/g, '')}@s.whatsapp.net`);
+
+/** Kirim peringatan ke admin (akun admin yang punya nomor WA + ADMIN_NUMBERS), maks. sekali per jam per jenis. */
+async function kabariAdmin(text, jenis) {
+  if (!sock || !waConnected) return;
+  if (terakhirKabar[jenis] && Date.now() - terakhirKabar[jenis] < 3600000) return;
+  terakhirKabar[jenis] = Date.now();
+  const nomor = new Set([...cfg.admins, ...db.adminWa().map((a) => a.wa)].filter(Boolean));
+  for (const n of nomor) { try { await sock.sendMessage(jidDari(n), { text }); await jeda(1000); } catch { /* abaikan */ } }
+}
+
+// Simpan pesan polling yang dikirim, supaya suara yang masuk bisa dibaca (dienkripsi WhatsApp).
+function pesanPolling(key) {
+  const p = key?.id && db.pollingByMsgId(key.id);
+  return p?.msg ? proto.Message.decode(Buffer.from(p.msg, 'base64')) : undefined;
+}
 
 async function tick() {
   if (!sock || !waConnected || ticking) return;
@@ -57,14 +88,20 @@ async function tick() {
       const tujuan = r.to || cfg.groupJid; // r.to = chat pribadi anggota
       if (!tujuan) continue;
       try {
-        await sock.sendMessage(tujuan, { text: r.text });
+        const gambar = r.gambar && path.join(UPLOAD_DIR, path.basename(r.gambar));
+        await sock.sendMessage(tujuan, gambar && fs.existsSync(gambar) ? { image: fs.readFileSync(gambar), caption: r.text } : { text: r.text });
         db.tandaiTerkirim(r.key);
         if (r.pengumumanId) db.setPengumumanStatus(r.pengumumanId, 'terkirim');
+        // Notifikasi push: pesan grup ke semua perangkat, pesan pribadi hanya ke pemiliknya.
+        const n = dariPesanWa(r.text);
+        kirimPush(db, { ...n, akunIds: r.akunId ? [r.akunId] : null, url: r.mode === 'tugas' || r.mode === 'pribadi' ? '/#tugas' : '/#dashboard', tag: r.key }).catch(() => {});
+        gagalBeruntun = 0;
         db.addLog(r.mode, 'terkirim', (r.to ? `ke +${digits(r.to)}: ` : '') + r.text.split('\n')[0].replace(/[*_]/g, '').slice(0, 120));
         log.info({ key: r.key }, 'pengingat terkirim');
       } catch (err) {
         db.addLog(r.mode, 'gagal', `${r.key}: ${err.message}`);
         log.error({ err, key: r.key }, 'gagal kirim pengingat');
+        if (++gagalBeruntun >= 3) kabariAdmin(`⚠️ *Bot gagal mengirim ${gagalBeruntun} pesan berturut-turut.*\nError terakhir: ${err.message}\nCek menu Status Bot di web.`, 'gagal');
       }
       // Jeda antar chat pribadi supaya nomor bot tidak dianggap spam oleh WhatsApp.
       if (r.to) await jeda(1500 + Math.random() * 1500);
@@ -72,14 +109,30 @@ async function tick() {
     const now = Date.now();
     db.bersihkanTerkirim(now - 30 * 86400000);
     for (const p of db.pengumumanJatuhTempo(now - 6 * 3600000)) db.setPengumumanStatus(p.id, 'kedaluwarsa', 'Bot tidak terhubung saat jadwal kirim');
-    db.bersihkanKelasUbah(ymd(now - 60 * 86400000));
+    db.bersihkanKelasUbah(ymd(now - 200 * 86400000));
+    db.bersihkanSampah(now - 30 * 86400000);
   } finally { ticking = false; }
 }
 
 async function start() {
   const { state, saveCreds } = await useMultiFileAuthState(path.join(__dirname, '..', 'auth'));
   const { version } = await fetchLatestBaileysVersion();
-  sock = makeWASocket({ version, auth: state, logger: log.child({ module: 'baileys' }, { level: 'warn' }) });
+  sock = makeWASocket({ version, auth: state, logger: log.child({ module: 'baileys' }, { level: 'warn' }), getMessage: async (key) => pesanPolling(key) });
+
+  // Hasil polling: setiap ada suara masuk, hitung ulang dan simpan.
+  sock.ev.on('messages.update', (updates) => {
+    for (const { key, update } of updates) {
+      if (!update.pollUpdates) continue;
+      const p = db.pollingByMsgId(key.id); const msg = pesanPolling(key);
+      if (!p || !msg) continue;
+      try {
+        const agg = getAggregateVotesInPollMessage({ message: msg, pollUpdates: update.pollUpdates });
+        const lama = p.hasil ? JSON.parse(p.hasil) : {};
+        const hasil = { ...lama, opsi: agg.map((o) => ({ nama: o.name, suara: o.voters.length })), pemilih: [...new Set(agg.flatMap((o) => o.voters))].length, at: Date.now() };
+        db.setPollingHasil(p.id, hasil);
+      } catch (err) { log.warn({ err }, 'gagal membaca suara polling'); }
+    }
+  });
 
   sock.ev.on('creds.update', saveCreds);
 
@@ -103,12 +156,18 @@ async function start() {
     if (connection === 'open') {
       waConnected = true;
       waSejak = Date.now();
+      if (putusSejak && Date.now() - putusSejak > 5 * 60000) {
+        const menit = Math.round((Date.now() - putusSejak) / 60000);
+        setTimeout(() => kabariAdmin(`⚠️ *Bot sempat terputus dari WhatsApp selama ${menit} menit.*\nSekarang sudah tersambung lagi. Pengingat yang jatuh tempo saat terputus lebih dari 10 menit tidak dikirim ulang.`, 'putus'), 5000);
+      }
+      putusSejak = null;
       if (cfg.groupJid) sock.groupMetadata(cfg.groupJid).then((m) => { grupNama = m.subject; }).catch(() => {});
       log.info('Terhubung ke WhatsApp');
       if (!cfg.groupJid) log.warn('GROUP_JID belum diisi. Ketik /groupid di grup kelas, lalu isi di .env dan restart.');
     }
     if (connection === 'close') {
       waConnected = false;
+      if (!putusSejak) putusSejak = Date.now();
       const code = lastDisconnect?.error?.output?.statusCode;
       if (code === DisconnectReason.loggedOut) {
         log.error('Logout dari WhatsApp. Hapus folder auth/ lalu jalankan ulang untuk scan QR.');
@@ -135,6 +194,17 @@ async function start() {
             : loginReply(createLoginToken(db, senderNumbers(m.key)), process.env.WEB_URL);
           await sock.sendMessage(chat, { text: reply }, { quoted: m });
         } catch (err) { log.error({ err }, 'gagal memproses permintaan login'); }
+        continue;
+      }
+      // Balas pesan pengingat tugas dengan "udah" → tandai kumpul.
+      const ctx = m.message?.extendedTextMessage?.contextInfo;
+      const quoted = ctx?.quotedMessage?.conversation || ctx?.quotedMessage?.extendedTextMessage?.text || ctx?.quotedMessage?.imageMessage?.caption;
+      if (quoted && !/^[/!.]/.test(text)) {
+        try {
+          const akun = senderNumbers(m.key).map((n) => db.akunByWa(n)).find(Boolean) || null;
+          const reply = handleBalasan(db, text, quoted, akun);
+          if (reply) await sock.sendMessage(chat, { text: reply }, { quoted: m });
+        } catch (err) { log.error({ err }, 'gagal memproses balasan'); }
         continue;
       }
       if (!/^[/!.]\w/.test(text)) continue;
@@ -170,16 +240,28 @@ const bot = {
     grupNama,
     sejak: waSejak,
   }),
-  send: async (text) => {
+  send: async (text, { gambar } = {}) => {
     if (!sock || !waConnected) throw new Error('bot belum terhubung ke WhatsApp');
     if (!cfg.groupJid) throw new Error('GROUP_JID belum diisi');
-    await sock.sendMessage(cfg.groupJid, { text });
+    await sock.sendMessage(cfg.groupJid, gambar && fs.existsSync(gambar) ? { image: fs.readFileSync(gambar), caption: text } : { text });
+  },
+  sendTo: async (nomor, text) => {
+    if (!sock || !waConnected) throw new Error('bot belum terhubung ke WhatsApp');
+    await sock.sendMessage(jidDari(nomor), { text });
+  },
+  sendPoll: async (name, values, ganda) => {
+    if (!sock || !waConnected) throw new Error('bot belum terhubung ke WhatsApp');
+    if (!cfg.groupJid) throw new Error('GROUP_JID belum diisi');
+    const sent = await sock.sendMessage(cfg.groupJid, { poll: { name, values, selectableCount: ganda ? 0 : 1 } });
+    return { id: sent.key.id, msg: Buffer.from(proto.Message.encode(sent.message).finish()).toString('base64') };
   },
 };
 
 if (process.env.ADMIN_PASSWORD) {
   const port = Number(process.env.WEB_PORT || 3000);
-  createWeb(db, { password: process.env.ADMIN_PASSWORD, secret: process.env.SESSION_SECRET, cfg, bot })
+  // Pulihkan backup: salin ke file .restore lalu keluar; pm2 menyalakan ulang dan file ditukar saat start.
+  const onRestore = (file) => { fs.copyFileSync(file, RESTORE_FILE); log.warn({ file }, 'restart untuk memulihkan backup'); process.exit(0); };
+  createWeb(db, { password: process.env.ADMIN_PASSWORD, secret: process.env.SESSION_SECRET, cfg, bot, uploadDir: UPLOAD_DIR, onRestore })
     .listen(port, '127.0.0.1', () => log.info(`Web jalan di http://127.0.0.1:${port}`));
 } else {
   log.warn('ADMIN_PASSWORD kosong, web tidak dijalankan.');

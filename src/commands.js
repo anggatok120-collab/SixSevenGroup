@@ -1,6 +1,15 @@
 const { local, parseUserDate, parseHM, parseHari, pretty, HARI_LABEL } = require('./time');
 const { tugasLine, ujianLine, jadwalHari } = require('./format');
 const { kelasPada } = require('./jadwal');
+const { pesanMingguan } = require('./messages');
+
+// Cari mata kuliah dari potongan nama (tidak peka huruf besar/kecil).
+const cariMatkul = (db, q) => {
+  const s = q.toLowerCase();
+  const all = db.matkulAll();
+  return all.find((m) => m.nama.toLowerCase() === s) || all.find((m) => m.nama.toLowerCase().includes(s))
+    || all.find((m) => m.nama.split(/\s+/).map((w) => w[0]).join('').toLowerCase() === s);
+};
 
 const MENU = `🤖 *Bot Pengingat Kuliah*
 
@@ -10,6 +19,10 @@ const MENU = `🤖 *Bot Pengingat Kuliah*
 /jadwal – jadwal seminggu
 /tugas – daftar tugas aktif
 /ujian – daftar ujian mendatang
+/minggu – agenda 7 hari ke depan
+/cari kata – cari tugas, ujian, mata kuliah
+/matkul nama – info satu mata kuliah
+/materi nama – link materi mata kuliah
 
 *Tambah (admin)*
 /tambahkelas Senin | 08:00-09:40 | Kalkulus | R.301 | Pak Budi
@@ -19,6 +32,7 @@ const MENU = `🤖 *Bot Pengingat Kuliah*
 
 *Pribadi*
 /kumpul 3 – tandai tugas no. 3 sudah kamu kumpulkan (nomor WA harus terdaftar di akun web)
+Atau balas pesan pengingat tugas dengan *udah*
 
 *Ubah (admin)*
 /selesai 3 – tandai tugas no. 3 selesai
@@ -134,6 +148,42 @@ function handle(db, text, { isAdmin = false, chatJid = '', now = Date.now(), web
       catat(cmd === 'selesai' ? 'ubah' : 'hapus', { selesai: 'tugas', hapustugas: 'tugas', hapusujian: 'ujian', hapuskelas: 'jadwal' }[cmd], cmd === 'selesai' ? `Tugas [${id}] ditandai selesai` : `Data [${id}] dihapus`);
       return cmd === 'selesai' ? `✅ Tugas [${id}] ditandai selesai. Mantap!` : `🗑️ Data [${id}] dihapus.`;
     }
+    case 'minggu':
+      return pesanMingguan(db, now).text;
+    case 'cari': {
+      if (arg.length < 2) return 'Tulis kata yang dicari, contoh: /cari laporan';
+      const s = arg.toLowerCase();
+      const tg = db.tugasAll().filter((x) => !x.selesai && `${x.judul} ${x.matkul} ${x.catatan || ''}`.toLowerCase().includes(s));
+      const uj = db.ujianMendatang(now).filter((x) => `${x.jenis} ${x.matkul}`.toLowerCase().includes(s));
+      const mk = db.matkulAll().filter((x) => x.nama.toLowerCase().includes(s));
+      if (!tg.length && !uj.length && !mk.length) return `Tidak ada hasil untuk "${arg}".`;
+      return [`🔎 *Hasil "${arg}"*`,
+        mk.length ? `\n*Mata kuliah*\n${mk.map((m) => `• ${m.nama}${m.dosen ? ` (${m.dosen})` : ''}`).join('\n')}` : '',
+        tg.length ? `\n*Tugas*\n${tg.slice(0, 8).map((x) => tugasLine(x, now)).join('\n')}` : '',
+        uj.length ? `\n*Ujian*\n${uj.slice(0, 5).map((x) => ujianLine(x, now)).join('\n')}` : ''].filter(Boolean).join('\n');
+    }
+    case 'matkul': {
+      if (!arg) return `Contoh: /matkul kalkulus\n\nDaftar: ${db.matkulAll().map((m) => m.nama).join(', ') || '-'}`;
+      const m = cariMatkul(db, arg);
+      if (!m) return `Mata kuliah "${arg}" tidak ditemukan.`;
+      const jadwal = db.kelasAll().filter((k) => k.matkul.toLowerCase() === m.nama.toLowerCase());
+      const tg = db.tugasAktif().filter((x) => x.matkul.toLowerCase() === m.nama.toLowerCase());
+      const uj = db.ujianMendatang(now).filter((x) => x.matkul.toLowerCase() === m.nama.toLowerCase());
+      const materi = db.materiByMatkul(m.id);
+      return [`📘 *${m.nama}*`, m.dosen ? `👤 ${m.dosen}${m.kontak ? ` · ${m.kontak}` : ''}` : '',
+        jadwal.length ? `🗓️ ${jadwal.map((k) => `${HARI_LABEL[k.hari]} ${k.mulai}${k.ruang ? ' @ ' + k.ruang : ''}`).join(', ')}` : '',
+        tg.length ? `\n*Tugas aktif*\n${tg.map((x) => tugasLine(x, now)).join('\n')}` : '\n✅ Tidak ada tugas aktif',
+        uj.length ? `\n*Ujian*\n${uj.map((x) => ujianLine(x, now)).join('\n')}` : '',
+        materi.length ? `\n*Materi*\n${materi.map((x) => `• ${x.judul}: ${x.url}`).join('\n')}` : '',
+        m.catatan ? `\n📝 ${m.catatan}` : ''].filter(Boolean).join('\n');
+    }
+    case 'materi': {
+      if (!arg) return 'Contoh: /materi kalkulus';
+      const m = cariMatkul(db, arg);
+      if (!m) return `Mata kuliah "${arg}" tidak ditemukan.`;
+      const materi = db.materiByMatkul(m.id);
+      return materi.length ? `📚 *Materi ${m.nama}*\n${materi.map((x) => `• ${x.judul}\n  ${x.url}`).join('\n')}` : `Belum ada link materi untuk ${m.nama}.`;
+    }
     case 'kumpul': case 'batalkumpul': {
       if (!akun) return 'Nomor WhatsApp ini belum terhubung ke akun web. Minta admin menambahkan nomormu di menu Management Akun.';
       const id = parseInt(arg, 10);
@@ -147,4 +197,19 @@ function handle(db, text, { isAdmin = false, chatJid = '', now = Date.now(), web
   }
 }
 
-module.exports = { handle, MENU };
+/**
+ * Balasan "udah"/"sudah" ke pesan pengingat tugas → tandai kumpul.
+ * Nomor tugas diambil dari pesan yang dibalas ("/kumpul 3" atau "[3]").
+ */
+function handleBalasan(db, text, quoted, akun) {
+  if (!/^\s*(udah|sudah|udh|sdh|done|beres|kumpul|sudah kumpul|udah kumpul)\b/i.test(text || '') || !quoted) return null;
+  const m = /\/kumpul (\d+)/.exec(quoted) || /\[(\d+)\]/.exec(quoted);
+  if (!m) return null;
+  if (!akun) return 'Nomor WhatsApp ini belum terhubung ke akun web, jadi belum bisa ditandai. Minta admin menambahkan nomormu.';
+  const tg = db.tugasById(Number(m[1]));
+  if (!tg) return null;
+  db.setKumpul(tg.id, akun.id, true);
+  return `✅ Sip, *${tg.matkul}: ${tg.judul}* ditandai sudah kamu kumpulkan.`;
+}
+
+module.exports = { handle, handleBalasan, MENU };

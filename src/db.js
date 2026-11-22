@@ -84,6 +84,36 @@ function openDb(file = path.join(__dirname, '..', 'data', 'kuliah.db')) {
       jenis TEXT NOT NULL,
       ringkas TEXT
     );
+    CREATE TABLE IF NOT EXISTS absen (            -- pertemuan yang ditandai "tidak hadir" oleh anggota
+      akun_id INTEGER NOT NULL, tanggal TEXT NOT NULL, kelas_key TEXT NOT NULL,
+      PRIMARY KEY (akun_id, tanggal, kelas_key)
+    );
+    CREATE TABLE IF NOT EXISTS materi (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, matkul_id INTEGER NOT NULL, judul TEXT NOT NULL, url TEXT NOT NULL, dibuat INTEGER NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS nilai (            -- nilai pribadi per mata kuliah (JSON komponen -> angka)
+      akun_id INTEGER NOT NULL, matkul_id INTEGER NOT NULL, data TEXT NOT NULL, PRIMARY KEY (akun_id, matkul_id)
+    );
+    CREATE TABLE IF NOT EXISTS centang (          -- checklist pribadi: langkah tugas / materi ujian
+      akun_id INTEGER NOT NULL, jenis TEXT NOT NULL, ref_id INTEGER NOT NULL, idx INTEGER NOT NULL,
+      PRIMARY KEY (akun_id, jenis, ref_id, idx)
+    );
+    CREATE TABLE IF NOT EXISTS sampah (           -- data terhapus, bisa dikembalikan
+      id INTEGER PRIMARY KEY AUTOINCREMENT, jenis TEXT NOT NULL, data TEXT NOT NULL, at INTEGER NOT NULL, oleh TEXT
+    );
+    CREATE TABLE IF NOT EXISTS kelompok (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, tugas_id INTEGER NOT NULL, nama TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS kelompok_anggota (
+      kelompok_id INTEGER NOT NULL, akun_id INTEGER NOT NULL, PRIMARY KEY (kelompok_id, akun_id)
+    );
+    CREATE TABLE IF NOT EXISTS polling (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, pertanyaan TEXT NOT NULL, opsi TEXT NOT NULL, ganda INTEGER NOT NULL DEFAULT 0,
+      msg_id TEXT, msg TEXT, hasil TEXT, status TEXT NOT NULL DEFAULT 'baru', oleh TEXT, dibuat INTEGER NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS push_sub (
+      endpoint TEXT PRIMARY KEY, akun_id INTEGER NOT NULL, data TEXT NOT NULL, dibuat INTEGER NOT NULL
+    );
     CREATE TABLE IF NOT EXISTS log_kirim (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       at INTEGER NOT NULL,
@@ -117,9 +147,18 @@ function openDb(file = path.join(__dirname, '..', 'data', 'kuliah.db')) {
   if (!cols('tugas').includes('prioritas')) db.exec("ALTER TABLE tugas ADD COLUMN prioritas TEXT NOT NULL DEFAULT 'normal'");
   if (!cols('tugas').includes('catatan')) db.exec('ALTER TABLE tugas ADD COLUMN catatan TEXT');
   if (!cols('akun').includes('wa')) db.exec('ALTER TABLE akun ADD COLUMN wa TEXT');
-  if (!cols('matkul').includes('warna')) db.exec('ALTER TABLE matkul ADD COLUMN warna TEXT');
+  const tambahKolom = (t, defs) => { const ada = cols(t); for (const [c, d] of defs) if (!ada.includes(c)) db.exec(`ALTER TABLE ${t} ADD COLUMN ${c} ${d}`); };
+  tambahKolom('matkul', [['warna', 'TEXT'], ['kontak', 'TEXT'], ['maks_bolos', 'INTEGER'], ['bobot', 'TEXT']]);
+  tambahKolom('tugas', [['link', 'TEXT'], ['lampiran', 'TEXT'], ['langkah', 'TEXT'], ['kelompok', 'INTEGER NOT NULL DEFAULT 0']]);
+  tambahKolom('ujian', [['materi', 'TEXT'], ['bawa', 'TEXT'], ['link', 'TEXT']]);
+  tambahKolom('pengumuman', [['pin_sampai', 'INTEGER'], ['web_saja', 'INTEGER NOT NULL DEFAULT 0'], ['gambar', 'TEXT']]);
+  tambahKolom('akun', [['status', "TEXT NOT NULL DEFAULT 'aktif'"], ['terakhir', 'INTEGER'], ['dm', 'INTEGER NOT NULL DEFAULT 1'], ['foto', 'TEXT']]);
+  tambahKolom('riwayat', [['sampah_id', 'INTEGER']]);
 
   const one = (sql) => db.prepare(sql);
+  const MK_DEF = { kode: null, sks: null, dosen: null, catatan: null, warna: null, kontak: null, maks_bolos: null, bobot: null };
+  const TG_DEF = { prioritas: 'normal', catatan: null, selesai: 0, link: null, lampiran: null, langkah: null, kelompok: 0 };
+  const UJ_DEF = { ruang: null, materi: null, bawa: null, link: null };
   // Pakai penulisan nama yang sudah terdaftar; nama baru otomatis didaftarkan.
   const canon = (nama, dosen = null) => {
     const ada = one('SELECT nama FROM matkul WHERE nama = ?').get(nama);
@@ -138,12 +177,14 @@ function openDb(file = path.join(__dirname, '..', 'data', 'kuliah.db')) {
     matkulAll: () => one('SELECT * FROM matkul ORDER BY nama COLLATE NOCASE').all().map((m) => ({ ...m, pakai: pakaiMatkul(m.nama) })),
     matkulById: (id) => one('SELECT * FROM matkul WHERE id = ?').get(id),
     matkulByNama: (n) => one('SELECT * FROM matkul WHERE nama = ?').get(n),
-    addMatkul: (m) => one('INSERT INTO matkul (nama, kode, sks, dosen, catatan, warna) VALUES (@nama, @kode, @sks, @dosen, @catatan, @warna)').run({ kode: null, sks: null, dosen: null, catatan: null, warna: null, ...m }).lastInsertRowid,
+    addMatkul: (m) => one(`INSERT INTO matkul (nama, kode, sks, dosen, catatan, warna, kontak, maks_bolos, bobot)
+      VALUES (@nama, @kode, @sks, @dosen, @catatan, @warna, @kontak, @maks_bolos, @bobot)`).run({ ...MK_DEF, ...m }).lastInsertRowid,
     // Ganti nama ikut mengubah jadwal, tugas, dan ujian yang memakai nama lama.
     updateMatkul: db.transaction((id, m) => {
       const lama = one('SELECT nama FROM matkul WHERE id = ?').get(id);
       if (!lama) return 0;
-      one('UPDATE matkul SET nama=@nama, kode=@kode, sks=@sks, dosen=@dosen, catatan=@catatan, warna=@warna WHERE id=@id').run({ warna: null, ...m, id });
+      one(`UPDATE matkul SET nama=@nama, kode=@kode, sks=@sks, dosen=@dosen, catatan=@catatan, warna=@warna, kontak=@kontak,
+        maks_bolos=@maks_bolos, bobot=@bobot WHERE id=@id`).run({ ...MK_DEF, ...m, id });
       if (lama.nama !== m.nama) for (const t of ['kelas', 'tugas', 'ujian', 'kelas_ubah']) one(`UPDATE ${t} SET matkul = ? WHERE matkul = ? COLLATE NOCASE`).run(m.nama, lama.nama);
       return 1;
     }),
@@ -177,14 +218,19 @@ function openDb(file = path.join(__dirname, '..', 'data', 'kuliah.db')) {
 
     tugasAktif: () => one('SELECT * FROM tugas WHERE selesai = 0 ORDER BY deadline').all(),
     tugasAll: () => one('SELECT * FROM tugas ORDER BY selesai, deadline').all(),
-    addTugas: (t) => one("INSERT INTO tugas (matkul, judul, deadline, prioritas, catatan) VALUES (@matkul, @judul, @deadline, @prioritas, @catatan)")
-      .run({ prioritas: 'normal', catatan: null, ...withMk(t) }).lastInsertRowid,
-    updateTugas: (id, t) => ada('tugas', id) && one('UPDATE tugas SET matkul=@matkul, judul=@judul, deadline=@deadline, selesai=@selesai, prioritas=@prioritas, catatan=@catatan WHERE id=@id')
-      .run({ prioritas: 'normal', catatan: null, selesai: 0, ...withMk(t), id }).changes,
+    addTugas: (t) => one(`INSERT INTO tugas (matkul, judul, deadline, prioritas, catatan, link, lampiran, langkah, kelompok)
+      VALUES (@matkul, @judul, @deadline, @prioritas, @catatan, @link, @lampiran, @langkah, @kelompok)`)
+      .run({ ...TG_DEF, ...withMk(t) }).lastInsertRowid,
+    updateTugas: (id, t) => ada('tugas', id) && one(`UPDATE tugas SET matkul=@matkul, judul=@judul, deadline=@deadline, selesai=@selesai, prioritas=@prioritas,
+      catatan=@catatan, link=@link, lampiran=@lampiran, langkah=@langkah, kelompok=@kelompok WHERE id=@id`)
+      .run({ ...TG_DEF, ...withMk(t), id }).changes,
     setSelesai: (id, v) => one('UPDATE tugas SET selesai = ? WHERE id = ?').run(v ? 1 : 0, id).changes,
     selesaiTugas: (id) => one('UPDATE tugas SET selesai = 1 WHERE id = ?').run(id).changes,
     delTugas: db.transaction((id) => {
       one('DELETE FROM tugas_kumpul WHERE tugas_id = ?').run(id);
+      one('DELETE FROM kelompok_anggota WHERE kelompok_id IN (SELECT id FROM kelompok WHERE tugas_id = ?)').run(id);
+      one('DELETE FROM kelompok WHERE tugas_id = ?').run(id);
+      one("DELETE FROM centang WHERE jenis = 'tugas' AND ref_id = ?").run(id);
       return one('DELETE FROM tugas WHERE id = ?').run(id).changes;
     }),
     tugasById: (id) => one('SELECT * FROM tugas WHERE id = ?').get(id),
@@ -201,33 +247,106 @@ function openDb(file = path.join(__dirname, '..', 'data', 'kuliah.db')) {
 
     ujianAll: () => one('SELECT * FROM ujian ORDER BY waktu').all(),
     ujianMendatang: (now) => one('SELECT * FROM ujian WHERE waktu >= ? ORDER BY waktu').all(now),
-    addUjian: (u) => one('INSERT INTO ujian (matkul, jenis, waktu, ruang) VALUES (@matkul, @jenis, @waktu, @ruang)').run(withMk(u)).lastInsertRowid,
-    updateUjian: (id, u) => ada('ujian', id) && one('UPDATE ujian SET matkul=@matkul, jenis=@jenis, waktu=@waktu, ruang=@ruang WHERE id=@id').run({ ...withMk(u), id }).changes,
+    addUjian: (u) => one('INSERT INTO ujian (matkul, jenis, waktu, ruang, materi, bawa, link) VALUES (@matkul, @jenis, @waktu, @ruang, @materi, @bawa, @link)').run({ ...UJ_DEF, ...withMk(u) }).lastInsertRowid,
+    updateUjian: (id, u) => ada('ujian', id) && one('UPDATE ujian SET matkul=@matkul, jenis=@jenis, waktu=@waktu, ruang=@ruang, materi=@materi, bawa=@bawa, link=@link WHERE id=@id').run({ ...UJ_DEF, ...withMk(u), id }).changes,
     delUjian: (id) => one('DELETE FROM ujian WHERE id = ?').run(id).changes,
     ujianById: (id) => one('SELECT * FROM ujian WHERE id = ?').get(id),
 
     // Pengumuman ke grup
     pengumumanAll: () => one('SELECT * FROM pengumuman ORDER BY kirim_at DESC LIMIT 100').all(),
     pengumumanById: (id) => one('SELECT * FROM pengumuman WHERE id = ?').get(id),
-    addPengumuman: (p) => one('INSERT INTO pengumuman (teks, kirim_at, status, oleh, dibuat) VALUES (@teks, @kirim_at, @status, @oleh, @dibuat)')
-      .run({ status: 'terjadwal', dibuat: Date.now(), ...p }).lastInsertRowid,
+    addPengumuman: (p) => one(`INSERT INTO pengumuman (teks, kirim_at, status, oleh, dibuat, pin_sampai, web_saja, gambar)
+      VALUES (@teks, @kirim_at, @status, @oleh, @dibuat, @pin_sampai, @web_saja, @gambar)`)
+      .run({ status: 'terjadwal', dibuat: Date.now(), pin_sampai: null, web_saja: 0, gambar: null, ...p }).lastInsertRowid,
+    pengumumanPin: (now) => one('SELECT * FROM pengumuman WHERE pin_sampai IS NOT NULL AND pin_sampai > ? AND status IN (\'terkirim\', \'web\') ORDER BY kirim_at DESC').all(now),
+    setPin: (id, sampai) => one('UPDATE pengumuman SET pin_sampai = ? WHERE id = ?').run(sampai, id).changes,
     setPengumumanStatus: (id, status, detail = null) => one('UPDATE pengumuman SET status = ?, dikirim = ?, detail = ? WHERE id = ?')
       .run(status, status === 'terkirim' ? Date.now() : null, detail, id).changes,
-    pengumumanJatuhTempo: (now) => one("SELECT * FROM pengumuman WHERE status = 'terjadwal' AND kirim_at <= ? ORDER BY kirim_at").all(now),
+    pengumumanJatuhTempo: (now) => one("SELECT * FROM pengumuman WHERE status = 'terjadwal' AND web_saja = 0 AND kirim_at <= ? ORDER BY kirim_at").all(now),
     delPengumuman: (id) => one('DELETE FROM pengumuman WHERE id = ?').run(id).changes,
 
     // Riwayat perubahan data
-    addRiwayat: (oleh, aksi, jenis, ringkas = null) => {
-      one('INSERT INTO riwayat (at, oleh, aksi, jenis, ringkas) VALUES (?, ?, ?, ?, ?)').run(Date.now(), oleh, aksi, jenis, ringkas);
+    addRiwayat: (oleh, aksi, jenis, ringkas = null, sampahId = null) => {
+      one('INSERT INTO riwayat (at, oleh, aksi, jenis, ringkas, sampah_id) VALUES (?, ?, ?, ?, ?, ?)').run(Date.now(), oleh, aksi, jenis, ringkas, sampahId);
       one('DELETE FROM riwayat WHERE id NOT IN (SELECT id FROM riwayat ORDER BY id DESC LIMIT 500)').run();
     },
-    riwayatTerbaru: (n = 200) => one('SELECT * FROM riwayat ORDER BY id DESC LIMIT ?').all(n),
+    riwayatTerbaru: (n = 200) => one(`SELECT r.*, CASE WHEN s.id IS NOT NULL THEN 1 ELSE 0 END bisa_pulih FROM riwayat r
+      LEFT JOIN sampah s ON s.id = r.sampah_id ORDER BY r.id DESC LIMIT ?`).all(n),
+
+    // Sampah: data terhapus disimpan 30 hari supaya bisa dikembalikan
+    addSampah: (jenis, data, oleh) => one('INSERT INTO sampah (jenis, data, at, oleh) VALUES (?, ?, ?, ?)').run(jenis, JSON.stringify(data), Date.now(), oleh).lastInsertRowid,
+    sampahById: (id) => { const s = one('SELECT * FROM sampah WHERE id = ?').get(id); return s && { ...s, data: JSON.parse(s.data) }; },
+    delSampah: (id) => one('DELETE FROM sampah WHERE id = ?').run(id).changes,
+    bersihkanSampah: (before) => one('DELETE FROM sampah WHERE at < ?').run(before),
+    // Masukkan lagi baris apa adanya (id lama dipakai kalau masih kosong).
+    pulihkanBaris: (table, row) => {
+      const c = cols(table).filter((k) => k in row);
+      if (row.id != null && one(`SELECT 1 FROM ${table} WHERE id = ?`).get(row.id)) c.splice(c.indexOf('id'), 1);
+      return one(`INSERT INTO ${table} (${c.join(', ')}) VALUES (${c.map((k) => '@' + k).join(', ')})`).run(row).lastInsertRowid;
+    },
+
+    // Absensi pribadi
+    absenSaya: (akunId) => one('SELECT tanggal, kelas_key FROM absen WHERE akun_id = ?').all(akunId),
+    setAbsen: (akunId, tanggal, key, v) => (v
+      ? one('INSERT OR IGNORE INTO absen (akun_id, tanggal, kelas_key) VALUES (?, ?, ?)').run(akunId, tanggal, key)
+      : one('DELETE FROM absen WHERE akun_id = ? AND tanggal = ? AND kelas_key = ?').run(akunId, tanggal, key)),
+
+    // Materi per mata kuliah
+    materiAll: () => one('SELECT * FROM materi ORDER BY dibuat').all(),
+    materiByMatkul: (mkId) => one('SELECT * FROM materi WHERE matkul_id = ? ORDER BY dibuat').all(mkId),
+    materiById: (id) => one('SELECT * FROM materi WHERE id = ?').get(id),
+    addMateri: (m) => one('INSERT INTO materi (matkul_id, judul, url, dibuat) VALUES (@matkul_id, @judul, @url, @dibuat)').run({ dibuat: Date.now(), ...m }).lastInsertRowid,
+    delMateri: (id) => one('DELETE FROM materi WHERE id = ?').run(id).changes,
+
+    // Nilai pribadi
+    nilaiSaya: (akunId) => Object.fromEntries(one('SELECT matkul_id, data FROM nilai WHERE akun_id = ?').all(akunId).map((r) => [r.matkul_id, JSON.parse(r.data)])),
+    setNilai: (akunId, mkId, data) => one('INSERT INTO nilai (akun_id, matkul_id, data) VALUES (?, ?, ?) ON CONFLICT(akun_id, matkul_id) DO UPDATE SET data = excluded.data').run(akunId, mkId, JSON.stringify(data)),
+
+    // Checklist pribadi
+    centangSaya: (akunId) => one('SELECT jenis, ref_id, idx FROM centang WHERE akun_id = ?').all(akunId),
+    setCentang: (akunId, jenis, ref, idx, v) => (v
+      ? one('INSERT OR IGNORE INTO centang (akun_id, jenis, ref_id, idx) VALUES (?, ?, ?, ?)').run(akunId, jenis, ref, idx)
+      : one('DELETE FROM centang WHERE akun_id = ? AND jenis = ? AND ref_id = ? AND idx = ?').run(akunId, jenis, ref, idx)),
+
+    // Kelompok tugas
+    kelompokAll: () => one(`SELECT k.id, k.tugas_id, k.nama, a.akun_id FROM kelompok k LEFT JOIN kelompok_anggota a ON a.kelompok_id = k.id ORDER BY k.id`).all(),
+    setKelompok: db.transaction((tugasId, grup) => {
+      one('DELETE FROM kelompok_anggota WHERE kelompok_id IN (SELECT id FROM kelompok WHERE tugas_id = ?)').run(tugasId);
+      one('DELETE FROM kelompok WHERE tugas_id = ?').run(tugasId);
+      for (const g of grup) {
+        const kid = one('INSERT INTO kelompok (tugas_id, nama) VALUES (?, ?)').run(tugasId, g.nama).lastInsertRowid;
+        for (const a of g.anggota) one('INSERT OR IGNORE INTO kelompok_anggota (kelompok_id, akun_id) VALUES (?, ?)').run(kid, a);
+      }
+    }),
+
+    // Polling WhatsApp
+    pollingAll: () => one('SELECT id, pertanyaan, opsi, ganda, hasil, status, oleh, dibuat, msg_id FROM polling ORDER BY id DESC LIMIT 50').all()
+      .map((p) => ({ ...p, opsi: JSON.parse(p.opsi), hasil: p.hasil ? JSON.parse(p.hasil) : null })),
+    addPolling: (p) => one('INSERT INTO polling (pertanyaan, opsi, ganda, oleh, dibuat) VALUES (@pertanyaan, @opsi, @ganda, @oleh, @dibuat)')
+      .run({ ...p, opsi: JSON.stringify(p.opsi), ganda: p.ganda ? 1 : 0, dibuat: Date.now() }).lastInsertRowid,
+    setPollingTerkirim: (id, msgId, msg) => one("UPDATE polling SET msg_id = ?, msg = ?, status = 'terkirim' WHERE id = ?").run(msgId, msg, id),
+    setPollingStatus: (id, status) => one('UPDATE polling SET status = ? WHERE id = ?').run(status, id),
+    pollingByMsgId: (msgId) => one('SELECT * FROM polling WHERE msg_id = ?').get(msgId),
+    setPollingHasil: (id, hasil) => one('UPDATE polling SET hasil = ? WHERE id = ?').run(JSON.stringify(hasil), id),
+    delPolling: (id) => one('DELETE FROM polling WHERE id = ?').run(id).changes,
+
+    // Langganan notifikasi push
+    pushSubs: (akunIds = null) => (akunIds ? one(`SELECT * FROM push_sub WHERE akun_id IN (${akunIds.map(() => '?').join(',') || 'NULL'})`).all(...akunIds) : one('SELECT * FROM push_sub').all()),
+    addPushSub: (endpoint, akunId, data) => one('INSERT INTO push_sub (endpoint, akun_id, data, dibuat) VALUES (?, ?, ?, ?) ON CONFLICT(endpoint) DO UPDATE SET akun_id = excluded.akun_id, data = excluded.data').run(endpoint, akunId, JSON.stringify(data), Date.now()),
+    delPushSub: (endpoint) => one('DELETE FROM push_sub WHERE endpoint = ?').run(endpoint).changes,
+
+    // Akun: status, terakhir aktif, preferensi
+    setTerakhir: (id, at) => one('UPDATE akun SET terakhir = ? WHERE id = ?').run(at, id),
+    setAkunStatus: (id, status) => one('UPDATE akun SET status = ? WHERE id = ?').run(status, id).changes,
+    setAkunPref: (id, { dm, foto }) => one('UPDATE akun SET dm = COALESCE(?, dm), foto = COALESCE(?, foto) WHERE id = ?').run(dm == null ? null : dm ? 1 : 0, foto === undefined ? null : foto, id),
+    hapusFoto: (id) => one('UPDATE akun SET foto = NULL WHERE id = ?').run(id),
+    logHarian: (since) => one(`SELECT date((at + 25200000) / 1000, 'unixepoch') hari, status, COUNT(*) n FROM log_kirim WHERE at >= ? GROUP BY hari, status ORDER BY hari`).all(since),
 
     sudahTerkirim: (k) => !!one('SELECT 1 FROM terkirim WHERE kunci = ?').get(k),
     tandaiTerkirim: (k) => one('INSERT OR IGNORE INTO terkirim (kunci, at) VALUES (?, ?)').run(k, Date.now()),
     bersihkanTerkirim: (before) => one('DELETE FROM terkirim WHERE at < ?').run(before),
 
-    akunAll: () => one('SELECT id, username, nama, role, wa FROM akun ORDER BY role, nama').all(),
+    akunAll: () => one("SELECT id, username, nama, role, wa, status, terakhir, dm, foto IS NOT NULL ada_foto FROM akun ORDER BY status = 'aktif', role, nama").all(),
     akunByWa: (wa) => (wa ? one('SELECT * FROM akun WHERE wa = ?').get(wa) : undefined),
     setAkunWa: (id, wa) => one('UPDATE akun SET wa = ? WHERE id = ?').run(wa || null, id).changes,
 
@@ -241,15 +360,16 @@ function openDb(file = path.join(__dirname, '..', 'data', 'kuliah.db')) {
     akunCount: () => one('SELECT COUNT(*) n FROM akun').get().n,
     akunById: (id) => one('SELECT * FROM akun WHERE id = ?').get(id),
     akunByUsername: (u) => one('SELECT * FROM akun WHERE username = ?').get(u),
-    addAkun: (a) => one('INSERT INTO akun (username, nama, role, hash) VALUES (@username, @nama, @role, @hash)').run(a).lastInsertRowid,
+    addAkun: (a) => one('INSERT INTO akun (username, nama, role, hash, status) VALUES (@username, @nama, @role, @hash, @status)').run({ status: 'aktif', ...a }).lastInsertRowid,
     updateAkun: (id, { nama, role, hash }) => (hash
       ? one('UPDATE akun SET nama=@nama, role=@role, hash=@hash WHERE id=@id').run({ nama, role, hash, id })
       : one('UPDATE akun SET nama=@nama, role=@role WHERE id=@id').run({ nama, role, id })).changes,
     delAkun: db.transaction((id) => {
-      one('DELETE FROM tugas_kumpul WHERE akun_id = ?').run(id);
+      for (const t of ['tugas_kumpul', 'absen', 'nilai', 'centang', 'kelompok_anggota', 'push_sub']) one(`DELETE FROM ${t} WHERE akun_id = ?`).run(id);
       return one('DELETE FROM akun WHERE id = ?').run(id).changes;
     }),
-    akunDenganWa: () => one("SELECT * FROM akun WHERE wa IS NOT NULL AND wa != ''").all(),
+    akunDenganWa: () => one("SELECT * FROM akun WHERE wa IS NOT NULL AND wa != '' AND status = 'aktif'").all(),
+    adminWa: () => one("SELECT * FROM akun WHERE role = 'admin' AND wa IS NOT NULL AND wa != '' AND status = 'aktif'").all(),
     adminCount: () => one("SELECT COUNT(*) n FROM akun WHERE role = 'admin'").get().n,
 
     getSetting: (k) => { const r = one('SELECT nilai FROM pengaturan WHERE kunci = ?').get(k); return r ? JSON.parse(r.nilai) : undefined; },
@@ -257,7 +377,7 @@ function openDb(file = path.join(__dirname, '..', 'data', 'kuliah.db')) {
 
     addLog: (mode, status, detail = null) => {
       one('INSERT INTO log_kirim (at, mode, status, detail) VALUES (?, ?, ?, ?)').run(Date.now(), mode, status, detail);
-      one('DELETE FROM log_kirim WHERE id NOT IN (SELECT id FROM log_kirim ORDER BY id DESC LIMIT 200)').run();
+      one('DELETE FROM log_kirim WHERE id NOT IN (SELECT id FROM log_kirim ORDER BY id DESC LIMIT 3000)').run();
     },
     logTerbaru: (n = 30) => one('SELECT * FROM log_kirim ORDER BY id DESC LIMIT ?').all(n),
     logGagal24: () => one("SELECT COUNT(*) n FROM log_kirim WHERE status = 'gagal' AND at > ?").get(Date.now() - 86400000).n,
