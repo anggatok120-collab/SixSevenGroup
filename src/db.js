@@ -138,7 +138,7 @@ function openDb(file = path.join(__dirname, '..', 'data', 'kuliah.db')) {
     matkulAll: () => one('SELECT * FROM matkul ORDER BY nama COLLATE NOCASE').all().map((m) => ({ ...m, pakai: pakaiMatkul(m.nama) })),
     matkulById: (id) => one('SELECT * FROM matkul WHERE id = ?').get(id),
     matkulByNama: (n) => one('SELECT * FROM matkul WHERE nama = ?').get(n),
-    addMatkul: (m) => one('INSERT INTO matkul (nama, kode, sks, dosen, catatan, warna) VALUES (@nama, @kode, @sks, @dosen, @catatan, @warna)').run({ warna: null, ...m }).lastInsertRowid,
+    addMatkul: (m) => one('INSERT INTO matkul (nama, kode, sks, dosen, catatan, warna) VALUES (@nama, @kode, @sks, @dosen, @catatan, @warna)').run({ kode: null, sks: null, dosen: null, catatan: null, warna: null, ...m }).lastInsertRowid,
     // Ganti nama ikut mengubah jadwal, tugas, dan ujian yang memakai nama lama.
     updateMatkul: db.transaction((id, m) => {
       const lama = one('SELECT nama FROM matkul WHERE id = ?').get(id);
