@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Daftar · Six Seven 67</title>
+<link rel="icon" type="image/svg+xml" href="/logo.svg">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#050506">
+<script>try{var t=localStorage.getItem('tema')||'gelap';if(t==='auto')t=matchMedia('(prefers-color-scheme: light)').matches?'terang':'gelap';document.documentElement.dataset.theme=t;}catch(e){}</script>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Six Seven 67">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="stylesheet" href="/vendor/inter/index.css">
+<link rel="stylesheet" href="/vendor/phosphor/regular/style.css">
+<style>
+:root { --bg:#050506; --surface:#101012; --raised:#1a1a1d; --glass:#101012; --border:rgba(255,255,255,.1); --border-strong:rgba(255,255,255,.2); --text:#f5f5f7; --muted:#a1a1aa; --subtle:#8a8a93; --primary:#f5f5f7; --primary-strong:#d4d4d8; --on-primary:#0a0a0b; --danger:#f87171; --focus:rgba(255,255,255,.75); color-scheme: dark; }
+* { box-sizing: border-box; }
+body { margin: 0; min-height: 100dvh; display: grid; place-items: center; padding: 24px 16px; font: 15px/1.5 "Inter Variable", "Inter", system-ui, sans-serif; color: var(--text); background: var(--bg); -webkit-font-smoothing: antialiased; }
+body::before { display: none; }
+.card { width: min(25rem, 100%); padding: 32px; border-radius: 16px; background: var(--surface); border: 1px solid var(--border); }
+.brand { display: flex; align-items: center; gap: 12px; margin-bottom: 28px; }
+.mark { width: 40px; height: 40px; flex: none; display: block; border-radius: 12px; box-shadow: 0 0 0 1px rgba(255,255,255,.08); }
+.brand b { display: block; font-size: 15px; font-weight: 600; }
+.brand small { display: block; color: var(--muted); font-size: 12px; }
+h1 { margin: 0 0 6px; font-size: 24px; line-height: 1.25; font-weight: 650; letter-spacing: -.01em; }
+.lead { margin: 0 0 24px; color: var(--muted); font-size: 13px; }
+label { display: block; font-size: 13px; font-weight: 500; color: var(--muted); margin-bottom: 6px; }
+.input { position: relative; margin-bottom: 16px; }
+.input i { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--subtle); font-size: 18px; pointer-events: none; }
+.input input { width: 100%; height: 46px; padding: 0 14px 0 42px; border-radius: 12px; border: 1px solid var(--border); background: rgba(255,255,255,.04); color: var(--text); font: inherit; font-size: 16px; transition: border-color .15s, box-shadow .15s; }
+.input input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(255,255,255,.18); }
+button { width: 100%; height: 46px; border: 0; border-radius: 12px; background: var(--primary); color: var(--on-primary); font: 600 15px "Inter Variable", "Inter", sans-serif; cursor: pointer; margin-top: 8px; display: flex; align-items: center; justify-content: center; gap: 8px; transition: filter .15s; }
+button:hover { filter: brightness(1.08); }
+button:disabled { opacity: .6; cursor: wait; }
+button:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+.error { display: none; margin-bottom: 16px; padding: 10px 14px; border: 1px solid rgba(248,113,113,.35); background: rgba(248,113,113,.1); color: var(--danger); border-radius: 12px; font-size: 13px; font-weight: 500; }
+.error.show { display: block; }
+:root[data-theme="terang"] { --bg:#f3f3f6; --surface:#ffffff; --raised:#f4f4f7; --glass:#ffffff; --border:rgba(12,12,22,.12); --border-strong:rgba(12,12,22,.22); --text:#121216; --muted:#52525c; --subtle:#6e6e78; --primary:#121216; --primary-strong:#2b2b33; --on-primary:#ffffff; --danger:#cc3348; --focus:rgba(12,12,22,.55); color-scheme: light; }
+:root[data-theme="terang"] .input input { background: #fff; }
+:root[data-theme="terang"] .mark { filter: invert(1); }
+.foot { margin: 24px 0 0; padding-top: 18px; border-top: 1px solid var(--border); color: var(--subtle); font-size: 13px; text-align: center; }
+.or { display: none; align-items: center; gap: 12px; margin: 20px 0 12px; color: var(--subtle); font-size: 12px; }
+.or::before, .or::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+.wa-btn { display: none; width: 100%; height: 46px; border-radius: 12px; border: 1px solid var(--border-strong); background: transparent; color: var(--text); font-weight: 600; font-size: 15px; text-decoration: none; align-items: center; justify-content: center; gap: 8px; transition: background .15s; }
+.wa-btn:hover { background: rgba(255,255,255,.06); }
+.wa-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+.wa-on .or, .wa-on .wa-btn { display: flex; }
+.wa-hint { display: none; margin: 10px 0 0; color: var(--subtle); font-size: 12.5px; line-height: 1.45; text-align: center; }
+.wa-on .wa-hint { display: block; }
+.wa-hint b { color: var(--muted); font-weight: 600; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+@media (max-width: 400px) { .card { padding: 24px 20px; } }
+.ok { display:none; margin-bottom:16px; padding:12px 14px; border:1px solid rgba(52,211,153,.35); background:rgba(52,211,153,.1); border-radius:12px; font-size:14px; }
+.ok.show { display:block; }
+.row2 { display:grid; grid-template-columns:1fr; gap:0; }
+</style>
+</head>
+<body>
+<main class="card">
+  <div class="brand"><img class="mark" src="/logo.svg" alt="" width="40" height="40"><div><b>Six Seven 67</b><small>Manajemen Perkuliahan</small></div></div>
+  <h1>Daftar akun kelas</h1>
+  <p class="lead">Isi data di bawah. Akun aktif setelah disetujui admin kelas.</p>
+  <div class="error" id="err" role="alert" aria-live="assertive"></div>
+  <div class="ok" id="ok" role="status">✅ Pendaftaran terkirim. Tunggu admin menyetujui, lalu masuk di <a href="/login">halaman masuk</a>.</div>
+  <form id="f">
+    <label for="n">Nama lengkap</label>
+    <div class="input"><i class="ph ph-identification-card" aria-hidden="true"></i><input id="n" name="nama" autocomplete="name" required maxlength="60"></div>
+    <label for="u">Username</label>
+    <div class="input"><i class="ph ph-user" aria-hidden="true"></i><input id="u" name="username" autocomplete="username" autocapitalize="none" required pattern="[a-z0-9._\-]{3,32}" title="3–32 karakter: huruf kecil, angka, titik, minus" placeholder="huruf kecil, tanpa spasi"></div>
+    <label for="w">Nomor WhatsApp (opsional)</label>
+    <div class="input"><i class="ph ph-whatsapp-logo" aria-hidden="true"></i><input id="w" name="wa" type="tel" inputmode="tel" autocomplete="tel" placeholder="081234567890"></div>
+    <label for="p">Password</label>
+    <div class="input"><i class="ph ph-lock-key" aria-hidden="true"></i><input id="p" name="password" type="password" autocomplete="new-password" minlength="8" required placeholder="minimal 8 karakter"></div>
+    <button id="b"><i class="ph ph-user-plus" aria-hidden="true"></i> Daftar</button>
+  </form>
+  <p class="foot">Sudah punya akun? <a href="/login" style="color:inherit">Masuk</a></p>
+</main>
+<script>
+const f = document.getElementById('f'), err = document.getElementById('err'), b = document.getElementById('b');
+const kode = new URLSearchParams(location.search).get('kode') || '';
+function showErr(msg) { err.textContent = msg; err.classList.add('show'); }
+document.getElementById('n').addEventListener('input', (e) => {
+  const u = document.getElementById('u');
+  if (!u.dataset.diubah) u.value = e.target.value.toLowerCase().normalize('NFKD').replace(/[^a-z0-9\s]/g, '').trim().split(/\s+/).slice(0, 2).join('.').slice(0, 32);
+});
+document.getElementById('u').addEventListener('input', (e) => { e.target.dataset.diubah = '1'; });
+fetch('/api/daftar/' + encodeURIComponent(kode)).then((r) => r.json()).then((j) => {
+  if (!j.valid) { showErr('Link undangan tidak berlaku. Minta link terbaru ke admin kelas.'); f.querySelectorAll('input, button').forEach((x) => { x.disabled = true; }); }
+}).catch(() => {});
+f.addEventListener('submit', async (e) => {
+  e.preventDefault(); err.classList.remove('show'); b.disabled = true;
+  try {
+    const r = await fetch('/api/daftar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...Object.fromEntries(new FormData(f)), kode }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || 'Gagal mendaftar');
+    f.hidden = true; document.getElementById('ok').classList.add('show');
+  } catch (e2) { showErr(e2.message); b.disabled = false; }
+});
+</script>
+</body>
+</html>

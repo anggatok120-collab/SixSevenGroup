@@ -8,6 +8,7 @@
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" content="#050506">
+<script>try{var t=localStorage.getItem('tema')||'gelap';if(t==='auto')t=matchMedia('(prefers-color-scheme: light)').matches?'terang':'gelap';document.documentElement.dataset.theme=t;}catch(e){}</script>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Six Seven 67">
@@ -37,6 +38,9 @@ button:disabled { opacity: .6; cursor: wait; }
 button:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
 .error { display: none; margin-bottom: 16px; padding: 10px 14px; border: 1px solid rgba(248,113,113,.35); background: rgba(248,113,113,.1); color: var(--danger); border-radius: 12px; font-size: 13px; font-weight: 500; }
 .error.show { display: block; }
+:root[data-theme="terang"] { --bg:#f3f3f6; --surface:#ffffff; --raised:#f4f4f7; --glass:#ffffff; --border:rgba(12,12,22,.12); --border-strong:rgba(12,12,22,.22); --text:#121216; --muted:#52525c; --subtle:#6e6e78; --primary:#121216; --primary-strong:#2b2b33; --on-primary:#ffffff; --danger:#cc3348; --focus:rgba(12,12,22,.55); color-scheme: light; }
+:root[data-theme="terang"] .input input { background: #fff; }
+:root[data-theme="terang"] .mark { filter: invert(1); }
 .foot { margin: 24px 0 0; padding-top: 18px; border-top: 1px solid var(--border); color: var(--subtle); font-size: 13px; text-align: center; }
 .or { display: none; align-items: center; gap: 12px; margin: 20px 0 12px; color: var(--subtle); font-size: 12px; }
 .or::before, .or::after { content: ""; flex: 1; height: 1px; background: var(--border); }
