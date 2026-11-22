@@ -45,12 +45,14 @@ async function pulihkan(sampahId) {
 }
 
 // Modal kustom memakai #modal yang sama; submit ditangani fungsi masing-masing.
-function bukaModal({ eyebrow, title, body, foot, onSubmit, onOpen }) {
+function bukaModal({ eyebrow, title, body, foot, onSubmit, onOpen, draft, ep }) {
   editing = { detail: true, custom: onSubmit || null };
   $('#mEyebrow').textContent = eyebrow; $('#mTitle').textContent = title;
   $('#mBody').innerHTML = body + '<p class="form-error" id="mErr"></p>';
   $('#mFoot').innerHTML = foot ?? `<button type="button" class="btn btn-secondary" data-close>Batal</button><button class="btn btn-primary" id="mSubmit"><i class="ph ph-floppy-disk"></i>Simpan</button>`;
+  fxDraft = null;
   $('#modal').showModal(); a11yPass(); onOpen?.();
+  if (draft) mulaiDraftModal(draft, ep, () => bukaModal({ eyebrow, title, body, foot, onSubmit, onOpen, draft, ep }));
 }
 $('#modalForm').addEventListener('submit', async (e) => {
   if (!editing?.custom) return;
@@ -191,7 +193,7 @@ function bukaSemester() {
   const s = S.data.semester || {};
   const baris = (l = {}) => `<div class="libur-row"><input type="text" data-l="nama" value="${esc(l.nama || '')}" placeholder="Nama libur (mis. Idulfitri)" aria-label="Nama libur"><input type="date" data-l="dari" value="${esc(l.dari || '')}" aria-label="Dari tanggal"><input type="date" data-l="sampai" value="${esc(l.sampai || '')}" aria-label="Sampai tanggal"><button type="button" class="tiny-btn danger" data-libur-del aria-label="Hapus libur"><i class="ph ph-x"></i></button></div>`;
   bukaModal({
-    eyebrow: 'Jadwal kuliah', title: 'Semester & hari libur',
+    eyebrow: 'Jadwal kuliah', title: 'Semester & hari libur', draft: 'semester', ep: '/api/semester',
     body: `<div class="grid2"><label class="field"><span>Awal semester</span><input type="date" name="mulai" value="${esc(s.mulai || '')}"></label><label class="field"><span>Akhir semester</span><input type="date" name="selesai" value="${esc(s.selesai || '')}"></label></div>
       <small class="muted">Di luar tanggal ini bot tidak mengingatkan kelas rutin.</small>
       <label class="inline-field"><input type="checkbox" name="nasional" ${s.nasional !== false ? 'checked' : ''}> Libur nasional bertanggal tetap otomatis (1 Jan, 1 Mei, 1 Jun, 17 Agu, 25 Des)</label>
@@ -288,7 +290,7 @@ function viewMatkulDetail() {
           <div class="rows">${ujian.length ? ujian.map((u) => `<div class="row clickable ${u.ms < n ? 'done' : ''}" data-detail="ujian" data-id="${u.id}"><span class="badge b-warn">${esc(u.jenis)}</span><div class="grow"><div class="title">${tgl(u.ms)} · ${hm(u.ms)}</div><div class="sub">${u.ruang ? esc(u.ruang) : ''}${u.materi ? ` · ${u.materi.split('\n').length} materi` : ''}</div></div>${u.ms < n ? badge(['b-normal', 'Selesai']) : badge(dueBadge(u.ms))}</div>`).join('') : '<p class="muted" style="margin:0">Belum ada ujian.</p>'}</div></div>
         <div class="card"><div class="card-head"><h2><i class="ph ph-folder-open"></i>Materi & link</h2></div>
           <div class="rows">${materi.length ? materi.map((x) => `<div class="row"><i class="ph ph-link"></i><div class="grow"><a class="title" href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.judul)}</a><div class="sub">${esc(x.url.replace(/^https?:\/\//, '').slice(0, 48))}</div></div>${canEdit() ? `<button class="tiny-btn danger" data-materi-del="${x.id}" aria-label="Hapus ${esc(x.judul)}"><i class="ph ph-trash"></i></button>` : ''}</div>`).join('') : '<p class="muted" style="margin:0">Belum ada materi. Anggota bisa membuka materi lewat <b>/materi</b> di WA.</p>'}</div>
-          ${canEdit() ? `<form id="materiForm" class="materi-form"><input name="judul" placeholder="Judul (mis. Slide pekan 3)" required aria-label="Judul materi"><input name="url" type="url" placeholder="https://…" required aria-label="Link materi"><button class="btn btn-secondary btn-sm">${PLUS}Tambah</button></form>` : ''}</div>
+          ${canEdit() ? `<form id="materiForm" class="materi-form" data-draft="materi:${m.id}"><input name="judul" placeholder="Judul (mis. Slide pekan 3)" required aria-label="Judul materi"><input name="url" type="url" placeholder="https://…" required aria-label="Link materi"><button class="btn btn-secondary btn-sm">${PLUS}Tambah</button></form>` : ''}</div>
         ${nilaiCard}
         ${m.catatan ? `<div class="card"><div class="card-head"><h2><i class="ph ph-note"></i>Catatan</h2></div><p style="margin:0;white-space:pre-wrap">${esc(m.catatan)}</p></div>` : ''}
       </div>
@@ -298,8 +300,9 @@ function viewMatkulDetail() {
   const mf = $('#materiForm');
   if (mf) mf.onsubmit = async (e) => {
     e.preventDefault();
-    try { await api('/api/materi', { method: 'POST', body: { matkul_id: m.id, judul: mf.judul.value, url: mf.url.value } }); toast('Materi ditambahkan.'); refresh(); } catch (err) { toast(err.message, 'error'); }
+    try { await api('/api/materi', { method: 'POST', body: { matkul_id: m.id, judul: mf.judul.value, url: mf.url.value } }); hapusDraft(`materi:${m.id}`); toast('Materi ditambahkan.'); refresh(); } catch (err) { toast(err.message, 'error'); }
   };
+  pulihkanFormHalaman();
   // Kalkulator nilai: hitung langsung saat mengetik, simpan otomatis.
   const nf = $('#nilaiForm');
   if (nf) {
@@ -355,7 +358,7 @@ function bukaKelompok(id) {
   const t = S.data.tugas.find((x) => x.id === id); if (!t) return;
   const teks = (t.grup || []).map((g) => `${g.nama}: ${g.anggota.map((a) => a.nama).join(', ')}`).join('\n');
   bukaModal({
-    eyebrow: 'Tugas kelompok', title: t.judul,
+    eyebrow: 'Tugas kelompok', title: t.judul, draft: `kelompok:${id}`, ep: `/api/tugas/${id}/kelompok`,
     body: `<label class="field"><span>Pembagian kelompok</span><textarea name="teks" rows="8" placeholder="Kelompok 1: Ani, Budi, Cici&#10;Kelompok 2: Dodi, Eka">${esc(teks)}</textarea>
         <small class="muted">Satu kelompok per baris. Nama harus sama dengan nama akun di web (tidak peka huruf besar/kecil).</small></label>
       <div class="inline-field">Bagi acak, <input type="number" id="ukGrup" min="2" max="20" value="4" aria-label="Anggota per kelompok"> orang per kelompok <button type="button" class="btn btn-secondary btn-sm" data-bagi-acak>Bagi</button></div>`,
@@ -691,7 +694,7 @@ viewAkun = function viewAkunBaru() {
 };
 function bukaMassal() {
   bukaModal({
-    eyebrow: 'Kelola akun', title: 'Tambah anggota sekaligus',
+    eyebrow: 'Kelola akun', title: 'Tambah anggota sekaligus', draft: 'massal', ep: '/api/akun/massal',
     body: `<label class="field"><span>Daftar anggota</span><textarea name="teks" rows="10" required placeholder="Siti Rahma, 081234567890&#10;Budi Santoso, 0812 9876 5432&#10;Cici"></textarea>
         <small class="muted">Satu orang per baris: <b>Nama, nomor WA</b> (nomor boleh kosong). Bisa langsung tempel dari Excel/Google Sheets. Username dibuat otomatis; anggota masuk dengan mengirim <b>login</b> ke bot.</small></label>
       <label class="field"><span>Peran</span><select name="role">${['viewer', 'editor'].map((r) => `<option value="${r}">${ROLE_LABEL[r]}</option>`).join('')}</select></label>
@@ -925,3 +928,115 @@ function pasangInfoTanggal(root = document) {
 document.addEventListener('input', (e) => { if (e.target.matches?.('input[type="date"], input[type="datetime-local"]')) pasangInfoTanggal(e.target.parentElement); });
 document.addEventListener('change', (e) => { if (e.target.matches?.('input[type="date"], input[type="datetime-local"]')) pasangInfoTanggal(e.target.parentElement); });
 new MutationObserver(() => pasangInfoTanggal($('#mBody'))).observe($('#mBody'), { childList: true, subtree: true });
+
+// ================= Draf otomatis =================
+// Isian form disimpan di perangkat ini saat diketik. Kalau modal tertutup tidak sengaja,
+// halaman ter-refresh, atau HP mati, isian muncul lagi saat form dibuka. Draf dihapus begitu data tersimpan.
+const DRAF_UMUR = 14 * DAY;
+const kunciDraf = (k) => `ss67:draf:${S.user?.id || 0}:${k}`;
+function bacaDraft(k) {
+  try { const d = JSON.parse(localStorage.getItem(kunciDraf(k)) || 'null'); if (!d || Date.now() - d.at > DRAF_UMUR) return null; return d; } catch { return null; }
+}
+function tulisDraft(k, data) { try { localStorage.setItem(kunciDraf(k), JSON.stringify({ at: Date.now(), data })); } catch { /* penyimpanan penuh/diblokir */ } }
+function hapusDraft(k) { try { localStorage.removeItem(kunciDraf(k)); } catch {} }
+
+// Ambil & isi nilai form (password, file, dan field tersembunyi tidak ikut disimpan).
+function ambilNilaiForm(form) {
+  const o = {};
+  for (const el of form.elements) {
+    if (!el.name || ['password', 'file', 'hidden', 'submit', 'button'].includes(el.type) || el.disabled) continue;
+    if (el.type === 'radio') { if (el.checked) o[el.name] = el.value; continue; }
+    o[el.name] = el.type === 'checkbox' ? el.checked : el.value;
+  }
+  const rows = form.querySelector('#liburRows');
+  if (rows) o.__libur = $$('.libur-row', rows).map((r) => ({ nama: $('[data-l=nama]', r).value, dari: $('[data-l=dari]', r).value, sampai: $('[data-l=sampai]', r).value }));
+  const opsi = $$('[data-opsi]', form); if (opsi.length) o.__opsi = opsi.map((x) => x.value);
+  return o;
+}
+const drafKosong = (o) => !Object.entries(o).some(([k, v]) => (k === '__libur' ? v.some((x) => x.nama || x.dari) : k === '__opsi' ? v.some(Boolean) : typeof v === 'string' && v.trim() && !['hari', 'prioritas', 'jenis', 'role', 'pin_hari', 'warna', '__target'].includes(k)));
+function isiNilaiForm(form, o) {
+  if (o.__libur && form.querySelector('#liburRows') && bukaSemester.baris) form.querySelector('#liburRows').innerHTML = o.__libur.map(bukaSemester.baris).join('');
+  for (const [n, v] of Object.entries(o)) {
+    if (n.startsWith('__')) continue;
+    const el = form.elements.namedItem(n); if (!el) continue;
+    if (el instanceof RadioNodeList) { for (const x of el) x.checked = x.value === v; continue; }
+    if (el.type === 'password' || el.type === 'file') continue;
+    if (el.type === 'checkbox') el.checked = !!v; else el.value = v;
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+  // Tugas berulang: kotak "Ulangi tiap minggu" ikut dicentang kalau tanggal ulang terisi.
+  const cb = form.querySelector('[data-ulang-cb]');
+  if (cb && form.elements.namedItem('ulang')?.value) { cb.checked = true; cb.dispatchEvent(new Event('change')); }
+}
+
+// --- Draf di modal ---
+let fxDraft = null; let fxDraftTimer = null;
+function mulaiDraftModal(key, ep, bukaUlang) {
+  const form = $('#modalForm');
+  fxDraft = { key, ep, awal: JSON.stringify(ambilNilaiForm(form)) };
+  const d = bacaDraft(key);
+  if (d && !drafKosong(d.data) && JSON.stringify(d.data) !== fxDraft.awal) {
+    isiNilaiForm(form, d.data);
+    const b = document.createElement('div'); b.className = 'draft-banner'; b.setAttribute('role', 'status');
+    b.innerHTML = `<i class="ph ph-clock-counter-clockwise"></i><span>Isian yang belum disimpan (${fxLalu(d.at)}) dipulihkan.</span><button type="button" class="link-btn" data-draf-buang>Buang draf</button>`;
+    $('#mBody').prepend(b);
+    b.querySelector('[data-draf-buang]').onclick = () => { hapusDraft(key); fxDraft = null; bukaUlang(); };
+  }
+  const st = document.createElement('span'); st.className = 'draft-status'; st.id = 'drafStatus'; st.setAttribute('aria-live', 'polite');
+  $('#mFoot').prepend(st);
+}
+function simpanDraftModal() {
+  clearTimeout(fxDraftTimer); fxDraftTimer = null;
+  if (!fxDraft || !$('#modal').open) return;
+  const o = ambilNilaiForm($('#modalForm'));
+  if (drafKosong(o) || JSON.stringify(o) === fxDraft.awal) { hapusDraft(fxDraft.key); return; }
+  tulisDraft(fxDraft.key, o);
+  const st = $('#drafStatus'); if (st) st.innerHTML = '<i class="ph ph-check-circle"></i> Draf tersimpan otomatis';
+}
+for (const ev of ['input', 'change']) $('#modalForm').addEventListener(ev, () => { if (!fxDraft) return; clearTimeout(fxDraftTimer); fxDraftTimer = setTimeout(simpanDraftModal, 400); });
+// Modal ditutup tanpa disimpan: simpan dulu isian terakhir (tidak menunggu jeda ketik).
+$('#modal').addEventListener('close', () => { if (fxDraftTimer) simpanDraftModal(); fxDraft = null; });
+
+// Form tambah/ubah dari app.js (tugas, ujian, jadwal, mata kuliah, akun, kelas batal, pengganti).
+const fxOpenFormAsli = openForm;
+openForm = function (type, id, preset) {
+  fxOpenFormAsli(type, id, preset);
+  mulaiDraftModal(`${type}:${id || 'baru'}`, `/api/${endpointOf(type)}${id ? '/' + id : ''}`, () => openForm(type, id, preset));
+};
+
+// Draf dihapus otomatis begitu data berhasil tersimpan ke server.
+const fxApiAsli = api;
+api = async function (path, opts = {}) {
+  const res = await fxApiAsli(path, opts);
+  const m = (opts.method || 'GET').toUpperCase();
+  if (m !== 'GET' && fxDraft && (path === fxDraft.ep || path.startsWith(fxDraft.ep + '?'))) { clearTimeout(fxDraftTimer); fxDraftTimer = null; hapusDraft(fxDraft.key); fxDraft = null; }
+  return res;
+};
+
+// --- Draf form di halaman (form[data-draft]) ---
+function pulihkanFormHalaman() {
+  for (const f of $$('form[data-draft]')) { const d = bacaDraft(f.dataset.draft); if (d) isiNilaiForm(f, d.data); }
+}
+let fxHalTimer;
+document.addEventListener('input', (e) => {
+  const f = e.target.closest?.('form[data-draft]'); if (!f) return;
+  clearTimeout(fxHalTimer); fxHalTimer = setTimeout(() => { const o = ambilNilaiForm(f); drafKosong(o) ? hapusDraft(f.dataset.draft) : tulisDraft(f.dataset.draft, o); }, 400);
+});
+
+// --- Draf pengumuman & polling (disimpan di S.pDraft / S.pollDraft) ---
+let fxDrafPg = ''; let fxDrafPl = '';
+function muatDrafHalaman() {
+  if (!S.pDraft) S.pDraft = bacaDraft('pengumuman')?.data || {};
+  if (!S.pollDraft) S.pollDraft = bacaDraft('polling')?.data || null;
+  fxDrafPg = JSON.stringify(S.pDraft); fxDrafPl = JSON.stringify(S.pollDraft);
+}
+setInterval(() => {
+  if (!S.user) return;
+  if (fxDrafPg === '' && fxDrafPl === '') return muatDrafHalaman();
+  const pg = JSON.stringify(S.pDraft || {}); const pl = JSON.stringify(S.pollDraft || null);
+  if (pg !== fxDrafPg) { fxDrafPg = pg; (!S.pDraft?.teks && !S.pDraft?.gambar) ? hapusDraft('pengumuman') : tulisDraft('pengumuman', S.pDraft); }
+  if (pl !== fxDrafPl) { fxDrafPl = pl; (!S.pollDraft || (!S.pollDraft.pertanyaan && !(S.pollDraft.opsi || []).some(Boolean))) ? hapusDraft('polling') : tulisDraft('polling', S.pollDraft); }
+}, 1000);
+window.addEventListener('pagehide', () => { try { if (S.pDraft?.teks) tulisDraft('pengumuman', S.pDraft); if (S.pollDraft?.pertanyaan) tulisDraft('polling', S.pollDraft); if (fxDraftTimer) simpanDraftModal(); } catch {} });
+const fxLoadPgDraf = loadPengumuman;
+loadPengumuman = async function () { if (fxDrafPg === '') muatDrafHalaman(); return fxLoadPgDraf(); };
