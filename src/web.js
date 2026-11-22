@@ -629,6 +629,7 @@ function createWeb(db, { password, cfg, bot: botIn = noBot, secret, backupDir = 
       harian: db.logHarian(Date.now() - 14 * 86400000),
       push: db.pushSubs().length,
       pesanTerakhir: st.pesanTerakhir || null,
+      penjadwal: st.penjadwal || null,
       catatan: st.catatan || [],
     });
   });

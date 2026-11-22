@@ -67,8 +67,9 @@ test('pengingat kelas, harian, tugas, ujian', () => {
   assert.ok(r.some((x) => /Selamat pagi[\s\S]*Kalkulus/.test(x.text)));
   assert.ok(r.some((x) => /Hari ini ujian/.test(x.text)));
 
-  // Pesan lama tidak dikirim setelah lewat jendela 10 menit
-  assert.equal(dueReminders(db, st, at('2026-12-07 07:45')).filter((x) => x.key.startsWith('kelas')).length, 0);
+  // Terlambat sedikit (bot sempat restart) masih dikirim, tapi tidak setelah kelas mulai
+  assert.equal(dueReminders(db, st, at('2026-12-07 07:45')).filter((x) => x.key.startsWith('kelas')).length, 1);
+  assert.equal(dueReminders(db, st, at('2026-12-07 08:01')).filter((x) => x.key.startsWith('kelas')).length, 0);
 });
 
 test('pengaturan: mode nonaktif tidak dikirim, H-1 jadwal besok', () => {
