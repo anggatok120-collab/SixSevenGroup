@@ -770,7 +770,29 @@ viewStatus = function viewStatusBaru() {
       <div class="chart14" role="img" aria-label="Jumlah pesan terkirim 14 hari terakhir">${data.map((d) => `<div class="c14" title="${tgl(msOfYmd(d.h))}: ${d.ok} terkirim, ${d.gagal} gagal"><div class="c14-bar"><i class="ok" style="height:${d.ok / maks * 100}%"></i><i class="gagal" style="height:${d.gagal / maks * 100}%"></i></div><span>${Number(d.h.slice(8))}</span></div>`).join('')}</div>
       <div class="legend"><span><i class="lg-ok"></i>Terkirim</span><span><i class="lg-gagal"></i>Gagal</span></div></div>`;
   const tiles = $$('#content > .tiles')[0]; tiles ? tiles.after(el) : $('#content').append(el);
+  // Diagnosis: grup tujuan, pesan terakhir yang diterima, catatan error bot.
+  const diag = document.createElement('div'); diag.className = 'card';
+  const lamaDiam = s.pesanTerakhir ? now() - s.pesanTerakhir : null;
+  diag.innerHTML = `<div class="card-head"><h2><i class="ph ph-stethoscope"></i>Diagnosis bot</h2><button class="btn btn-secondary btn-sm" data-ganti-grup><i class="ph ph-users-three"></i>Ganti grup tujuan</button></div>
+    <div class="diag-grid">
+      <div><small>Grup tujuan</small><b>${esc(s.grupNama || s.grupJid || 'Belum diatur')}</b></div>
+      <div><small>Pesan terakhir diterima bot</small><b>${s.pesanTerakhir ? fxLalu(s.pesanTerakhir) : 'belum ada sejak bot menyala'}</b></div>
+      <div><small>Tersambung sejak</small><b>${s.sejak ? `${tgl(s.sejak)} · ${hm(s.sejak)}` : '–'}</b></div>
+    </div>
+    ${!s.wa ? '<p class="diag-tip" data-tone="danger"><i class="ph-fill ph-warning-circle"></i><span>Bot tidak tersambung ke WhatsApp. Kalau lebih dari beberapa menit, kemungkinan sesi WA ter-logout: perlu scan QR ulang di VPS (lihat README).</span></p>'
+      : lamaDiam == null || lamaDiam > 30 * 6e4 ? '<p class="diag-tip" data-tone="warning"><i class="ph ph-info"></i><span>Bot tersambung tapi belum menerima pesan baru. Di grup yang baru dimasuki, WhatsApp kadang butuh beberapa menit sebelum bot bisa membaca pesan anggota. Coba kirim <b>/menu</b> lagi, atau chat pribadi ke nomor bot.</span></p>' : ''}
+    <div class="rows">${s.catatan?.length ? s.catatan.map((c) => `<div class="row"><span class="badge ${c.level === 'error' ? 'b-urgent' : 'b-warn'}">${c.level === 'error' ? 'Error' : 'Peringatan'}</span><div class="grow"><div class="title" style="font-family:var(--font-mono);font-size:12.5px">${esc(c.pesan)}</div><div class="sub">${tgl(c.at)} · ${hm(c.at)}</div></div></div>`).join('') : '<p class="muted" style="margin:0">Tidak ada error sejak bot terakhir menyala.</p>'}</div>`;
+  $('#content .page-head').after(diag);
 };
+async function bukaGantiGrup() {
+  bukaModal({ eyebrow: 'Status bot', title: 'Pilih grup tujuan', body: '<p class="muted">Memuat daftar grup yang diikuti bot…</p>', foot: '<button type="button" class="btn btn-secondary" data-close>Tutup</button>' });
+  try {
+    const r = await api('/api/status/grup');
+    $('#mBody').innerHTML = `${r.grup.length ? `<div class="rows">${r.grup.map((g) => `<button type="button" class="row clickable grup-pilih" data-pakai-grup="${esc(g.jid)}" aria-pressed="${g.jid === r.aktif}"><i class="ph${g.jid === r.aktif ? '-fill ph-check-circle' : ' ph-users-three'}"></i><div class="grow"><div class="title">${esc(g.nama)}</div><div class="sub">${g.anggota} anggota${g.jid === r.aktif ? ' · grup tujuan sekarang' : ''}</div></div></button>`).join('')}</div>`
+      : '<p class="muted">Bot belum masuk grup mana pun. Tambahkan nomor bot ke grup kelas dulu.</p>'}
+      <small class="muted">Grup tidak ada di daftar? Pastikan nomor bot sudah dimasukkan ke grup itu. Bisa juga dengan mengetik <b>/pakaigrup</b> di grup tersebut (khusus admin).</small><p class="form-error" id="mErr"></p>`;
+  } catch (err) { $('#mBody').innerHTML = `<p class="form-error">${esc(err.message)}</p>`; }
+}
 const fxBackupCardAsli = backupCard;
 backupCard = function () {
   const html = fxBackupCardAsli();
@@ -779,10 +801,12 @@ backupCard = function () {
 
 // ================= Klik untuk fitur tambahan =================
 document.addEventListener('click', async (e) => {
-  const el = e.target.closest('[data-semester],[data-png],[data-absen],[data-absen-semua],[data-materi-del],[data-kelompok-edit],[data-bagi-acak],[data-add-tugas-on],[data-add-ujian-on],[data-add-kelas-mk],[data-add-tugas-mk],[data-add-ujian-mk],[data-pin],[data-pg-tab],[data-template],[data-gambar-hapus],[data-opsi-add],[data-opsi-del],[data-poll-del],[data-poll-muat],[data-pulih],[data-akun-massal],[data-setujui],[data-undangan],[data-tema],[data-push-tes],[data-foto-del],[data-jeda-off],[data-cal-mode],[data-cal-jenis],[data-libur-add],[data-libur-del],[data-backup-pulih],[data-filter-set]');
+  const el = e.target.closest('[data-ganti-grup],[data-pakai-grup],[data-semester],[data-png],[data-absen],[data-absen-semua],[data-materi-del],[data-kelompok-edit],[data-bagi-acak],[data-add-tugas-on],[data-add-ujian-on],[data-add-kelas-mk],[data-add-tugas-mk],[data-add-ujian-mk],[data-pin],[data-pg-tab],[data-template],[data-gambar-hapus],[data-opsi-add],[data-opsi-del],[data-poll-del],[data-poll-muat],[data-pulih],[data-akun-massal],[data-setujui],[data-undangan],[data-tema],[data-push-tes],[data-foto-del],[data-jeda-off],[data-cal-mode],[data-cal-jenis],[data-libur-add],[data-libur-del],[data-backup-pulih],[data-filter-set]');
   if (!el) return;
   const d = el.dataset;
   try {
+    if ('gantiGrup' in d) return bukaGantiGrup();
+    if ('pakaiGrup' in d) { await api('/api/status/grup', { method: 'POST', body: { jid: d.pakaiGrup } }); $('#modal').close(); toast('Grup tujuan diganti.'); S.status = null; viewStatus(); return loadStatus(); }
     if ('semester' in d) return bukaSemester();
     if ('png' in d) return simpanJadwalPng();
     if ('absen' in d) {

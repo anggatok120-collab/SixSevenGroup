@@ -973,3 +973,12 @@ a.title:hover { text-decoration: underline; text-underline-offset: 3px; }
   #bellCount { font-size: 0; }
   #bellCount::before { content: attr(data-n); font-size: var(--text-body-sm); }
 }
+
+.diag-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--space-2); margin-bottom: var(--space-3); }
+.diag-grid div { display: grid; gap: 2px; padding: var(--space-3); border-radius: var(--radius-control); background: var(--color-glass); border: 1px solid var(--color-border); }
+.diag-grid small { color: var(--color-text-subtle); font-size: var(--text-caption); }
+.diag-tip { display: flex; gap: 8px; align-items: flex-start; margin: 0 0 var(--space-3); padding: var(--space-3); border-radius: var(--radius-control); font-size: var(--text-body-sm); border: 1px solid rgba(245,192,115,.34); background: rgba(245,192,115,.08); }
+.diag-tip[data-tone="danger"] { border-color: rgba(255,125,138,.34); background: rgba(255,125,138,.08); }
+.grup-pilih { width: 100%; text-align: left; font: inherit; color: inherit; background: transparent; border: 1px solid var(--color-border); }
+.grup-pilih[aria-pressed="true"] { border-color: rgba(79,216,164,.4); }
+.grup-pilih i { font-size: 20px; color: var(--color-success); }

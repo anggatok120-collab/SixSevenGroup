@@ -16,7 +16,7 @@ const { normalWa, redeemLoginToken } = require('./walogin');
 const { DEFAULT_DIR, NAME_RE, listBackups, backupNow } = require('./backup');
 
 const tidakAda = async () => { throw new Error('Bot tidak tersedia'); };
-const noBot = { status: () => ({ wa: false }), send: tidakAda, sendTo: tidakAda, sendPoll: tidakAda };
+const noBot = { status: () => ({ wa: false }), send: tidakAda, sendTo: tidakAda, sendPoll: tidakAda, daftarGrup: tidakAda, pakaiGrup: tidakAda };
 
 function createWeb(db, { password, cfg, bot: botIn = noBot, secret, backupDir = DEFAULT_DIR, uploadDir = path.join(__dirname, '..', 'data', 'uploads'), onRestore = null, push = kirimPush }) {
   const bot = { ...noBot, ...botIn };
@@ -628,7 +628,21 @@ function createWeb(db, { password, cfg, bot: botIn = noBot, secret, backupDir = 
       antrean: antrean(db, getSettings(db, cfg), Date.now(), 24),
       harian: db.logHarian(Date.now() - 14 * 86400000),
       push: db.pushSubs().length,
+      pesanTerakhir: st.pesanTerakhir || null,
+      catatan: st.catatan || [],
     });
+  });
+  // Pindah grup tujuan dari web: pilih dari grup yang diikuti bot.
+  app.get('/api/status/grup', admin, async (req, res) => {
+    try { res.json({ grup: await bot.daftarGrup(), aktif: bot.status().grupJid || null }); }
+    catch (err) { res.status(502).json({ error: `Gagal mengambil daftar grup: ${err.message}` }); }
+  });
+  app.post('/api/status/grup', admin, async (req, res) => {
+    const jid = String(req.body?.jid || '');
+    if (!/^[\d-]+@g\.us$/.test(jid)) return bad(res, 'Grup tidak valid');
+    try { await bot.pakaiGrup(jid); } catch (err) { return res.status(502).json({ error: err.message }); }
+    catat(req, 'ubah', 'grup tujuan', jid);
+    res.json({ ok: true });
   });
   app.post('/api/status/tes', admin, async (req, res) => {
     try {

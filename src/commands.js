@@ -41,6 +41,7 @@ Atau balas pesan pengingat tugas dengan *udah*
 /web – alamat web pengelola
 login – kirim di chat pribadi ke bot untuk dapat link masuk web
 /groupid – tampilkan ID chat ini
+/pakaigrup – (admin) jadikan grup ini tujuan pengingat
 
 Prefix boleh / ! atau .`;
 
@@ -75,6 +76,13 @@ function handle(db, text, { isAdmin = false, chatJid = '', now = Date.now(), web
       return webUrl ? `🌐 Kelola jadwal, tugas, dan ujian di: ${webUrl}` : 'Alamat web belum diatur (WEB_URL).';
     case 'groupid':
       return `ID chat ini: ${chatJid}`;
+    case 'pakaigrup': {
+      const e = needAdmin(); if (e) return e;
+      if (!chatJid.endsWith('@g.us')) return 'Ketik /pakaigrup di dalam grup yang mau dijadikan grup kelas.';
+      db.setSetting('grupJid', chatJid);
+      catat('ubah', 'grup tujuan', chatJid);
+      return '✅ Grup ini sekarang jadi *grup kelas*. Semua pengingat dan pengumuman akan dikirim ke sini.';
+    }
     case 'hari':
       return jadwalHari(kelasPada(db, now), t.dow);
     case 'besok':
