@@ -169,7 +169,7 @@ function renderNav() {
     if (!items.length) return '';
     return `<div class="nav-group"><div class="nav-title">${g.title}</div>${items.map((it) => {
       const on = S.view === it.id || (S.view === 'matkul-detail' && it.id === 'matkul'); const b = it.badge ? it.badge() : 0;
-      return `<button data-view="${it.id}" class="${on ? 'active' : ''}" ${on ? 'aria-current="page"' : ''}><i class="ph ph-${it.icon}"></i><span>${it.label}</span>${b ? `<em class="nav-badge" aria-label="${b} ${it.id === 'praktikum' ? 'tugas praktikum belum dikumpulkan' : 'tugas aktif'}">${b}</em>` : ''}</button>`;
+      return `<button data-view="${it.id}" class="${on ? 'active' : ''}" ${on ? 'aria-current="page"' : ''} title="${it.label}"><i class="ph ph-${it.icon}"></i><span>${it.label}</span>${b ? `<em class="nav-badge" aria-label="${b} ${it.id === 'praktikum' ? 'tugas praktikum belum dikumpulkan' : 'tugas aktif'}">${b}</em>` : ''}</button>`;
     }).join('')}</div>`;
   }).join('');
 }
@@ -1208,6 +1208,22 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') $('#shell').classList.remove('nav-open');
 });
 $('#menuBtn').onclick = () => $('#shell').classList.add('nav-open');
+// Sidebar desktop bisa diciutkan jadi deretan ikon (klik logo, tombol sidebar, atau Ctrl+B). Diingat per perangkat.
+function setRingkas(v) {
+  $('#shell').classList.toggle('ringkas', v);
+  const label = v ? 'Lebarkan sidebar' : 'Ciutkan sidebar';
+  for (const b of [$('#brandBtn'), $('#sideToggle')]) b.setAttribute('aria-label', label);
+  $('#brandBtn').setAttribute('aria-expanded', String(!v));
+  try { localStorage.setItem('sidebar', v ? 'ringkas' : 'lebar'); } catch {}
+}
+const toggleSidebar = () => {
+  if (innerWidth < 1024) { $('#shell').classList.toggle('nav-open'); return; } // HP/tablet: buka-tutup laci menu
+  setRingkas(!$('#shell').classList.contains('ringkas'));
+};
+$('#brandBtn').onclick = toggleSidebar;
+$('#sideToggle').onclick = toggleSidebar;
+try { if (localStorage.getItem('sidebar') === 'ringkas') setRingkas(true); } catch {}
+document.addEventListener('keydown', (e) => { if (e.key.toLowerCase() === 'b' && (e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey) { e.preventDefault(); toggleSidebar(); } });
 $('#scrim').onclick = () => $('#shell').classList.remove('nav-open');
 $('#bellBtn').onclick = () => { S.filter = 'aktif'; go('tugas'); };
 $('#profileBtn').onclick = () => go('profil');
