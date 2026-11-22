@@ -901,3 +901,26 @@ document.addEventListener('change', async (e) => {
   } catch (err) { toast(err.message, 'error'); if (t.type === 'checkbox') t.checked = !t.checked; }
 });
 document.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.matches('.cal-cell, .tblock')) e.target.click(); });
+
+// ================= Keterangan tanggal dalam bahasa Indonesia =================
+// Kolom tanggal bawaan browser mengikuti bahasa HP (bisa "mm/dd/yyyy"),
+// jadi di bawahnya ditampilkan tanggal yang terbaca jelas: "Senin, 24 Agustus 2026".
+function teksTanggal(input) {
+  const v = input.value; if (!v) return '';
+  if (input.type === 'time') return '';
+  const [tg, jam] = v.split('T'); const [y, m, d] = tg.split('-').map(Number);
+  if (!y || !m || !d) return '';
+  const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+  return `${HARI[dow]}, ${d} ${BULAN_PANJANG[m - 1]} ${y}${jam ? ` · ${jam.slice(0, 5)} WIB` : ''}`;
+}
+function pasangInfoTanggal(root = document) {
+  if (!root) return;
+  for (const inp of root.querySelectorAll('.field > input[type="date"], .field > input[type="datetime-local"]')) {
+    let info = inp.nextElementSibling?.classList.contains('tgl-info') ? inp.nextElementSibling : null;
+    if (!info) { info = Object.assign(document.createElement('small'), { className: 'tgl-info' }); info.setAttribute('aria-live', 'polite'); inp.after(info); }
+    const t = teksTanggal(inp); if (info.textContent !== t) info.textContent = t; // hindari perulangan observer
+  }
+}
+document.addEventListener('input', (e) => { if (e.target.matches?.('input[type="date"], input[type="datetime-local"]')) pasangInfoTanggal(e.target.parentElement); });
+document.addEventListener('change', (e) => { if (e.target.matches?.('input[type="date"], input[type="datetime-local"]')) pasangInfoTanggal(e.target.parentElement); });
+new MutationObserver(() => pasangInfoTanggal($('#mBody'))).observe($('#mBody'), { childList: true, subtree: true });
