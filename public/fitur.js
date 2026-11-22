@@ -726,6 +726,13 @@ viewProfil = function viewProfilBaru() {
         <label class="btn btn-secondary btn-sm"><i class="ph ph-camera"></i>${S.user.foto ? 'Ganti foto' : 'Pilih foto'}<input type="file" accept="image/*" id="fotoInput" hidden></label>
         ${S.user.foto ? '<button type="button" class="btn btn-secondary btn-sm" data-foto-del>Hapus</button>' : ''}</div></div>`;
   $('.profil-grid .stack')?.prepend(...kartu.children);
+  // Susun ulang jadi kolom yang saling mengisi (bukan satu tumpukan panjang).
+  const grid = $('.profil-grid');
+  if (grid) {
+    const [tampilan, notif, foto, izin, kalender, wa] = $$('.stack > .card', grid);
+    grid.className = 'profil-cards';
+    grid.replaceChildren(...[$('#profForm', grid), foto, tampilan, notif, kalender, wa, izin].filter(Boolean));
+  }
   muatGambarAuth($('#content'));
   cekPush();
   $('#fotoInput')?.addEventListener('change', async (e) => {
