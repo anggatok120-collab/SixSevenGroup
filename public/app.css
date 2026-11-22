@@ -1086,3 +1086,14 @@ input[type="date"], input[type="time"], input[type="datetime-local"] { font-fami
 
 #pStatus { margin-right: 0; }
 @media (max-width: 640px) { .link-btn { min-height: 32px; } .diag-grid .link-btn { padding: 4px 0; } }
+
+/* Dua kolom rata bawah; kolom pratinjau menempel saat menggulir */
+#content .split.rata { align-items: stretch; }
+#content .split.rata.menyusun { align-items: start; }
+#content .split.rata > .stack > :last-child, #content .split.rata > .card { flex: 1 1 auto; }
+#content .split.rata > .stack { display: flex; flex-direction: column; }
+@media (min-width: 1101px) {
+  #content .split.menempel { align-items: start; }
+  #content .split.menempel > :last-child { position: sticky; top: 88px; max-height: calc(100vh - 104px); overflow-y: auto; scrollbar-width: thin; }
+}
+#content [hidden], dialog [hidden] { display: none !important; }

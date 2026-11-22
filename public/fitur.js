@@ -1105,3 +1105,51 @@ setInterval(() => {
     const s = JSON.stringify(u); if (s !== fxUiTerakhir) { fxUiTerakhir = s; localStorage.setItem('ss67:ui', s); }
   } catch {}
 }, 1500);
+
+// ================= Tata letak dua kolom: seimbang & rata bawah =================
+// Status Bot: riwayat pengiriman diringkas, kartu backup pindah ke kolom kanan.
+const fxViewStatusRata = viewStatus;
+viewStatus = function () {
+  fxViewStatusRata();
+  const rw = $$('#content .card').find((c) => /Riwayat pengiriman/.test(c.querySelector('h2')?.textContent || ''));
+  if (rw) {
+    const rows = $$('.rows > .row', rw);
+    if (rows.length > 8 && !S.logSemua) {
+      rows.slice(8).forEach((r) => { r.hidden = true; });
+      rw.querySelector('.rows').insertAdjacentHTML('afterend', `<button class="ghost-btn" data-log-semua>Tampilkan semua ${rows.length} pengiriman</button>`);
+    }
+    const split = rw.closest('.split'); const kanan = split?.children[1];
+    const backup = $$('#content > .card').find((c) => /Backup database/.test(c.querySelector('h2')?.textContent || ''));
+    if (split && kanan && backup) { const st = document.createElement('div'); st.className = 'stack'; kanan.replaceWith(st); st.append(kanan, backup); }
+  }
+};
+document.addEventListener('click', (e) => { if (e.target.closest('[data-log-semua]')) { S.logSemua = true; viewStatus(); } });
+
+// Pengingat & pengumuman: kolom kanan (pratinjau) menempel saat menggulir kolom kiri yang panjang.
+function tandaiSplitMenempel() {
+  if (S.view === 'pengingat' || (S.view === 'pengumuman' && S.pgTab !== 'polling')) $('#content .split')?.classList.add('menempel');
+}
+
+// Semua .split dua kolom: kartu dibagi seimbang (kalau kolomnya berupa tumpukan) dan ujung bawah diratakan.
+function rapikanSplit() {
+  for (const sp of $$('#content .split:not([data-rapi])')) {
+    sp.dataset.rapi = '1';
+    if (sp.classList.contains('menempel') || sp.classList.contains('status-split')) continue;
+    const dua = getComputedStyle(sp).gridTemplateColumns.split(' ').length >= 2;
+    const [a, b] = sp.children;
+    if (!a || !b) continue;
+    if (dua && a.classList.contains('stack') && b.classList.contains('stack')) {
+      // Bagi ulang kartu: urutan tetap, tiap kartu masuk ke kolom yang sedang lebih pendek.
+      const kartu = [...a.children, ...b.children];
+      sp.classList.add('menyusun'); a.replaceChildren(); b.replaceChildren();
+      for (const k of kartu) (a.offsetHeight <= b.offsetHeight ? a : b).append(k);
+      sp.classList.remove('menyusun');
+    }
+    sp.classList.add('rata');
+  }
+}
+let fxRapiJadwal = 0;
+new MutationObserver(() => {
+  cancelAnimationFrame(fxRapiJadwal);
+  fxRapiJadwal = requestAnimationFrame(() => { tandaiSplitMenempel(); rapikanSplit(); });
+}).observe($('#content'), { childList: true });
