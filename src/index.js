@@ -103,16 +103,22 @@ function pesanPolling(key) {
   return p?.msg ? proto.Message.decode(Buffer.from(p.msg, 'base64')) : undefined;
 }
 
+// Batas waktu kirim: pengiriman yang menggantung tidak boleh mengunci penjadwal.
+const denganBatas = (p, ms = 45000) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error(`tidak ada respons WhatsApp dalam ${ms / 1000} detik`)), ms))]);
+let tickTerakhir = null; let tickInfo = 'belum berjalan';
+
 async function tick() {
-  if (!sock || !waConnected || ticking) return;
-  ticking = true;
+  if (!sock) { tickInfo = 'bot belum siap'; return; }
+  if (!waConnected) { tickInfo = 'menunggu WhatsApp tersambung'; tickTerakhir = Date.now(); return; }
+  if (ticking) return;
+  ticking = true; tickTerakhir = Date.now(); tickInfo = 'berjalan normal';
   try {
     for (const r of dueReminders(db, getSettings(db, cfg))) {
       const tujuan = r.to || grupJid(); // r.to = chat pribadi anggota
       if (!tujuan) continue;
       try {
         const gambar = r.gambar && path.join(UPLOAD_DIR, path.basename(r.gambar));
-        await sock.sendMessage(tujuan, gambar && fs.existsSync(gambar) ? { image: fs.readFileSync(gambar), caption: r.text } : { text: r.text });
+        await denganBatas(sock.sendMessage(tujuan, gambar && fs.existsSync(gambar) ? { image: fs.readFileSync(gambar), caption: r.text } : { text: r.text }));
         db.tandaiTerkirim(r.key);
         if (r.pengumumanId) db.setPengumumanStatus(r.pengumumanId, 'terkirim');
         // Notifikasi push: pesan grup ke semua perangkat, pesan pribadi hanya ke pemiliknya.
@@ -179,6 +185,7 @@ async function start() {
     if (connection === 'open') {
       waConnected = true;
       waSejak = Date.now();
+      setTimeout(() => tick().catch((err) => log.error({ err }, 'penjadwal gagal')), 5000); // langsung kejar pengingat yang tertunda
       if (putusSejak && Date.now() - putusSejak > 5 * 60000) {
         const menit = Math.round((Date.now() - putusSejak) / 60000);
         setTimeout(() => kabariAdmin(`⚠️ *Bot sempat terputus dari WhatsApp selama ${menit} menit.*\nSekarang sudah tersambung lagi. Pengingat yang jatuh tempo saat terputus lebih dari 10 menit tidak dikirim ulang.`, 'putus'), 5000);
@@ -242,7 +249,7 @@ async function start() {
     }
   });
 
-  if (!ticker) ticker = setInterval(() => tick().catch((err) => log.error({ err })), 60 * 1000);
+  if (!ticker) ticker = setInterval(() => tick().catch((err) => { tickInfo = `error: ${err.message}`; log.error({ err }, 'penjadwal gagal'); }), 60 * 1000);
 }
 
 // Kalau start() gagal (misal internet VPS putus saat mengambil versi WA), coba lagi, jangan crash.
@@ -262,6 +269,7 @@ const bot = {
     nomor: sock?.user?.id ? digits(sock.user.id) : null,
     grupJid: grupJid() || null,
     pesanTerakhir,
+    penjadwal: { terakhir: tickTerakhir, info: tickInfo },
     catatan: catatanBot.slice(0, 15),
     grupNama,
     sejak: waSejak,

@@ -4,9 +4,10 @@ const { tugasLine, ujianLine, leadLabel } = require('./format');
 const { pesanHariIni, pesanBesok, pesanMingguan } = require('./messages');
 const { kelasPada, ymd, getSemester } = require('./jadwal');
 
-// Pengingat dikirim kalau waktunya sudah lewat, maksimal 10 menit (supaya
-// tetap terkirim walau bot sempat restart sebentar, tapi tidak spam pesan lama).
-const WINDOW = 10 * 60000;
+// Pengingat dikirim kalau waktunya sudah lewat, maksimal 30 menit (supaya tetap terkirim
+// walau bot sempat restart/terputus, misalnya saat deploy, tapi tidak mengirim pesan basi).
+// Pengingat kelas tetap tidak dikirim kalau kelasnya sudah mulai.
+const WINDOW = 30 * 60000;
 const inWindow = (target, now) => now >= target && now < target + WINDOW;
 
 function todayAt(now, hm) {

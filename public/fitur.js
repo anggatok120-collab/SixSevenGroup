@@ -805,6 +805,7 @@ viewStatus = function viewStatusBaru() {
       <div><small>Grup tujuan</small><b>${esc(s.grupNama || s.grupJid || 'Belum diatur')}</b></div>
       <div><small>Pesan terakhir diterima bot</small><b>${s.pesanTerakhir ? fxLalu(s.pesanTerakhir) : 'belum ada sejak bot menyala'}</b></div>
       <div><small>Tersambung sejak</small><b>${s.sejak ? `${tgl(s.sejak)} · ${hm(s.sejak)}` : '–'}</b></div>
+      <div><small>Penjadwal pengingat</small><b>${s.penjadwal?.terakhir ? `${now() - s.penjadwal.terakhir < 3 * 6e4 ? 'Aktif' : 'Macet'} · cek ${fxLalu(s.penjadwal.terakhir)}` : 'Belum berjalan'}</b>${s.penjadwal?.info && s.penjadwal.info !== 'berjalan normal' ? `<small>${esc(s.penjadwal.info)}</small>` : ''}</div>
     </div>
     ${!s.wa ? '<p class="diag-tip" data-tone="danger"><i class="ph-fill ph-warning-circle"></i><span>Bot tidak tersambung ke WhatsApp. Kalau lebih dari beberapa menit, kemungkinan sesi WA ter-logout: perlu scan QR ulang di VPS (lihat README).</span></p>'
       : lamaDiam == null || lamaDiam > 30 * 6e4 ? '<p class="diag-tip" data-tone="warning"><i class="ph ph-info"></i><span>Bot tersambung tapi belum menerima pesan baru. Di grup yang baru dimasuki, WhatsApp kadang butuh beberapa menit sebelum bot bisa membaca pesan anggota. Coba kirim <b>/menu</b> lagi, atau chat pribadi ke nomor bot.</span></p>' : ''}
