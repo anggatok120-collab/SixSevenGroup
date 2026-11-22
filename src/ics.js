@@ -1,5 +1,6 @@
 // Feed kalender iCalendar (.ics) untuk langganan di Google Calendar / kalender HP.
 const { parseLocal, local, pad } = require('./time');
+const { getSemester, liburPada, ymd } = require('./jadwal');
 
 const DAY = 86400000;
 const stamp = (ms) => new Date(ms).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, ''); // 20261122T010000Z
@@ -37,16 +38,24 @@ function buildIcs(db, { now = Date.now(), nama = 'Six Seven 67' } = {}) {
     } };
   };
 
-  // Jadwal rutin: mulai dari kemunculan pertama sejak 8 minggu lalu, berulang tiap minggu.
+  // Jadwal rutin: berulang tiap minggu, mengikuti periode semester; kelas batal dan hari libur dikecualikan.
   const ubah = db.kelasUbahAll();
-  const awal = now - 56 * DAY;
+  const sem = getSemester(db);
+  const awalSem = sem.mulai ? parseLocal(`${sem.mulai} 00:00`) : null;
+  const akhirSem = sem.selesai ? parseLocal(`${sem.selesai} 23:59`) : null;
+  const awal = Math.max(now - 56 * DAY, awalSem || -Infinity);
+  const batasLibur = akhirSem || now + 365 * DAY; // libur dihitung sampai akhir semester (atau setahun)
   for (const k of db.kelasAll()) {
     let d = awal; while (local(d).dow !== k.hari) d += DAY;
     const t = local(d);
     const start = parseLocal(`${t.y}-${pad(t.mo)}-${pad(t.d)} ${k.mulai}`);
+    if (akhirSem && start > akhirSem) continue; // semester sudah selesai
     const e = ev(`kelas-${k.id}`, start, start + durasi(k.mulai, k.selesai), k.matkul, { lokasi: k.ruang, desk: k.dosen ? `Dosen: ${k.dosen}` : '', alarm: 30 });
-    e.rrule('RRULE:FREQ=WEEKLY');
-    for (const u of ubah) if (u.jenis === 'batal' && u.kelas_id === k.id) e.exdate(parseLocal(`${u.tanggal} ${k.mulai}`));
+    e.rrule(akhirSem ? `RRULE:FREQ=WEEKLY;UNTIL=${stamp(akhirSem)}` : 'RRULE:FREQ=WEEKLY');
+    const dikecualikan = new Set();
+    for (const u of ubah) if (u.jenis === 'batal' && u.kelas_id === k.id) dikecualikan.add(u.tanggal);
+    for (let x = start; x <= batasLibur; x += 7 * DAY) { const tg = ymd(x); if (liburPada(sem, tg)) dikecualikan.add(tg); }
+    for (const tg of dikecualikan) e.exdate(parseLocal(`${tg} ${k.mulai}`));
     e.end();
   }
   for (const u of ubah) {

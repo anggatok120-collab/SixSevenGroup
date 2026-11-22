@@ -582,7 +582,7 @@ viewPengumuman = function viewPengumumanBaru() {
             <div class="sub"><span>${p.status === 'terjadwal' ? 'Dijadwalkan ' : ''}${tgl(p.kirim_at)} · ${hm(p.kirim_at)}</span><span>oleh ${esc(p.oleh || '–')}</span>${pin ? `<span><i class="ph-fill ph-push-pin"></i> sampai ${tgl(p.pin_sampai)}</span>` : ''}${p.detail ? `<span>${esc(p.detail)}</span>` : ''}</div></div>
             ${badge(p.status === 'web' ? ['b-info', 'Hanya web'] : P_STATUS[p.status] || ['b-normal', p.status])}
             <button class="tiny-btn" data-pin="${p.id}" data-pin-on="${pin}" aria-label="${pin ? 'Lepas sematan' : 'Sematkan 7 hari'}" title="${pin ? 'Lepas sematan' : 'Sematkan 7 hari di dashboard'}"><i class="ph${pin ? '-fill' : ''} ph-push-pin"></i></button>
-            ${p.status === 'terjadwal' || isAdmin() ? `<button class="tiny-btn danger" data-del="pengumuman" data-id="${p.id}" aria-label="Hapus pengumuman"><i class="ph ph-trash"></i></button>` : ''}</div>`; }).join('')
+            ${['terjadwal', 'web'].includes(p.status) || isAdmin() ? `<button class="tiny-btn danger" data-del="pengumuman" data-id="${p.id}" aria-label="Hapus pengumuman"><i class="ph ph-trash"></i></button>` : ''}</div>`; }).join('')
             : empty('tray', 'Belum ada pengumuman', 'Pengumuman yang dikirim, dijadwalkan, atau disematkan akan muncul di sini.')}</div></div>
       </div></div>`;
   const f = $('#pgForm'); const ta = f.teks; const cb = $('#pgJadwal'); const web = $('#pgWeb');
@@ -1022,7 +1022,9 @@ $('#modal').addEventListener('close', () => { if (fxDraftTimer) simpanDraftModal
 const fxOpenFormAsli = openForm;
 openForm = function (type, id, preset) {
   fxOpenFormAsli(type, id, preset);
-  mulaiDraftModal(`${type}:${id || 'baru'}`, `/api/${endpointOf(type)}${id ? '/' + id : ''}`, () => openForm(type, id, preset));
+  // Isian bawaan (mis. "+ Jadwal" dari halaman mata kuliah) punya draf sendiri supaya tidak tertimpa draf lain.
+  const asal = !id && preset ? `:${preset.matkul || preset.tanggal || preset.kelas_id || preset.deadline || preset.waktu || ''}` : '';
+  mulaiDraftModal(`${type}:${id || 'baru'}${asal}`, `/api/${endpointOf(type)}${id ? '/' + id : ''}`, () => openForm(type, id, preset));
 };
 
 // Draf dihapus otomatis begitu data berhasil tersimpan ke server.
@@ -1061,3 +1063,45 @@ setInterval(() => {
 window.addEventListener('pagehide', () => { try { if (S.pDraft?.teks) tulisDraft('pengumuman', S.pDraft); if (S.pollDraft?.pertanyaan) tulisDraft('polling', S.pollDraft); if (fxDraftTimer) simpanDraftModal(); } catch {} });
 const fxLoadPgDraf = loadPengumuman;
 loadPengumuman = async function () { if (fxDrafPg === '') muatDrafHalaman(); return fxLoadPgDraf(); };
+
+// ================= Autosave: pengaturan pengingat, profil, dan pilihan tampilan tiap menu =================
+// Pengingat: setiap perubahan langsung disimpan ke server (tanpa harus menekan tombol).
+let fxPTimer;
+for (const ev of ['change', 'input']) {
+  document.addEventListener(ev, (e) => {
+    const f = e.target.closest?.('#pForm'); if (!f) return;
+    if (ev === 'input' && e.target.type !== 'number') return; // jam/tanggal & centang sudah memicu "change"
+    const st = $('#pStatus'); if (st) st.textContent = 'Menyimpan…';
+    clearTimeout(fxPTimer); fxPTimer = setTimeout(() => { if (!$('#pForm')) return; S.pAuto = true; $('#pForm').requestSubmit(); }, 700);
+  });
+}
+
+// Profil: nama disimpan sebagai draf (password tidak pernah disimpan).
+const fxViewProfilDraf = viewProfil;
+viewProfil = function () { fxViewProfilDraf(); const f = $('#profForm'); if (f) { f.dataset.draft = 'profil'; pulihkanFormHalaman(); } };
+const fxApiProfil = api;
+api = async function (path, opts = {}) {
+  const res = await fxApiProfil(path, opts);
+  if (path === '/api/auth/me' && (opts.method || '').toUpperCase() === 'PUT' && opts.body && 'nama' in opts.body) hapusDraft('profil');
+  return res;
+};
+
+// Pilihan tampilan diingat di perangkat ini: filter tugas, kalender, riwayat, tab, rentang dashboard, target nilai.
+const UI_KUNCI = ['filter', 'calF', 'cal', 'rwFilter', 'rwF', 'dashScope', 'pgTab', 'target'];
+(function pulihkanUi() {
+  try {
+    const u = JSON.parse(localStorage.getItem('ss67:ui') || 'null'); if (!u) return;
+    for (const k of UI_KUNCI) if (u[k] != null) S[k] = u[k];
+    if (u.previewTab) previewTab = u.previewTab;
+    // Bulan kalender yang tersimpan hanya dipakai kalau masih bulan yang sama dengan sekarang atau lebih baru.
+    if (S.cal) { const t = w(Date.now()); if (S.cal.y * 12 + S.cal.m < t.y * 12 + t.m) S.cal = null; }
+    if (S.dashScope === 'day') { S.dashScope = 'today'; S.dashDay = null; }
+  } catch {}
+})();
+let fxUiTerakhir = '';
+setInterval(() => {
+  try {
+    const u = Object.fromEntries(UI_KUNCI.map((k) => [k, S[k] ?? null])); u.previewTab = previewTab;
+    const s = JSON.stringify(u); if (s !== fxUiTerakhir) { fxUiTerakhir = s; localStorage.setItem('ss67:ui', s); }
+  } catch {}
+}, 1500);

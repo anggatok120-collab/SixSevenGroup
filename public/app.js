@@ -819,7 +819,7 @@ function viewPengingat() {
     ${pageHead('bell', 'Pusat pengingat', 'Atur kapan bot WhatsApp mengirim pengingat ke grup kelas. Pratinjau pesan ada di sebelah kanan.', [[PLANS.filter((pl) => p[pl.id].on).length + ' / ' + PLANS.length, 'Jenis aktif']])}<div class="split">
     <form class="card" id="pForm"><div class="card-head"><h2><i class="ph-fill ph-whatsapp-logo"></i>Jadwal pengingat otomatis</h2></div>
       <div class="rows" style="gap:10px">${plans}${ekstra}</div>
-      <div style="display:flex;justify-content:flex-end;margin-top:16px"><button class="btn btn-primary" id="pSave"><i class="ph ph-floppy-disk"></i>Simpan &amp; aktifkan</button></div>
+      <div style="display:flex;justify-content:flex-end;align-items:center;gap:12px;margin-top:16px;flex-wrap:wrap"><span class="draft-status" id="pStatus" aria-live="polite"></span><button class="btn btn-primary" id="pSave"><i class="ph ph-floppy-disk"></i>Simpan &amp; aktifkan</button></div>
     </form>
     <div class="stack">
       <div class="card"><div class="card-head"><h2><i class="ph ph-eye"></i>Pratinjau pesan</h2></div>
@@ -840,7 +840,11 @@ function viewPengingat() {
     out.tenang = { on: fd.has('tenang.on'), dari: fd.get('tenang.dari'), sampai: fd.get('tenang.sampai') };
     out.jeda = { sampai: fd.get('jeda.sampai') || null };
     const btn = $('#pSave'); btn.disabled = true; btn.lastChild.textContent = 'Menyimpan…';
-    try { const r = await api('/api/pengingat', { method: 'PUT', body: out }); S.pengingat.pengaturan = r.pengaturan; toast('Pengaturan pengingat disimpan.'); }
+    const auto = S.pAuto; S.pAuto = false;
+    try {
+      const r = await api('/api/pengingat', { method: 'PUT', body: out }); S.pengingat.pengaturan = r.pengaturan;
+      if (auto) { const st = $('#pStatus'); if (st) st.innerHTML = `<i class="ph ph-check-circle"></i> Tersimpan otomatis ${hm(now())}`; } else toast('Pengaturan pengingat disimpan.');
+    }
     catch (err) { toast(err.message, 'error'); }
     btn.disabled = false; btn.lastChild.textContent = 'Simpan & aktifkan';
   };
