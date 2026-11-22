@@ -14,6 +14,7 @@ const { createWeb } = require('./web');
 const { startAutoBackup } = require('./backup');
 const { getSettings } = require('./settings');
 const { isLoginRequest, senderNumbers, createLoginToken, loginReply } = require('./walogin');
+const { ymd } = require('./jadwal');
 
 const log = pino({ level: process.env.LOG_LEVEL || 'info' });
 const cfg = loadConfig();
@@ -45,21 +46,34 @@ async function isAdmin(m) {
   return false;
 }
 
+const jeda = (ms) => new Promise((r) => setTimeout(r, ms));
+let ticking = false;
+
 async function tick() {
-  if (!sock || !cfg.groupJid) return;
-  if (!waConnected) return;
-  for (const r of dueReminders(db, getSettings(db, cfg))) {
-    try {
-      await sock.sendMessage(cfg.groupJid, { text: r.text });
-      db.tandaiTerkirim(r.key);
-      db.addLog(r.mode, 'terkirim', r.text.split('\n')[0].replace(/[*_]/g, '').slice(0, 120));
-      log.info({ key: r.key }, 'pengingat terkirim');
-    } catch (err) {
-      db.addLog(r.mode, 'gagal', `${r.key}: ${err.message}`);
-      log.error({ err, key: r.key }, 'gagal kirim pengingat');
+  if (!sock || !waConnected || ticking) return;
+  ticking = true;
+  try {
+    for (const r of dueReminders(db, getSettings(db, cfg))) {
+      const tujuan = r.to || cfg.groupJid; // r.to = chat pribadi anggota
+      if (!tujuan) continue;
+      try {
+        await sock.sendMessage(tujuan, { text: r.text });
+        db.tandaiTerkirim(r.key);
+        if (r.pengumumanId) db.setPengumumanStatus(r.pengumumanId, 'terkirim');
+        db.addLog(r.mode, 'terkirim', (r.to ? `ke +${digits(r.to)}: ` : '') + r.text.split('\n')[0].replace(/[*_]/g, '').slice(0, 120));
+        log.info({ key: r.key }, 'pengingat terkirim');
+      } catch (err) {
+        db.addLog(r.mode, 'gagal', `${r.key}: ${err.message}`);
+        log.error({ err, key: r.key }, 'gagal kirim pengingat');
+      }
+      // Jeda antar chat pribadi supaya nomor bot tidak dianggap spam oleh WhatsApp.
+      if (r.to) await jeda(1500 + Math.random() * 1500);
     }
-  }
-  db.bersihkanTerkirim(Date.now() - 30 * 86400000);
+    const now = Date.now();
+    db.bersihkanTerkirim(now - 30 * 86400000);
+    for (const p of db.pengumumanJatuhTempo(now - 6 * 3600000)) db.setPengumumanStatus(p.id, 'kedaluwarsa', 'Bot tidak terhubung saat jadwal kirim');
+    db.bersihkanKelasUbah(ymd(now - 60 * 86400000));
+  } finally { ticking = false; }
 }
 
 async function start() {
@@ -125,7 +139,8 @@ async function start() {
       }
       if (!/^[/!.]\w/.test(text)) continue;
       try {
-        const reply = handle(db, text, { isAdmin: await isAdmin(m), chatJid: m.key.remoteJid });
+        const akun = senderNumbers(m.key).map((n) => db.akunByWa(n)).find(Boolean) || null;
+        const reply = handle(db, text, { isAdmin: await isAdmin(m), chatJid: m.key.remoteJid, akun, oleh: akun?.nama || m.pushName || 'Anggota' });
         if (reply) await sock.sendMessage(m.key.remoteJid, { text: reply }, { quoted: m });
       } catch (err) {
         log.error({ err }, 'gagal memproses perintah');

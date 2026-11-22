@@ -1,12 +1,13 @@
 // Penyusun pesan WA. Dipakai pengingat otomatis, tombol "kirim sekarang", dan pratinjau di web.
 const { local, parseLocal, pad } = require('./time');
 const { tugasLine, ujianLine, jadwalHari } = require('./format');
+const { kelasPada } = require('./jadwal');
 
 const DAY = 86400000;
 
 function pesanHariIni(db, now = Date.now()) {
   const t = local(now);
-  const kelas = db.kelasByHari(t.dow);
+  const kelas = kelasPada(db, now);
   const tugas = db.tugasAktif().filter((x) => x.deadline > now && x.deadline - now <= 3 * DAY);
   const ujian = db.ujianMendatang(now).filter((x) => x.waktu - now <= 7 * DAY);
   let msg = `☀️ *Selamat pagi!* Ringkasan hari ini\n\n${jadwalHari(kelas, t.dow)}`;
@@ -17,7 +18,7 @@ function pesanHariIni(db, now = Date.now()) {
 
 function pesanBesok(db, now = Date.now()) {
   const besok = local(now + DAY);
-  const kelas = db.kelasByHari(besok.dow);
+  const kelas = kelasPada(db, now + DAY);
   // Batas = akhir hari besok (waktu lokal), bukan 48 jam dari sekarang.
   const awalBesok = parseLocal(`${besok.y}-${pad(besok.mo)}-${pad(besok.d)} 00:00`);
   const akhirBesok = awalBesok + DAY;

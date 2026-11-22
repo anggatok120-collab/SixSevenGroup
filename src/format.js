@@ -18,8 +18,11 @@ function leadLabel(min) {
   return `${min} menit lagi`;
 }
 
-const kelasLine = (k) =>
-  `• ${k.mulai}${k.selesai ? '–' + k.selesai : ''} *${k.matkul}*${k.ruang ? ' @ ' + k.ruang : ''}${k.dosen ? ' (' + k.dosen + ')' : ''}`;
+const kelasLine = (k) => {
+  const jam = `${k.mulai}${k.selesai ? '–' + k.selesai : ''}`;
+  if (k.batal) return `• ~${jam} ${k.matkul}~ ❌ *BATAL*${k.alasan ? ` (${k.alasan})` : ''}`;
+  return `• ${jam} *${k.matkul}*${k.ruang ? ' @ ' + k.ruang : ''}${k.dosen ? ' (' + k.dosen + ')' : ''}${k.pengganti ? ' 🔁 _kuliah pengganti_' : ''}`;
+};
 
 const tugasLine = (t, now) => `• [${t.id}] *${t.matkul}*: ${t.judul}\n   ⏰ ${pretty(t.deadline)} (${sisa(t.deadline - now)})`;
 

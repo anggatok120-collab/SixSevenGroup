@@ -2,7 +2,10 @@
 const path = require('path');
 const crypto = require('crypto');
 const express = require('express');
-const { parseLocal, fmtLocal, parseHM } = require('./time');
+const { parseLocal, fmtLocal, parseHM, local, HARI_LABEL } = require('./time');
+const { buildIcs } = require('./ics');
+const { ymd } = require('./jadwal');
+const { teksPengumuman } = require('./reminders');
 const { ROLES, hashPassword, checkPassword, makeToken, readToken, bootstrapAdmin, pwVer } = require('./auth');
 const { getSettings, validate } = require('./settings');
 const { BUILDERS } = require('./messages');
@@ -46,6 +49,9 @@ function createWeb(db, { password, cfg, bot = noBot, secret, backupDir = DEFAULT
   const anyUser = need();
   const editor = need('admin', 'editor');
   const admin = need('admin');
+  const catat = (req, aksi, jenis, ringkas) => db.addRiwayat(req.user.nama, aksi, jenis, ringkas);
+  const BLN = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+  const tglLabel = (tgl) => { const t = local(parseLocal(`${tgl} 12:00`)); return `${HARI_LABEL[t.dow]}, ${t.d} ${BLN[t.mo - 1]}`; };
 
   const attempts = new Map();
   // Buang catatan percobaan login yang sudah lewat 15 menit, supaya memori tidak terus bertambah.
@@ -104,10 +110,14 @@ function createWeb(db, { password, cfg, bot = noBot, secret, backupDir = DEFAULT
   };
   app.get('/api/data', anyUser, (req, res) => {
     const st = bot.status();
+    const n = db.kumpulCount(); const saya = db.kumpulSaya(req.user.id);
+    const dariTgl = ymd(Date.now() - 7 * 86400000);
     res.json({
       matkul: db.matkulAll(),
       kelas: db.kelasAll(),
-      tugas: db.tugasAll().map(out.tugas),
+      kelasUbah: db.kelasUbahAll().filter((u) => u.tanggal >= dariTgl),
+      anggota: db.akunCount(),
+      tugas: db.tugasAll().map((t) => ({ ...out.tugas(t), kumpulN: n[t.id] || 0, kumpulSaya: saya.has(t.id) })),
       ujian: db.ujianAll().map(out.ujian),
       bot: { wa: !!st.wa, grup: !!st.grupJid },
       serverTime: Date.now(),
@@ -142,57 +152,185 @@ function createWeb(db, { password, cfg, bot = noBot, secret, backupDir = DEFAULT
     return { v: { matkul: str(b.matkul), jenis: str(b.jenis), waktu, ruang: str(b.ruang) || null } };
   }
 
-  const crud = (name, parse, add, update, del) => {
+  const crud = (name, parse, add, update, del, { jenis, desc, byId }) => {
     app.post(`/api/${name}`, editor, (req, res) => {
       const r = parse(req.body || {}); if (r.error) return bad(res, r.error);
-      res.json({ id: Number(add(r.v)) });
+      const id = Number(add(r.v));
+      catat(req, 'tambah', jenis, desc(r.v));
+      res.json({ id });
     });
     app.put(`/api/${name}/:id`, editor, (req, res) => {
       const r = parse(req.body || {}); if (r.error) return bad(res, r.error);
       if (!update(Number(req.params.id), r.v)) return res.status(404).json({ error: 'Data tidak ditemukan' });
+      catat(req, 'ubah', jenis, desc(r.v));
       res.json({ ok: true });
     });
     app.delete(`/api/${name}/:id`, editor, (req, res) => {
-      if (!del(Number(req.params.id))) return res.status(404).json({ error: 'Data tidak ditemukan' });
+      const lama = byId(Number(req.params.id));
+      if (!lama || !del(Number(req.params.id))) return res.status(404).json({ error: 'Data tidak ditemukan' });
+      catat(req, 'hapus', jenis, desc(lama));
       res.json({ ok: true });
     });
   };
   // ---- Mata kuliah ----
+  const WARNA = ['biru', 'toska', 'hijau', 'lime', 'kuning', 'oranye', 'merah', 'pink', 'ungu', 'indigo'];
   function matkulBody(b) {
     const nama = str(b.nama).replace(/\s+/g, ' ');
     if (!nama) return { error: 'Nama mata kuliah wajib diisi' };
     if (nama.length > 80) return { error: 'Nama mata kuliah terlalu panjang' };
-    return { v: { nama, kode: null, sks: null, dosen: str(b.dosen) || null, catatan: str(b.catatan) || null } };
+    const warna = WARNA.includes(b.warna) ? b.warna : null;
+    return { v: { nama, kode: null, sks: null, dosen: str(b.dosen) || null, catatan: str(b.catatan) || null, warna } };
   }
   const dupe = (nama, selfId) => { const m = db.matkulByNama(nama); return m && m.id !== selfId; };
   app.post('/api/matkul', editor, (req, res) => {
     const r = matkulBody(req.body || {}); if (r.error) return bad(res, r.error);
     if (dupe(r.v.nama)) return bad(res, `Mata kuliah "${r.v.nama}" sudah ada`);
-    res.json({ id: Number(db.addMatkul(r.v)) });
+    const id = Number(db.addMatkul(r.v));
+    catat(req, 'tambah', 'mata kuliah', r.v.nama);
+    res.json({ id });
   });
   app.put('/api/matkul/:id', editor, (req, res) => {
     const id = Number(req.params.id);
     const r = matkulBody(req.body || {}); if (r.error) return bad(res, r.error);
     if (dupe(r.v.nama, id)) return bad(res, `Mata kuliah "${r.v.nama}" sudah ada`);
+    const lama = db.matkulById(id);
     if (!db.updateMatkul(id, r.v)) return res.status(404).json({ error: 'Data tidak ditemukan' });
+    catat(req, 'ubah', 'mata kuliah', lama && lama.nama !== r.v.nama ? `${lama.nama} → ${r.v.nama}` : r.v.nama);
     res.json({ ok: true });
   });
   app.delete('/api/matkul/:id', editor, (req, res) => {
+    const lama = db.matkulById(Number(req.params.id));
     const r = db.delMatkul(Number(req.params.id));
     if (r.pakai) {
       const p = r.pakai; const bagian = [p.jadwal && `${p.jadwal} jadwal`, p.tugas && `${p.tugas} tugas`, p.ujian && `${p.ujian} ujian`].filter(Boolean).join(', ');
       return res.status(409).json({ error: `Masih dipakai di ${bagian}. Hapus atau pindahkan dulu.` });
     }
     if (!r.changes) return res.status(404).json({ error: 'Data tidak ditemukan' });
+    catat(req, 'hapus', 'mata kuliah', lama?.nama);
     res.json({ ok: true });
   });
 
-  crud('kelas', kelasBody, db.addKelas, db.updateKelas, db.delKelas);
-  crud('tugas', tugasBody, db.addTugas, db.updateTugas, db.delTugas);
-  crud('ujian', ujianBody, db.addUjian, db.updateUjian, db.delUjian);
+  crud('kelas', kelasBody, db.addKelas, db.updateKelas, db.delKelas,
+    { jenis: 'jadwal', byId: db.kelasById, desc: (k) => `${HARI_LABEL[k.hari]} ${k.mulai} ${k.matkul}` });
+  crud('tugas', tugasBody, db.addTugas, db.updateTugas, db.delTugas,
+    { jenis: 'tugas', byId: db.tugasById, desc: (t) => `${t.matkul}: ${t.judul}` });
+  crud('ujian', ujianBody, db.addUjian, db.updateUjian, db.delUjian,
+    { jenis: 'ujian', byId: db.ujianById, desc: (u) => `${u.jenis} ${u.matkul}` });
   app.post('/api/tugas/:id/selesai', editor, (req, res) => {
-    if (!db.setSelesai(Number(req.params.id), !!req.body?.selesai)) return res.status(404).json({ error: 'Data tidak ditemukan' });
+    const t = db.tugasById(Number(req.params.id));
+    if (!t || !db.setSelesai(t.id, !!req.body?.selesai)) return res.status(404).json({ error: 'Data tidak ditemukan' });
+    catat(req, 'ubah', 'tugas', `${t.matkul}: ${t.judul} ${req.body?.selesai ? 'ditutup (selesai)' : 'dibuka lagi'}`);
     res.json({ ok: true });
+  });
+
+  // ---- Status kumpul per anggota (semua peran boleh menandai dirinya sendiri) ----
+  app.post('/api/tugas/:id/kumpul', anyUser, (req, res) => {
+    const t = db.tugasById(Number(req.params.id));
+    if (!t) return res.status(404).json({ error: 'Data tidak ditemukan' });
+    db.setKumpul(t.id, req.user.id, !!req.body?.kumpul);
+    res.json({ ok: true });
+  });
+  app.get('/api/tugas/:id/kumpul', anyUser, (req, res) => {
+    const t = db.tugasById(Number(req.params.id));
+    if (!t) return res.status(404).json({ error: 'Data tidak ditemukan' });
+    const list = db.kumpulTugas(t.id);
+    res.json({ sudah: list.filter((a) => a.at).map((a) => ({ nama: a.nama, at: a.at })), belum: list.filter((a) => !a.at).map((a) => a.nama) });
+  });
+
+  // ---- Kelas batal & kuliah pengganti ----
+  app.post('/api/kelas-ubah', editor, async (req, res) => {
+    const b = req.body || {};
+    const tanggal = str(b.tanggal);
+    const tglMs = /^\d{4}-\d{2}-\d{2}$/.test(tanggal) ? parseLocal(`${tanggal} 12:00`) : NaN;
+    if (Number.isNaN(tglMs)) return bad(res, 'Tanggal tidak valid');
+    if (tanggal < ymd(Date.now())) return bad(res, 'Tanggal sudah lewat');
+    const catatan = str(b.catatan) || null;
+    let v; let teks;
+    if (b.jenis === 'batal') {
+      const k = db.kelasById(Number(b.kelas_id));
+      if (!k) return bad(res, 'Pilih kelas yang dibatalkan');
+      if (k.hari !== local(tglMs).dow) return bad(res, `Kelas ${k.matkul} tidak ada di hari ${HARI_LABEL[local(tglMs).dow]}`);
+      if (db.kelasUbahTanggal(tanggal).some((u) => u.jenis === 'batal' && u.kelas_id === k.id)) return bad(res, 'Kelas ini sudah ditandai batal di tanggal itu');
+      v = { tanggal, jenis: 'batal', kelas_id: k.id, catatan };
+      teks = `❌ *Kelas batal*\n*${k.matkul}* ${tglLabel(tanggal)}, jam ${k.mulai}${catatan ? `\nKeterangan: ${catatan}` : ''}`;
+    } else if (b.jenis === 'pengganti') {
+      const mulai = parseHM(str(b.mulai)); const selesai = str(b.selesai) ? parseHM(str(b.selesai)) : null;
+      if (!mulai || (str(b.selesai) && !selesai)) return bad(res, 'Jam tidak valid');
+      if (selesai && selesai <= mulai) return bad(res, 'Jam selesai harus setelah jam mulai');
+      if (!str(b.matkul)) return bad(res, 'Mata kuliah wajib diisi');
+      v = { tanggal, jenis: 'pengganti', mulai, selesai, matkul: str(b.matkul), ruang: str(b.ruang) || null, dosen: str(b.dosen) || null, catatan };
+      teks = `🔁 *Kuliah pengganti*\n*${v.matkul}* ${tglLabel(tanggal)}, jam ${mulai}${selesai ? '–' + selesai : ''}${v.ruang ? ` @ ${v.ruang}` : ''}${catatan ? `\nKeterangan: ${catatan}` : ''}`;
+    } else return bad(res, 'Jenis perubahan tidak dikenal');
+    const id = Number(db.addKelasUbah(v));
+    catat(req, 'tambah', b.jenis === 'batal' ? 'kelas batal' : 'kuliah pengganti', teks.split('\n')[1].replace(/\*/g, ''));
+    let umum = null;
+    if (b.umumkan) {
+      try { await bot.send(teks); db.addLog('pengumuman', 'terkirim', teks.split('\n')[0].replace(/[*_]/g, '')); umum = 'terkirim'; }
+      catch (err) { db.addLog('pengumuman', 'gagal', err.message); umum = `gagal: ${err.message}`; }
+    }
+    res.json({ id, umum });
+  });
+  app.delete('/api/kelas-ubah/:id', editor, (req, res) => {
+    const u = db.kelasUbahById(Number(req.params.id));
+    if (!u || !db.delKelasUbah(u.id)) return res.status(404).json({ error: 'Data tidak ditemukan' });
+    catat(req, 'hapus', u.jenis === 'batal' ? 'kelas batal' : 'kuliah pengganti', `${u.tanggal}${u.matkul ? ' ' + u.matkul : ''}`);
+    res.json({ ok: true });
+  });
+
+  // ---- Pengumuman ke grup (editor) ----
+  app.get('/api/pengumuman', editor, (req, res) => res.json({ pengumuman: db.pengumumanAll() }));
+  app.post('/api/pengumuman', editor, async (req, res) => {
+    const teks = str(req.body?.teks);
+    if (!teks) return bad(res, 'Isi pengumuman wajib diisi');
+    if (teks.length > 3000) return bad(res, 'Pengumuman terlalu panjang (maks. 3000 karakter)');
+    const now = Date.now();
+    let kirimAt = now;
+    if (str(req.body?.kirim_at)) {
+      kirimAt = dt(req.body.kirim_at);
+      if (Number.isNaN(kirimAt)) return bad(res, 'Waktu kirim tidak valid');
+      if (kirimAt < now - 60000) return bad(res, 'Waktu kirim sudah lewat');
+    }
+    const terjadwal = kirimAt > now + 60000;
+    const id = Number(db.addPengumuman({ teks, kirim_at: kirimAt, oleh: req.user.nama, status: terjadwal ? 'terjadwal' : 'mengirim' }));
+    catat(req, 'tambah', 'pengumuman', teks.slice(0, 80));
+    if (terjadwal) return res.json({ id, status: 'terjadwal' });
+    try {
+      await bot.send(teksPengumuman({ teks, oleh: req.user.nama }));
+      db.setPengumumanStatus(id, 'terkirim'); db.addLog('pengumuman', 'terkirim', teks.slice(0, 120));
+      res.json({ id, status: 'terkirim' });
+    } catch (err) {
+      db.setPengumumanStatus(id, 'gagal', err.message); db.addLog('pengumuman', 'gagal', err.message);
+      res.status(502).json({ error: `Gagal mengirim: ${err.message}`, id });
+    }
+  });
+  app.delete('/api/pengumuman/:id', editor, (req, res) => {
+    const p = db.pengumumanById(Number(req.params.id));
+    if (!p || !db.delPengumuman(p.id)) return res.status(404).json({ error: 'Data tidak ditemukan' });
+    catat(req, 'hapus', 'pengumuman', p.teks.slice(0, 80));
+    res.json({ ok: true });
+  });
+
+  // ---- Riwayat perubahan (admin) ----
+  app.get('/api/riwayat', admin, (req, res) => res.json({ riwayat: db.riwayatTerbaru(200) }));
+
+  // ---- Langganan kalender (.ics) ----
+  const icsToken = () => {
+    let t = db.getSetting('icsToken');
+    if (!t) { t = crypto.randomBytes(18).toString('base64url'); db.setSetting('icsToken', t); }
+    return t;
+  };
+  app.get('/api/kalender', anyUser, (req, res) => res.json({ path: `/kalender/${icsToken()}.ics` }));
+  app.post('/api/kalender/reset', admin, (req, res) => {
+    db.setSetting('icsToken', crypto.randomBytes(18).toString('base64url'));
+    catat(req, 'ubah', 'kalender', 'Link langganan kalender diganti');
+    res.json({ path: `/kalender/${icsToken()}.ics` });
+  });
+  app.get('/kalender/:file', (req, res) => {
+    const m = /^([A-Za-z0-9_-]{10,64})\.ics$/.exec(req.params.file);
+    const good = icsToken();
+    if (!m || m[1].length !== good.length || !crypto.timingSafeEqual(Buffer.from(m[1]), Buffer.from(good))) return res.status(404).send('Tidak ditemukan');
+    res.set({ 'Content-Type': 'text/calendar; charset=utf-8', 'Cache-Control': 'no-cache', 'Content-Disposition': 'inline; filename="six-seven-67.ics"' });
+    res.send(buildIcs(db));
   });
 
   // ---- Pusat pengingat (admin) ----
@@ -204,6 +342,7 @@ function createWeb(db, { password, cfg, bot = noBot, secret, backupDir = DEFAULT
   app.put('/api/pengingat', admin, (req, res) => {
     const r = validate(req.body || {}, cfg); if (r.error) return bad(res, r.error);
     db.setSetting('pengingat', r.value);
+    catat(req, 'ubah', 'pengingat', 'Pengaturan pengingat diperbarui');
     res.json({ pengaturan: getSettings(db, cfg) });
   });
   app.post('/api/pengingat/kirim/:mode', admin, async (req, res) => {
@@ -276,6 +415,7 @@ function createWeb(db, { password, cfg, bot = noBot, secret, backupDir = DEFAULT
     const w = waOf(req.body); if (w.error) return bad(res, w.error);
     const id = Number(db.addAkun({ username, nama, role, hash: hashPassword(pw) }));
     if (w.v) db.setAkunWa(id, w.v);
+    catat(req, 'tambah', 'akun', `${nama} (@${username}, ${role})`);
     res.json({ id });
   });
   app.put('/api/akun/:id', admin, (req, res) => {
@@ -288,6 +428,7 @@ function createWeb(db, { password, cfg, bot = noBot, secret, backupDir = DEFAULT
     const w = waOf(req.body, id); if (w.error) return bad(res, w.error);
     db.updateAkun(id, { nama, role, hash: pw ? hashPassword(pw) : undefined });
     if (!w.skip) db.setAkunWa(id, w.v);
+    catat(req, 'ubah', 'akun', `${nama} (@${a.username}${role !== a.role ? `, ${a.role} → ${role}` : ''}${pw ? ', password direset' : ''})`);
     res.json({ ok: true });
   });
   app.delete('/api/akun/:id', admin, (req, res) => {
@@ -295,7 +436,7 @@ function createWeb(db, { password, cfg, bot = noBot, secret, backupDir = DEFAULT
     if (!a) return res.status(404).json({ error: 'Akun tidak ditemukan' });
     if (id === req.user.id) return bad(res, 'Tidak bisa menghapus akun sendiri');
     if (a.role === 'admin' && db.adminCount() <= 1) return bad(res, 'Harus ada minimal satu admin');
-    db.delAkun(id); res.json({ ok: true });
+    db.delAkun(id); catat(req, 'hapus', 'akun', `${a.nama} (@${a.username})`); res.json({ ok: true });
   });
 
   app.use('/api', (req, res) => res.status(404).json({ error: 'Tidak ditemukan' }));

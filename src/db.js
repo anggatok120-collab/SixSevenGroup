@@ -52,6 +52,38 @@ function openDb(file = path.join(__dirname, '..', 'data', 'kuliah.db')) {
       exp INTEGER NOT NULL,
       dipakai INTEGER
     );
+    CREATE TABLE IF NOT EXISTS kelas_ubah (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tanggal TEXT NOT NULL,          -- YYYY-MM-DD lokal
+      jenis TEXT NOT NULL,            -- batal | pengganti
+      kelas_id INTEGER,               -- kelas rutin yang dibatalkan
+      mulai TEXT, selesai TEXT, matkul TEXT, ruang TEXT, dosen TEXT,
+      catatan TEXT
+    );
+    CREATE TABLE IF NOT EXISTS tugas_kumpul (
+      tugas_id INTEGER NOT NULL,
+      akun_id INTEGER NOT NULL,
+      at INTEGER NOT NULL,
+      PRIMARY KEY (tugas_id, akun_id)
+    );
+    CREATE TABLE IF NOT EXISTS pengumuman (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      teks TEXT NOT NULL,
+      kirim_at INTEGER NOT NULL,      -- epoch ms
+      status TEXT NOT NULL DEFAULT 'terjadwal',  -- terjadwal | terkirim | gagal | kedaluwarsa
+      oleh TEXT,
+      dibuat INTEGER NOT NULL,
+      dikirim INTEGER,
+      detail TEXT
+    );
+    CREATE TABLE IF NOT EXISTS riwayat (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      at INTEGER NOT NULL,
+      oleh TEXT NOT NULL,
+      aksi TEXT NOT NULL,             -- tambah | ubah | hapus | lainnya
+      jenis TEXT NOT NULL,
+      ringkas TEXT
+    );
     CREATE TABLE IF NOT EXISTS log_kirim (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       at INTEGER NOT NULL,
@@ -85,6 +117,7 @@ function openDb(file = path.join(__dirname, '..', 'data', 'kuliah.db')) {
   if (!cols('tugas').includes('prioritas')) db.exec("ALTER TABLE tugas ADD COLUMN prioritas TEXT NOT NULL DEFAULT 'normal'");
   if (!cols('tugas').includes('catatan')) db.exec('ALTER TABLE tugas ADD COLUMN catatan TEXT');
   if (!cols('akun').includes('wa')) db.exec('ALTER TABLE akun ADD COLUMN wa TEXT');
+  if (!cols('matkul').includes('warna')) db.exec('ALTER TABLE matkul ADD COLUMN warna TEXT');
 
   const one = (sql) => db.prepare(sql);
   // Pakai penulisan nama yang sudah terdaftar; nama baru otomatis didaftarkan.
@@ -105,13 +138,13 @@ function openDb(file = path.join(__dirname, '..', 'data', 'kuliah.db')) {
     matkulAll: () => one('SELECT * FROM matkul ORDER BY nama COLLATE NOCASE').all().map((m) => ({ ...m, pakai: pakaiMatkul(m.nama) })),
     matkulById: (id) => one('SELECT * FROM matkul WHERE id = ?').get(id),
     matkulByNama: (n) => one('SELECT * FROM matkul WHERE nama = ?').get(n),
-    addMatkul: (m) => one('INSERT INTO matkul (nama, kode, sks, dosen, catatan) VALUES (@nama, @kode, @sks, @dosen, @catatan)').run(m).lastInsertRowid,
+    addMatkul: (m) => one('INSERT INTO matkul (nama, kode, sks, dosen, catatan, warna) VALUES (@nama, @kode, @sks, @dosen, @catatan, @warna)').run({ warna: null, ...m }).lastInsertRowid,
     // Ganti nama ikut mengubah jadwal, tugas, dan ujian yang memakai nama lama.
     updateMatkul: db.transaction((id, m) => {
       const lama = one('SELECT nama FROM matkul WHERE id = ?').get(id);
       if (!lama) return 0;
-      one('UPDATE matkul SET nama=@nama, kode=@kode, sks=@sks, dosen=@dosen, catatan=@catatan WHERE id=@id').run({ ...m, id });
-      if (lama.nama !== m.nama) for (const t of ['kelas', 'tugas', 'ujian']) one(`UPDATE ${t} SET matkul = ? WHERE matkul = ? COLLATE NOCASE`).run(m.nama, lama.nama);
+      one('UPDATE matkul SET nama=@nama, kode=@kode, sks=@sks, dosen=@dosen, catatan=@catatan, warna=@warna WHERE id=@id').run({ warna: null, ...m, id });
+      if (lama.nama !== m.nama) for (const t of ['kelas', 'tugas', 'ujian', 'kelas_ubah']) one(`UPDATE ${t} SET matkul = ? WHERE matkul = ? COLLATE NOCASE`).run(m.nama, lama.nama);
       return 1;
     }),
     delMatkul: (id) => {
@@ -126,7 +159,21 @@ function openDb(file = path.join(__dirname, '..', 'data', 'kuliah.db')) {
     addKelas: (k) => one('INSERT INTO kelas (hari, mulai, selesai, matkul, ruang, dosen) VALUES (@hari, @mulai, @selesai, @matkul, @ruang, @dosen)').run(withMk(k)).lastInsertRowid,
     // Cek dulu datanya ada, supaya id yang salah tidak ikut mendaftarkan mata kuliah baru.
     updateKelas: (id, k) => ada('kelas', id) && one('UPDATE kelas SET hari=@hari, mulai=@mulai, selesai=@selesai, matkul=@matkul, ruang=@ruang, dosen=@dosen WHERE id=@id').run({ ...withMk(k), id }).changes,
-    delKelas: (id) => one('DELETE FROM kelas WHERE id = ?').run(id).changes,
+    delKelas: db.transaction((id) => {
+      one("DELETE FROM kelas_ubah WHERE kelas_id = ? AND jenis = 'batal'").run(id);
+      return one('DELETE FROM kelas WHERE id = ?').run(id).changes;
+    }),
+    kelasById: (id) => one('SELECT * FROM kelas WHERE id = ?').get(id),
+
+    // Kelas batal / kuliah pengganti untuk tanggal tertentu
+    kelasUbahAll: () => one('SELECT * FROM kelas_ubah ORDER BY tanggal, mulai').all(),
+    kelasUbahTanggal: (tgl) => one('SELECT * FROM kelas_ubah WHERE tanggal = ? ORDER BY mulai').all(tgl),
+    kelasUbahById: (id) => one('SELECT * FROM kelas_ubah WHERE id = ?').get(id),
+    addKelasUbah: (u) => one(`INSERT INTO kelas_ubah (tanggal, jenis, kelas_id, mulai, selesai, matkul, ruang, dosen, catatan)
+      VALUES (@tanggal, @jenis, @kelas_id, @mulai, @selesai, @matkul, @ruang, @dosen, @catatan)`)
+      .run({ kelas_id: null, mulai: null, selesai: null, ruang: null, dosen: null, catatan: null, ...u, matkul: u.matkul ? canon(u.matkul, u.dosen) : null }).lastInsertRowid,
+    delKelasUbah: (id) => one('DELETE FROM kelas_ubah WHERE id = ?').run(id).changes,
+    bersihkanKelasUbah: (sebelumTgl) => one('DELETE FROM kelas_ubah WHERE tanggal < ?').run(sebelumTgl),
 
     tugasAktif: () => one('SELECT * FROM tugas WHERE selesai = 0 ORDER BY deadline').all(),
     tugasAll: () => one('SELECT * FROM tugas ORDER BY selesai, deadline').all(),
@@ -136,13 +183,45 @@ function openDb(file = path.join(__dirname, '..', 'data', 'kuliah.db')) {
       .run({ prioritas: 'normal', catatan: null, selesai: 0, ...withMk(t), id }).changes,
     setSelesai: (id, v) => one('UPDATE tugas SET selesai = ? WHERE id = ?').run(v ? 1 : 0, id).changes,
     selesaiTugas: (id) => one('UPDATE tugas SET selesai = 1 WHERE id = ?').run(id).changes,
-    delTugas: (id) => one('DELETE FROM tugas WHERE id = ?').run(id).changes,
+    delTugas: db.transaction((id) => {
+      one('DELETE FROM tugas_kumpul WHERE tugas_id = ?').run(id);
+      return one('DELETE FROM tugas WHERE id = ?').run(id).changes;
+    }),
+    tugasById: (id) => one('SELECT * FROM tugas WHERE id = ?').get(id),
+
+    // Status "sudah kumpul" per anggota
+    setKumpul: (tugasId, akunId, v) => (v
+      ? one('INSERT OR IGNORE INTO tugas_kumpul (tugas_id, akun_id, at) VALUES (?, ?, ?)').run(tugasId, akunId, Date.now())
+      : one('DELETE FROM tugas_kumpul WHERE tugas_id = ? AND akun_id = ?').run(tugasId, akunId)),
+    sudahKumpul: (tugasId, akunId) => !!one('SELECT 1 FROM tugas_kumpul WHERE tugas_id = ? AND akun_id = ?').get(tugasId, akunId),
+    kumpulCount: () => Object.fromEntries(one('SELECT tugas_id, COUNT(*) n FROM tugas_kumpul GROUP BY tugas_id').all().map((r) => [r.tugas_id, r.n])),
+    kumpulSaya: (akunId) => new Set(one('SELECT tugas_id FROM tugas_kumpul WHERE akun_id = ?').all(akunId).map((r) => r.tugas_id)),
+    kumpulTugas: (tugasId) => one(`SELECT a.id, a.nama, k.at FROM akun a LEFT JOIN tugas_kumpul k ON k.akun_id = a.id AND k.tugas_id = ?
+      ORDER BY a.nama COLLATE NOCASE`).all(tugasId),
 
     ujianAll: () => one('SELECT * FROM ujian ORDER BY waktu').all(),
     ujianMendatang: (now) => one('SELECT * FROM ujian WHERE waktu >= ? ORDER BY waktu').all(now),
     addUjian: (u) => one('INSERT INTO ujian (matkul, jenis, waktu, ruang) VALUES (@matkul, @jenis, @waktu, @ruang)').run(withMk(u)).lastInsertRowid,
     updateUjian: (id, u) => ada('ujian', id) && one('UPDATE ujian SET matkul=@matkul, jenis=@jenis, waktu=@waktu, ruang=@ruang WHERE id=@id').run({ ...withMk(u), id }).changes,
     delUjian: (id) => one('DELETE FROM ujian WHERE id = ?').run(id).changes,
+    ujianById: (id) => one('SELECT * FROM ujian WHERE id = ?').get(id),
+
+    // Pengumuman ke grup
+    pengumumanAll: () => one('SELECT * FROM pengumuman ORDER BY kirim_at DESC LIMIT 100').all(),
+    pengumumanById: (id) => one('SELECT * FROM pengumuman WHERE id = ?').get(id),
+    addPengumuman: (p) => one('INSERT INTO pengumuman (teks, kirim_at, status, oleh, dibuat) VALUES (@teks, @kirim_at, @status, @oleh, @dibuat)')
+      .run({ status: 'terjadwal', dibuat: Date.now(), ...p }).lastInsertRowid,
+    setPengumumanStatus: (id, status, detail = null) => one('UPDATE pengumuman SET status = ?, dikirim = ?, detail = ? WHERE id = ?')
+      .run(status, status === 'terkirim' ? Date.now() : null, detail, id).changes,
+    pengumumanJatuhTempo: (now) => one("SELECT * FROM pengumuman WHERE status = 'terjadwal' AND kirim_at <= ? ORDER BY kirim_at").all(now),
+    delPengumuman: (id) => one('DELETE FROM pengumuman WHERE id = ?').run(id).changes,
+
+    // Riwayat perubahan data
+    addRiwayat: (oleh, aksi, jenis, ringkas = null) => {
+      one('INSERT INTO riwayat (at, oleh, aksi, jenis, ringkas) VALUES (?, ?, ?, ?, ?)').run(Date.now(), oleh, aksi, jenis, ringkas);
+      one('DELETE FROM riwayat WHERE id NOT IN (SELECT id FROM riwayat ORDER BY id DESC LIMIT 500)').run();
+    },
+    riwayatTerbaru: (n = 200) => one('SELECT * FROM riwayat ORDER BY id DESC LIMIT ?').all(n),
 
     sudahTerkirim: (k) => !!one('SELECT 1 FROM terkirim WHERE kunci = ?').get(k),
     tandaiTerkirim: (k) => one('INSERT OR IGNORE INTO terkirim (kunci, at) VALUES (?, ?)').run(k, Date.now()),
@@ -166,7 +245,11 @@ function openDb(file = path.join(__dirname, '..', 'data', 'kuliah.db')) {
     updateAkun: (id, { nama, role, hash }) => (hash
       ? one('UPDATE akun SET nama=@nama, role=@role, hash=@hash WHERE id=@id').run({ nama, role, hash, id })
       : one('UPDATE akun SET nama=@nama, role=@role WHERE id=@id').run({ nama, role, id })).changes,
-    delAkun: (id) => one('DELETE FROM akun WHERE id = ?').run(id).changes,
+    delAkun: db.transaction((id) => {
+      one('DELETE FROM tugas_kumpul WHERE akun_id = ?').run(id);
+      return one('DELETE FROM akun WHERE id = ?').run(id).changes;
+    }),
+    akunDenganWa: () => one("SELECT * FROM akun WHERE wa IS NOT NULL AND wa != ''").all(),
     adminCount: () => one("SELECT COUNT(*) n FROM akun WHERE role = 'admin'").get().n,
 
     getSetting: (k) => { const r = one('SELECT nilai FROM pengaturan WHERE kunci = ?').get(k); return r ? JSON.parse(r.nilai) : undefined; },
