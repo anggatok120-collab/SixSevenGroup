@@ -220,7 +220,7 @@ function render() {
   $('#pageTitle').textContent = t; $('#pageTitle').title = sub; $('#pageSub').textContent = `${HARI[tn.dow]}, ${tn.d} ${BULAN_PANJANG[tn.m]} ${tn.y}`;
   document.title = `${t} · Six Seven 67`;
   const aktif = S.data.tugas.filter((x) => !x.selesai).length;
-  $('#bellCount').textContent = `${aktif} tugas aktif`;
+  $('#bellCount').textContent = `${aktif} tugas aktif`; $('#bellCount').dataset.n = aktif;
   $('#bellBtn').setAttribute('aria-label', aktif ? `${aktif} tugas aktif, buka daftar tugas` : 'Tidak ada tugas aktif, buka daftar tugas');
   const b = S.data.bot || {};
   $('#botDot').classList.toggle('on', !!(b.wa && b.grup));
