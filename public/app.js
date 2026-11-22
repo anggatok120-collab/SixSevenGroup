@@ -548,11 +548,14 @@ async function loadPengingat() {
 function viewPengingat() {
   if (!S.pengingat) { $('#content').innerHTML = '<div class="card muted">Memuat pengaturan…</div>'; return; }
   const p = S.pengingat.pengaturan;
-  const leadChecks = (mode, opts) => `<div class="checks">${opts.map(([v, l]) => `<label><input type="checkbox" name="${mode}.menit" value="${v}" ${p[mode].menit.includes(v) ? 'checked' : ''}>${l}</label>`).join('')}</div>`;
+  // Nilai dari .env yang tidak ada di daftar tetap ditampilkan, supaya tidak hilang saat disimpan.
+  const leadLabel = (m) => (m % 1440 === 0 ? `H-${m / 1440}` : relMinutes(m));
+  const withSaved = (mode, opts) => [...opts, ...p[mode].menit.filter((m) => !opts.some(([v]) => v === m)).map((m) => [m, leadLabel(m)])].sort((a, b) => b[0] - a[0]);
+  const leadChecks = (mode, opts) => `<div class="checks">${withSaved(mode, opts).map(([v, l]) => `<label><input type="checkbox" name="${mode}.menit" value="${v}" ${p[mode].menit.includes(v) ? 'checked' : ''}>${l}</label>`).join('')}</div>`;
   const body = {
     pagi: `<label class="inline-field">Jam <input type="time" name="pagi.jam" value="${p.pagi.jam}"> WIB</label>`,
     besok: `<label class="inline-field">Jam <input type="time" name="besok.jam" value="${p.besok.jam}"> WIB</label>`,
-    kelas: `<label class="inline-field"><input type="number" min="5" max="180" step="5" name="kelas.menit" value="${p.kelas.menit}"> menit sebelum mulai</label>`,
+    kelas: `<label class="inline-field"><input type="number" min="5" max="180" step="1" name="kelas.menit" value="${p.kelas.menit}"> menit sebelum mulai</label>`,
     tugas: leadChecks('tugas', LEADS_TUGAS),
     ujian: `${leadChecks('ujian', LEADS_UJIAN)}<label class="inline-field">Pagi hari-H <input type="time" name="ujian.pagiJam" value="${p.ujian.pagiJam || ''}"></label>`,
   };

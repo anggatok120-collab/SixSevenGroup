@@ -48,6 +48,11 @@ function createWeb(db, { password, cfg, bot = noBot, secret, backupDir = DEFAULT
   const admin = need('admin');
 
   const attempts = new Map();
+  // Buang catatan percobaan login yang sudah lewat 15 menit, supaya memori tidak terus bertambah.
+  setInterval(() => {
+    const now = Date.now();
+    for (const [ip, list] of attempts) if (!list.some((t) => now - t < 15 * 60000)) attempts.delete(ip);
+  }, 10 * 60000).unref();
   app.post('/api/auth/login', (req, res) => {
     const ip = req.ip; const now = Date.now();
     const a = (attempts.get(ip) || []).filter((t) => now - t < 15 * 60000);
