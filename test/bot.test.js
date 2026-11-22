@@ -48,16 +48,16 @@ test('pengingat kelas, harian, tugas, ujian', () => {
 
   // Senin 23 Nov 07:30 -> pengingat kelas (30 menit sebelum)
   let r = send('2026-11-23 07:30');
-  assert.equal(r.length, 1); assert.match(r[0].text, /Kalkulus\* mulai jam 08:00/);
+  assert.equal(r.length, 1); assert.match(r[0].text, /Kelas dimulai 30 menit lagi\*[\s\S]*▸ \*Kalkulus\*\n    🕗 08\.00/);
   assert.equal(send('2026-11-23 07:31').length, 0, 'tidak dobel');
 
   // Ujian H-7: Senin 23 Nov 10:00
   r = send('2026-11-23 10:00');
-  assert.ok(r.some((x) => /Pengingat ujian \(H-7\)/.test(x.text)));
+  assert.ok(r.some((x) => /Pengingat ujian · H-7/.test(x.text)));
 
   // Tugas H-3: 23 Nov 23:59
   r = send('2026-11-23 23:59');
-  assert.ok(r.some((x) => /Pengingat tugas \(H-3\)/.test(x.text)));
+  assert.ok(r.some((x) => /Pengingat tugas · H-3/.test(x.text)));
   // Tugas 3 jam
   r = send('2026-11-26 20:59');
   assert.ok(r.some((x) => /3 jam lagi/.test(x.text)));
@@ -81,7 +81,7 @@ test('pengaturan: mode nonaktif tidak dikirim, H-1 jadwal besok', () => {
   assert.equal(dueReminders(db, st, at('2026-11-23 07:30')).length, 0);
   // Minggu 22 Nov 18:00 -> persiapan besok (Senin ada kelas)
   const r = dueReminders(db, st, at('2026-11-22 18:00'));
-  assert.equal(r.length, 1); assert.match(r[0].text, /Persiapan besok[\s\S]*Senin[\s\S]*Kalkulus/);
+  assert.equal(r.length, 1); assert.match(r[0].text, /Persiapan untuk besok[\s\S]*Senin[\s\S]*Kalkulus/);
   // Sabtu 18:00 -> besok Minggu kosong, tidak dikirim
   assert.equal(dueReminders(db, st, at('2026-11-21 18:00')).length, 0);
   // Pagi di hari tanpa apa-apa dilewati

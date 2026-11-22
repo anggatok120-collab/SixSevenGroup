@@ -34,7 +34,7 @@ test('semester & libur: kelas tidak jalan di luar semester dan saat libur', () =
   const s = semua(db, { kelas: { on: true, menit: 30 } });
   assert.equal(dueReminders(db, s, at('2026-06-01 07:30')).length, 0);
   assert.equal(dueReminders(db, s, at('2026-06-08 07:30')).length, 1);
-  assert.match(pesanHariIni(db, at('2026-06-01 06:00')).text, /LIBUR\* \(Hari Lahir Pancasila\)/);
+  assert.match(pesanHariIni(db, at('2026-06-01 06:00')).text, /Hari ini libur: \*Hari Lahir Pancasila\*/);
 });
 
 test('jam tenang menunda pengingat dan mode libur menghentikannya', () => {
@@ -56,9 +56,9 @@ test('rekap mingguan tiap Minggu dan antrean', () => {
   db.addTugas({ matkul: 'BD', judul: 'ERD', deadline: at('2026-11-26 23:59') });
   db.addUjian({ matkul: 'Fisika', jenis: 'UTS', waktu: at('2026-11-27 08:00'), ruang: null, bawa: 'Kalkulator' });
   const m = pesanMingguan(db, at('2026-11-22 19:00')).text;
-  assert.match(m, /Selasa, 24 Nov\*\n• 1 kelas \(Kalkulus\)/);
-  assert.match(m, /Tenggat: BD – ERD/);
-  assert.match(m, /UTS Fisika jam 08:00/);
+  assert.match(m, /\*Selasa, 24 Nov\*\n▸ 📚 1 kelas: Kalkulus \(08\.00\)/);
+  assert.match(m, /📝 Tenggat \*BD\* — ERD · 23\.59/);
+  assert.match(m, /📖 \*UTS Fisika\* · 08\.00/);
   const s = semua(db, { mingguan: { on: true, jam: '19:00' } });
   assert.equal(dueReminders(db, s, at('2026-11-22 19:00'))[0].mode, 'mingguan');
   assert.equal(dueReminders(db, s, at('2026-11-23 19:00')).length, 0); // bukan Minggu

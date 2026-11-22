@@ -1097,3 +1097,8 @@ input[type="date"], input[type="time"], input[type="datetime-local"] { font-fami
   #content .split.menempel > :last-child { position: sticky; top: 88px; max-height: calc(100vh - 104px); overflow-y: auto; scrollbar-width: thin; }
 }
 #content [hidden], dialog [hidden] { display: none !important; }
+
+/* Pengingat: kartu pengaturan tersusun dua kolom (lebih pendek), pratinjau tetap di kanan */
+.split-pengingat #pForm > .rows { display: block; columns: 240px 2; column-gap: 10px; }
+.split-pengingat #pForm > .rows > .plan { break-inside: avoid; margin: 0 0 10px; }
+@media (min-width: 1101px) { #content .split.split-pengingat { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); } }

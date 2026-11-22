@@ -5,6 +5,7 @@ const express = require('express');
 const fs = require('fs');
 const { parseLocal, fmtLocal, parseHM, local, HARI_LABEL, pretty } = require('./time');
 const { buildIcs } = require('./ics');
+const { waktu: waktuWa, rentang: rentangWa } = require('./format');
 const { ymd, getSemester, validasiSemester } = require('./jadwal');
 const { teksPengumuman, statusKumpulFn, antrean } = require('./reminders');
 const { vapid, kirimPush } = require('./push');
@@ -303,7 +304,7 @@ function createWeb(db, { password, cfg, bot: botIn = noBot, secret, backupDir = 
   crud('tugas', tugasBody, db.addTugas, db.updateTugas, db.delTugas, {
     jenis: 'tugas', tabel: 'tugas', byId: db.tugasById, desc: (t) => `${t.matkul}: ${t.judul}`,
     perubahan: (lama, baru) => (lama.deadline !== baru.deadline && !baru.selesai
-      ? `⏰ *Tenggat tugas ${baru.deadline > lama.deadline ? 'diundur' : 'dimajukan'}*\n*${baru.matkul}*: ${baru.judul}\nSebelumnya: ~${pretty(lama.deadline)}~\nSekarang: *${pretty(baru.deadline)}*` : null),
+      ? `${baru.deadline > lama.deadline ? '⏳' : '⚠️'} *Tenggat tugas ${baru.deadline > lama.deadline ? 'diundur' : 'dimajukan'}*\n\n▸ *${baru.matkul}* — ${baru.judul}\n    Sebelumnya: ~${waktuWa(lama.deadline)}~\n    Sekarang: *${waktuWa(baru.deadline)}*${baru.deadline > lama.deadline ? '' : '\n\nTenggatnya jadi lebih cepat, segera dikerjakan ya!'}` : null),
     // Tugas berulang: buat satu tugas per minggu sampai tanggal tertentu.
     banyak: (v, b) => {
       if (!b.ulang) return [v];
@@ -317,7 +318,7 @@ function createWeb(db, { password, cfg, bot: botIn = noBot, secret, backupDir = 
   crud('ujian', ujianBody, db.addUjian, db.updateUjian, db.delUjian, {
     jenis: 'ujian', tabel: 'ujian', byId: db.ujianById, desc: (u) => `${u.jenis} ${u.matkul}`,
     perubahan: (lama, baru) => (lama.waktu !== baru.waktu && baru.waktu > Date.now()
-      ? `📅 *Jadwal ujian berubah*\n*${baru.jenis} ${baru.matkul}*\nSebelumnya: ~${pretty(lama.waktu)}~\nSekarang: *${pretty(baru.waktu)}*${baru.ruang ? ` @ ${baru.ruang}` : ''}` : null),
+      ? `📅 *Jadwal ujian berubah*\n\n▸ *${baru.jenis} ${baru.matkul}*\n    Sebelumnya: ~${waktuWa(lama.waktu)}~\n    Sekarang: *${waktuWa(baru.waktu)}*${baru.ruang ? `\n    📍 ${baru.ruang}` : ''}` : null),
   });
   app.post('/api/tugas/:id/selesai', editor, (req, res) => {
     const t = db.tugasById(Number(req.params.id));
@@ -440,17 +441,17 @@ function createWeb(db, { password, cfg, bot: botIn = noBot, secret, backupDir = 
       if (k.hari !== local(tglMs).dow) return bad(res, `Kelas ${k.matkul} tidak ada di hari ${HARI_LABEL[local(tglMs).dow]}`);
       if (db.kelasUbahTanggal(tanggal).some((u) => u.jenis === 'batal' && u.kelas_id === k.id)) return bad(res, 'Kelas ini sudah ditandai batal di tanggal itu');
       v = { tanggal, jenis: 'batal', kelas_id: k.id, catatan };
-      teks = `❌ *Kelas batal*\n*${k.matkul}* ${tglLabel(tanggal)}, jam ${k.mulai}${catatan ? `\nKeterangan: ${catatan}` : ''}`;
+      teks = `❌ *Kelas dibatalkan*\n\n▸ *${k.matkul}*\n    📅 ${tglLabel(tanggal)} · ${rentangWa(k.mulai, k.selesai)}${catatan ? `\n    📝 ${catatan}` : ''}\n\nJadwal lain tetap seperti biasa.`;
     } else if (b.jenis === 'pengganti') {
       const mulai = parseHM(str(b.mulai)); const selesai = str(b.selesai) ? parseHM(str(b.selesai)) : null;
       if (!mulai || (str(b.selesai) && !selesai)) return bad(res, 'Jam tidak valid');
       if (selesai && selesai <= mulai) return bad(res, 'Jam selesai harus setelah jam mulai');
       if (!str(b.matkul)) return bad(res, 'Mata kuliah wajib diisi');
       v = { tanggal, jenis: 'pengganti', mulai, selesai, matkul: str(b.matkul), ruang: str(b.ruang) || null, dosen: str(b.dosen) || null, catatan };
-      teks = `🔁 *Kuliah pengganti*\n*${v.matkul}* ${tglLabel(tanggal)}, jam ${mulai}${selesai ? '–' + selesai : ''}${v.ruang ? ` @ ${v.ruang}` : ''}${catatan ? `\nKeterangan: ${catatan}` : ''}`;
+      teks = `🔁 *Kuliah pengganti*\n\n▸ *${v.matkul}*\n    📅 ${tglLabel(tanggal)} · ${rentangWa(mulai, selesai)}${v.ruang ? `\n    📍 ${v.ruang}` : ''}${v.dosen ? `\n    👤 ${v.dosen}` : ''}${catatan ? `\n    📝 ${catatan}` : ''}\n\nCatat di agendamu ya! 🗓️`;
     } else return bad(res, 'Jenis perubahan tidak dikenal');
     const id = Number(db.addKelasUbah(v));
-    catat(req, 'tambah', b.jenis === 'batal' ? 'kelas batal' : 'kuliah pengganti', teks.split('\n')[1].replace(/\*/g, ''));
+    catat(req, 'tambah', b.jenis === 'batal' ? 'kelas batal' : 'kuliah pengganti', `${b.jenis === 'batal' ? db.kelasById(v.kelas_id)?.matkul : v.matkul}, ${tanggal}`);
     let umum = null;
     if (b.umumkan) {
       try { await bot.send(teks); db.addLog('pengumuman', 'terkirim', teks.split('\n')[0].replace(/[*_]/g, '')); umum = 'terkirim'; }
@@ -664,7 +665,7 @@ function createWeb(db, { password, cfg, bot: botIn = noBot, secret, backupDir = 
   });
   app.post('/api/status/tes', admin, async (req, res) => {
     try {
-      await bot.send(`🧪 *Pesan percobaan*\nBot pengingat kuliah aktif dan terhubung ke grup ini.\n_Dikirim dari web oleh ${req.user.nama}_`);
+      await bot.send(`🧪 *Pesan percobaan*\n\nBot pengingat kuliah aktif dan bisa mengirim pesan ke chat ini ✅\n\n— _dikirim dari web oleh ${req.user.nama}_`);
       db.addLog('tes', 'terkirim', `Tes oleh ${req.user.nama}`);
       res.json({ ok: true });
     } catch (err) {
