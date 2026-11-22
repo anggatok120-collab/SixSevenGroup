@@ -130,6 +130,9 @@ const NAV = [
     { id: 'kalender', label: 'Kalender', icon: 'calendar' },
     { id: 'ujian', label: 'Jadwal Ujian', icon: 'clipboard-text' },
   ] },
+  { title: 'Praktikum', items: [
+    { id: 'praktikum', label: 'Praktikum', icon: 'flask', badge: () => (S.data.prak?.tugas || []).filter((t) => !t.selesai && !t.kumpulSaya).length },
+  ] },
   { title: 'Pekerjaan', items: [
     { id: 'tugas', label: 'Tugas', icon: 'list-checks', badge: () => S.data.tugas.filter((t) => !t.selesai).length },
     { id: 'pengumuman', label: 'Pengumuman', icon: 'megaphone', roles: ['admin', 'editor'] },
@@ -155,6 +158,7 @@ const META = {
   status: ['Status Bot', 'Kesehatan bot WhatsApp dan riwayat pengiriman'],
   akun: ['Kelola Akun', 'Siapa saja yang bisa masuk dan apa perannya'],
   'matkul-detail': ['Mata Kuliah', 'Semua tentang satu mata kuliah'],
+  praktikum: ['Praktikum', 'Jadwal, tugas, dan kalender praktikum, terpisah dari kuliah biasa'],
   profil: ['Profil Saya', 'Nama dan password akun kamu'],
 };
 const allowed = (it) => !it.roles || it.roles.includes(S.user.role);
@@ -165,7 +169,7 @@ function renderNav() {
     if (!items.length) return '';
     return `<div class="nav-group"><div class="nav-title">${g.title}</div>${items.map((it) => {
       const on = S.view === it.id || (S.view === 'matkul-detail' && it.id === 'matkul'); const b = it.badge ? it.badge() : 0;
-      return `<button data-view="${it.id}" class="${on ? 'active' : ''}" ${on ? 'aria-current="page"' : ''}><i class="ph ph-${it.icon}"></i><span>${it.label}</span>${b ? `<em class="nav-badge" aria-label="${b} tugas aktif">${b}</em>` : ''}</button>`;
+      return `<button data-view="${it.id}" class="${on ? 'active' : ''}" ${on ? 'aria-current="page"' : ''}><i class="ph ph-${it.icon}"></i><span>${it.label}</span>${b ? `<em class="nav-badge" aria-label="${b} ${it.id === 'praktikum' ? 'tugas praktikum belum dikumpulkan' : 'tugas aktif'}">${b}</em>` : ''}</button>`;
     }).join('')}</div>`;
   }).join('');
 }
@@ -226,7 +230,7 @@ function render() {
   $('#botDot').classList.toggle('on', !!(b.wa && b.grup));
   $('#botText').textContent = b.wa ? (b.grup ? 'Bot WA aktif' : 'Bot aktif, grup belum diatur') : 'Bot WA offline';
   a11yPass();
-  ({ 'matkul-detail': () => viewMatkulDetail(), dashboard: viewDashboard, matkul: viewMatkul, jadwal: viewJadwal, kalender: viewKalender, pengumuman: viewPengumuman, riwayat: viewRiwayat, tugas: viewTugas, ujian: viewUjian, pengingat: viewPengingat, status: viewStatus, akun: viewAkun, profil: viewProfil })[S.view]();
+  ({ 'matkul-detail': () => viewMatkulDetail(), dashboard: viewDashboard, matkul: viewMatkul, jadwal: viewJadwal, kalender: viewKalender, pengumuman: viewPengumuman, riwayat: viewRiwayat, tugas: viewTugas, ujian: viewUjian, praktikum: () => viewPraktikum(), pengingat: viewPengingat, status: viewStatus, akun: viewAkun, profil: viewProfil })[S.view]();
 }
 
 // Ilustrasi garis sederhana untuk keadaan kosong (warna mengikuti teks, jadi tetap hitam-putih).
@@ -777,7 +781,9 @@ const PLANS = [
   { id: 'ujian', icon: 'exam', title: 'Pengingat ujian', desc: 'Menjelang ujian dan pagi hari-H', preview: 'ujian' },
   { id: 'pribadi', icon: 'chat-circle-dots', title: 'Pengingat pribadi (chat WA)', desc: 'Dikirim ke chat pribadi anggota yang nomornya terdaftar dan belum menandai tugas sudah kumpul', preview: null },
   { id: 'mingguan', icon: 'calendar-star', title: 'Rekap mingguan', desc: 'Agenda 7 hari ke depan, dikirim tiap hari Minggu', preview: 'mingguan' },
+  { id: 'praktikum', icon: 'flask', title: 'Praktikum', desc: 'Sebelum sesi praktikum dimulai dan menjelang tenggat tugas praktikum', preview: 'praktikum' },
 ];
+const LEADS_PRAK = [[2880, 'H-2'], [1440, 'H-1'], [360, '6 jam'], [180, '3 jam'], [60, '1 jam']];
 const LEADS_TUGAS = [[4320, 'H-3'], [1440, 'H-1'], [360, '6 jam'], [180, '3 jam'], [60, '1 jam']];
 const LEADS_UJIAN = [[10080, 'H-7'], [4320, 'H-3'], [1440, 'H-1']];
 let previewTab = 'pagi';
@@ -798,6 +804,7 @@ function viewPengingat() {
     tugas: leadChecks('tugas', LEADS_TUGAS),
     ujian: `${leadChecks('ujian', LEADS_UJIAN)}<label class="inline-field">Pagi hari-H <input type="time" name="ujian.pagiJam" value="${p.ujian.pagiJam || ''}"></label>`,
     mingguan: `<label class="inline-field">Minggu jam <input type="time" name="mingguan.jam" value="${p.mingguan?.jam || '19:00'}"> WIB</label>`,
+    praktikum: `<label class="inline-field">Sesi: <input type="number" min="5" max="240" step="5" name="praktikum.menit" value="${p.praktikum?.menit ?? 60}"> menit sebelum</label><div class="checks" aria-label="Pengingat tugas praktikum">${[...LEADS_PRAK, ...(p.praktikum?.tugas || []).filter((m) => !LEADS_PRAK.some(([v]) => v === m)).map((m) => [m, leadLabel(m)])].sort((a, b) => b[0] - a[0]).map(([v, l]) => `<label><input type="checkbox" name="praktikum.tugas" value="${v}" ${(p.praktikum?.tugas || []).includes(v) ? 'checked' : ''}>${l}</label>`).join('')}</div>`,
     pribadi: `${leadChecks('pribadi', LEADS_TUGAS)}<div class="checks"><label><input type="checkbox" name="pribadi.ujian" ${p.pribadi?.ujian ? 'checked' : ''}>Ujian H-1</label></div><small class="muted" style="flex-basis:100%">Pesan dikirim satu per satu dengan jeda supaya nomor bot aman dari blokir. Anggota bisa membalas <b>/kumpul nomor</b>.</small>`,
   };
   const plans = PLANS.map((pl) => `<div class="plan">
@@ -805,7 +812,7 @@ function viewPengingat() {
       <label class="switch" title="Aktif/nonaktif"><input type="checkbox" name="${pl.id}.on" ${p[pl.id].on ? 'checked' : ''}><span></span></label></div>
     <div class="plan-body">${body[pl.id]}${pl.preview ? `<button type="button" class="btn btn-secondary btn-sm" data-send="${pl.preview}"><i class="ph ph-paper-plane-tilt"></i>Kirim sekarang</button>` : ''}</div>
   </div>`).join('');
-  const tabs = [['pagi', 'Hari ini'], ['besok', 'Besok'], ['tugas', 'Tugas'], ['ujian', 'Ujian'], ['mingguan', 'Mingguan'], ['pribadi', 'Pribadi']];
+  const tabs = [['pagi', 'Hari ini'], ['besok', 'Besok'], ['tugas', 'Tugas'], ['ujian', 'Ujian'], ['praktikum', 'Praktikum'], ['mingguan', 'Mingguan'], ['pribadi', 'Pribadi']];
   const jedaAktif = p.jeda?.sampai && p.jeda.sampai >= ymdOf(now());
   const ekstra = `<div class="plan" data-tone="${jedaAktif ? 'warning' : ''}">
       <div class="plan-head"><i class="ph-duotone ph-pause-circle ic"></i><div class="grow"><b>Mode libur</b><small>${jedaAktif ? `Semua pengingat otomatis berhenti sampai ${tgl(msOfYmd(p.jeda.sampai))}. Pengumuman terjadwal tetap dikirim.` : 'Hentikan semua pengingat otomatis sementara, misalnya saat libur semester.'}</small></div></div>
@@ -825,9 +832,9 @@ function viewPengingat() {
       <div class="card"><div class="card-head"><h2><i class="ph ph-eye"></i>Pratinjau pesan</h2></div>
         <div class="segmented" style="margin-bottom:12px">${tabs.map(([k, l]) => `<button class="${previewTab === k ? 'on' : ''}" data-ptab="${k}">${l}</button>`).join('')}</div>
         <div class="phone"><div class="phone-head"><span class="avatar"><i class="ph-fill ph-users-three"></i></span><div><b>Grup kelas</b><small>Bot Pengingat Kuliah</small></div></div>
-          <div class="chat"><span class="date-chip">${tgl(n)}</span><div class="bubble"><pre>${waFormat(S.pengingat.preview[previewTab])}</pre><small>${hm(n)}</small></div></div></div>
+          <div class="chat"><span class="date-chip">${tgl(n)}</span><div class="bubble"><pre>${waFormat(S.pengingat.preview[previewTab] || '')}</pre><small>${hm(n)}</small></div></div></div>
+        <p class="note-line"><i class="ph ph-info"></i><span>Pengingat pagi dan H-1 dilewati kalau tidak ada kelas, tugas, ujian, atau praktikum. Semua waktu dalam WIB.</span></p>
       </div>
-      <div class="card muted" style="font-size:12.5px"><i class="ph ph-info"></i> Pengingat pagi dan H-1 dilewati kalau tidak ada kelas, tugas, atau ujian. Semua waktu dalam WIB.</div>
     </div></div>`;
   $('#pForm').onsubmit = async (e) => {
     e.preventDefault();
@@ -837,6 +844,7 @@ function viewPengingat() {
     out.tugas.menit = fd.getAll('tugas.menit').map(Number); out.ujian.menit = fd.getAll('ujian.menit').map(Number); out.ujian.pagiJam = fd.get('ujian.pagiJam');
     out.pribadi.menit = fd.getAll('pribadi.menit').map(Number); out.pribadi.ujian = fd.has('pribadi.ujian');
     out.mingguan.jam = fd.get('mingguan.jam');
+    out.praktikum.menit = Number(fd.get('praktikum.menit')); out.praktikum.tugas = fd.getAll('praktikum.tugas').map(Number);
     out.tenang = { on: fd.has('tenang.on'), dari: fd.get('tenang.dari'), sampai: fd.get('tenang.sampai') };
     out.jeda = { sampai: fd.get('jeda.sampai') || null };
     const btn = $('#pSave'); btn.disabled = true; btn.lastChild.textContent = 'Menyimpan…';
@@ -854,7 +862,7 @@ function viewPengingat() {
 async function loadStatus() {
   try { const first = !S.status; const [st, bk] = await Promise.all([api('/api/status'), api('/api/backup').catch(() => null)]); S.status = st; S.backup = bk; if (S.view === 'status') (first ? enterAnim : (f) => f())(viewStatus); } catch (e) { toast(e.message, 'error'); }
 }
-const LOG_MODE = { pagi: 'Ringkasan pagi', besok: 'Persiapan besok', kelas: 'Kelas dimulai', tugas: 'Tenggat tugas', ujian: 'Ujian', tes: 'Pesan percobaan', pribadi: 'Pengingat pribadi', pengumuman: 'Pengumuman', mingguan: 'Rekap mingguan', polling: 'Polling' };
+const LOG_MODE = { pagi: 'Ringkasan pagi', besok: 'Persiapan besok', kelas: 'Kelas dimulai', tugas: 'Tenggat tugas', ujian: 'Ujian', tes: 'Pesan percobaan', pribadi: 'Pengingat pribadi', pengumuman: 'Pengumuman', mingguan: 'Rekap mingguan', polling: 'Polling', praktikum: 'Praktikum' };
 function viewStatus() {
   const s = S.status;
   if (!s) { $('#content').innerHTML = '<div class="card muted">Memeriksa bot…</div>'; return; }

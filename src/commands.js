@@ -1,7 +1,7 @@
 const { local, parseUserDate, parseHM, parseHari, pretty, HARI_LABEL } = require('./time');
 const { tugasLine, ujianLine, jadwalHari } = require('./format');
 const { kelasPada } = require('./jadwal');
-const { pesanMingguan, pesanTugas, pesanUjian } = require('./messages');
+const { pesanMingguan, pesanTugas, pesanUjian, pesanPraktikum } = require('./messages');
 const { jam: jamWa, rentang: rentangWa } = require('./format');
 
 // Cari mata kuliah dari potongan nama (tidak peka huruf besar/kecil).
@@ -21,6 +21,7 @@ const MENU = `🤖 *Bot Pengingat Kuliah*
 /tugas – daftar tugas aktif
 /ujian – daftar ujian mendatang
 /minggu – agenda 7 hari ke depan
+/praktikum – jadwal & tugas praktikum
 /cari kata – cari tugas, ujian, mata kuliah
 /matkul nama – info satu mata kuliah
 /materi nama – link materi mata kuliah
@@ -173,6 +174,8 @@ function handle(db, text, { isAdmin = false, chatJid = '', now = Date.now(), web
     }
     case 'minggu':
       return pesanMingguan(db, now).text;
+    case 'praktikum': case 'prak':
+      return pesanPraktikum(db, now).text;
     case 'cari': {
       if (arg.length < 2) return 'Tulis kata yang dicari, contoh: /cari laporan';
       const s = arg.toLowerCase();
@@ -209,6 +212,13 @@ function handle(db, text, { isAdmin = false, chatJid = '', now = Date.now(), web
     }
     case 'kumpul': case 'batalkumpul': {
       if (!akun) return 'Nomor WhatsApp ini belum terhubung ke akun web. Minta admin menambahkan nomormu di menu Management Akun.';
+      const pm = /^p\s*(\d+)$/i.exec(arg);
+      if (pm) { // tugas praktikum: /kumpul P3
+        const pt = db.prakTugasById(Number(pm[1]));
+        if (!pt) return `❌ Tugas praktikum P${pm[1]} tidak ditemukan.`;
+        db.setPrakKumpul(pt.id, akun.id, cmd === 'kumpul');
+        return cmd === 'kumpul' ? `✅ Tugas praktikum *${pt.praktikum}: ${pt.jenis} ${pt.judul}* ditandai sudah kamu kumpulkan.` : `↩️ Tugas praktikum P${pt.id} ditandai belum kamu kumpulkan.`;
+      }
       const id = parseInt(arg, 10);
       const tg = id && db.tugasById(id);
       if (!tg) return `❌ Tulis nomor tugasnya, contoh: /${cmd} 3`;
@@ -226,7 +236,15 @@ function handle(db, text, { isAdmin = false, chatJid = '', now = Date.now(), web
  */
 function handleBalasan(db, text, quoted, akun) {
   if (!/^\s*(udah|sudah|udh|sdh|done|beres|kumpul|sudah kumpul|udah kumpul)\b/i.test(text || '') || !quoted) return null;
-  const m = /\/kumpul\*? ?(\d+)/.exec(quoted.replace(/\*/g, '')) || /\(#(\d+)\)/.exec(quoted) || /\[(\d+)\]/.exec(quoted);
+  const bersih = quoted.replace(/\*/g, '');
+  const mp = /\/kumpul P(\d+)/i.exec(bersih) || /\(#P(\d+)\)/.exec(quoted);
+  if (mp) {
+    if (!akun) return 'Nomor WhatsApp ini belum terhubung ke akun web, jadi belum bisa ditandai. Minta admin menambahkan nomormu.';
+    const pt = db.prakTugasById(Number(mp[1])); if (!pt) return null;
+    db.setPrakKumpul(pt.id, akun.id, true);
+    return `✅ Sip, tugas praktikum *${pt.praktikum}: ${pt.jenis} ${pt.judul}* ditandai sudah kamu kumpulkan.`;
+  }
+  const m = /\/kumpul ?(\d+)/.exec(bersih) || /\(#(\d+)\)/.exec(quoted) || /\[(\d+)\]/.exec(quoted);
   if (!m) return null;
   if (!akun) return 'Nomor WhatsApp ini belum terhubung ke akun web, jadi belum bisa ditandai. Minta admin menambahkan nomormu.';
   const tg = db.tugasById(Number(m[1]));

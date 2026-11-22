@@ -1,6 +1,6 @@
 // Logika murni: tentukan pesan pengingat apa yang harus dikirim pada waktu `now`.
 const { local, parseLocal, pad } = require('./time');
-const { kelasLine, tugasLine, ujianLine, leadLabel, waktu } = require('./format');
+const { kelasLine, tugasLine, ujianLine, prakSesiLine, prakTugasLine, leadLabel, waktu } = require('./format');
 const { pesanHariIni, pesanBesok, pesanMingguan } = require('./messages');
 const { kelasPada, ymd, getSemester } = require('./jadwal');
 
@@ -128,6 +128,26 @@ function dueReminders(db, s, now = Date.now()) {
           for (const a of akun) {
             add('pribadi', `dm:${a.id}:u:${u.id}:${u.waktu}`, `👋 Halo *${a.nama}*, besok ada ujian:\n\n${ujianLine(u, now)}\n\nSemangat belajarnya, kamu pasti bisa! 📚`, { to: `${a.wa}@s.whatsapp.net`, akunId: a.id });
           }
+        }
+      }
+    }
+  }
+
+  // 9. Praktikum: sesi akan dimulai & tenggat tugas praktikum
+  if (s.praktikum?.on) {
+    for (const hariKe of [0, 1]) {
+      const base = now + hariKe * 86400000;
+      for (const p of db.prakSesiTanggal(ymd(base))) {
+        const start = todayAt(base, p.mulai);
+        if (jatuhTempo(start - s.praktikum.menit * 60000) && start > now) {
+          add('praktikum', `prak:${p.id}:${p.tanggal}:${p.mulai}`, `🧪 *Praktikum dimulai ${s.praktikum.menit >= 60 && s.praktikum.menit % 60 === 0 ? `${s.praktikum.menit / 60} jam` : `${s.praktikum.menit} menit`} lagi*\n\n${prakSesiLine(p)}\n\nJangan lupa jas lab dan modulnya 🥼`);
+        }
+      }
+    }
+    for (const x of db.prakTugasAktif()) {
+      for (const lead of s.praktikum.tugas || []) {
+        if (jatuhTempo(x.deadline - lead * 60000) && x.deadline > now) {
+          add('praktikum', `praktugas:${x.id}:${lead}:${x.deadline}`, `🧾 *Pengingat tugas praktikum · ${leadLabel(lead)}*\n\n${prakTugasLine(x, now)}${x.catatan ? `\n    📝 ${x.catatan}` : ''}\n\n✅ Sudah kumpul? Balas */kumpul P${x.id}*`);
         }
       }
     }

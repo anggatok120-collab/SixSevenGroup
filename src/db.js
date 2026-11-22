@@ -114,6 +114,21 @@ function openDb(file = path.join(__dirname, '..', 'data', 'kuliah.db')) {
     CREATE TABLE IF NOT EXISTS push_sub (
       endpoint TEXT PRIMARY KEY, akun_id INTEGER NOT NULL, data TEXT NOT NULL, dibuat INTEGER NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS praktikum (       -- mata praktikum (terpisah dari mata kuliah)
+      id INTEGER PRIMARY KEY AUTOINCREMENT, nama TEXT NOT NULL UNIQUE COLLATE NOCASE,
+      lab TEXT, asisten TEXT, kontak TEXT, warna TEXT, catatan TEXT
+    );
+    CREATE TABLE IF NOT EXISTS prak_sesi (        -- satu pertemuan praktikum pada tanggal tertentu
+      id INTEGER PRIMARY KEY AUTOINCREMENT, praktikum_id INTEGER NOT NULL, judul TEXT NOT NULL,
+      tanggal TEXT NOT NULL, mulai TEXT NOT NULL, selesai TEXT, ruang TEXT, catatan TEXT
+    );
+    CREATE TABLE IF NOT EXISTS prak_tugas (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, praktikum_id INTEGER NOT NULL, jenis TEXT NOT NULL, judul TEXT NOT NULL,
+      deadline INTEGER NOT NULL, link TEXT, catatan TEXT, selesai INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE TABLE IF NOT EXISTS prak_kumpul (
+      tugas_id INTEGER NOT NULL, akun_id INTEGER NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (tugas_id, akun_id)
+    );
     CREATE TABLE IF NOT EXISTS log_kirim (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       at INTEGER NOT NULL,
@@ -285,6 +300,39 @@ function openDb(file = path.join(__dirname, '..', 'data', 'kuliah.db')) {
       return one(`INSERT INTO ${table} (${c.join(', ')}) VALUES (${c.map((k) => '@' + k).join(', ')})`).run(row).lastInsertRowid;
     },
 
+    // ---- Praktikum ----
+    praktikumAll: () => one('SELECT * FROM praktikum ORDER BY nama COLLATE NOCASE').all(),
+    praktikumById: (id) => one('SELECT * FROM praktikum WHERE id = ?').get(id),
+    praktikumByNama: (n) => one('SELECT * FROM praktikum WHERE nama = ?').get(n),
+    addPraktikum: (p) => one('INSERT INTO praktikum (nama, lab, asisten, kontak, warna, catatan) VALUES (@nama, @lab, @asisten, @kontak, @warna, @catatan)')
+      .run({ lab: null, asisten: null, kontak: null, warna: null, catatan: null, ...p }).lastInsertRowid,
+    updatePraktikum: (id, p) => one('UPDATE praktikum SET nama=@nama, lab=@lab, asisten=@asisten, kontak=@kontak, warna=@warna, catatan=@catatan WHERE id=@id')
+      .run({ lab: null, asisten: null, kontak: null, warna: null, catatan: null, ...p, id }).changes,
+    pakaiPraktikum: (id) => one('SELECT (SELECT COUNT(*) FROM prak_sesi WHERE praktikum_id = @id) sesi, (SELECT COUNT(*) FROM prak_tugas WHERE praktikum_id = @id) tugas').get({ id }),
+    delPraktikum: (id) => one('DELETE FROM praktikum WHERE id = ?').run(id).changes,
+
+    prakSesiAll: () => one('SELECT s.*, p.nama praktikum FROM prak_sesi s JOIN praktikum p ON p.id = s.praktikum_id ORDER BY s.tanggal, s.mulai').all(),
+    prakSesiTanggal: (tgl) => one('SELECT s.*, p.nama praktikum, p.lab, p.asisten FROM prak_sesi s JOIN praktikum p ON p.id = s.praktikum_id WHERE s.tanggal = ? ORDER BY s.mulai').all(tgl),
+    prakSesiById: (id) => one('SELECT * FROM prak_sesi WHERE id = ?').get(id),
+    addPrakSesi: (s) => one('INSERT INTO prak_sesi (praktikum_id, judul, tanggal, mulai, selesai, ruang, catatan) VALUES (@praktikum_id, @judul, @tanggal, @mulai, @selesai, @ruang, @catatan)')
+      .run({ selesai: null, ruang: null, catatan: null, ...s }).lastInsertRowid,
+    updatePrakSesi: (id, s) => one('UPDATE prak_sesi SET praktikum_id=@praktikum_id, judul=@judul, tanggal=@tanggal, mulai=@mulai, selesai=@selesai, ruang=@ruang, catatan=@catatan WHERE id=@id')
+      .run({ selesai: null, ruang: null, catatan: null, ...s, id }).changes,
+    delPrakSesi: (id) => one('DELETE FROM prak_sesi WHERE id = ?').run(id).changes,
+
+    prakTugasAll: () => one('SELECT t.*, p.nama praktikum FROM prak_tugas t JOIN praktikum p ON p.id = t.praktikum_id ORDER BY t.selesai, t.deadline').all(),
+    prakTugasAktif: () => one('SELECT t.*, p.nama praktikum FROM prak_tugas t JOIN praktikum p ON p.id = t.praktikum_id WHERE t.selesai = 0 ORDER BY t.deadline').all(),
+    prakTugasById: (id) => one('SELECT t.*, p.nama praktikum FROM prak_tugas t JOIN praktikum p ON p.id = t.praktikum_id WHERE t.id = ?').get(id),
+    addPrakTugas: (t) => one('INSERT INTO prak_tugas (praktikum_id, jenis, judul, deadline, link, catatan, selesai) VALUES (@praktikum_id, @jenis, @judul, @deadline, @link, @catatan, @selesai)')
+      .run({ link: null, catatan: null, selesai: 0, ...t }).lastInsertRowid,
+    updatePrakTugas: (id, t) => one('UPDATE prak_tugas SET praktikum_id=@praktikum_id, jenis=@jenis, judul=@judul, deadline=@deadline, link=@link, catatan=@catatan, selesai=@selesai WHERE id=@id')
+      .run({ link: null, catatan: null, selesai: 0, ...t, id }).changes,
+    delPrakTugas: db.transaction((id) => { one('DELETE FROM prak_kumpul WHERE tugas_id = ?').run(id); return one('DELETE FROM prak_tugas WHERE id = ?').run(id).changes; }),
+    setPrakKumpul: (tid, aid, v) => (v ? one('INSERT OR IGNORE INTO prak_kumpul (tugas_id, akun_id, at) VALUES (?, ?, ?)').run(tid, aid, Date.now()) : one('DELETE FROM prak_kumpul WHERE tugas_id = ? AND akun_id = ?').run(tid, aid)),
+    prakKumpulCount: () => Object.fromEntries(one('SELECT tugas_id, COUNT(*) n FROM prak_kumpul GROUP BY tugas_id').all().map((r) => [r.tugas_id, r.n])),
+    prakKumpulSaya: (aid) => new Set(one('SELECT tugas_id FROM prak_kumpul WHERE akun_id = ?').all(aid).map((r) => r.tugas_id)),
+    prakKumpulTugas: (tid) => one('SELECT a.id, a.nama, k.at FROM akun a LEFT JOIN prak_kumpul k ON k.akun_id = a.id AND k.tugas_id = ? WHERE a.status = \'aktif\' ORDER BY a.nama COLLATE NOCASE').all(tid),
+
     // Absensi pribadi
     absenSaya: (akunId) => one('SELECT tanggal, kelas_key FROM absen WHERE akun_id = ?').all(akunId),
     setAbsen: (akunId, tanggal, key, v) => (v
@@ -365,7 +413,7 @@ function openDb(file = path.join(__dirname, '..', 'data', 'kuliah.db')) {
       ? one('UPDATE akun SET nama=@nama, role=@role, hash=@hash WHERE id=@id').run({ nama, role, hash, id })
       : one('UPDATE akun SET nama=@nama, role=@role WHERE id=@id').run({ nama, role, id })).changes,
     delAkun: db.transaction((id) => {
-      for (const t of ['tugas_kumpul', 'absen', 'nilai', 'centang', 'kelompok_anggota', 'push_sub']) one(`DELETE FROM ${t} WHERE akun_id = ?`).run(id);
+      for (const t of ['tugas_kumpul', 'prak_kumpul', 'absen', 'nilai', 'centang', 'kelompok_anggota', 'push_sub']) one(`DELETE FROM ${t} WHERE akun_id = ?`).run(id);
       return one('DELETE FROM akun WHERE id = ?').run(id).changes;
     }),
     akunDenganWa: () => one("SELECT * FROM akun WHERE wa IS NOT NULL AND wa != '' AND status = 'aktif'").all(),

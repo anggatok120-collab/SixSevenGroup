@@ -67,6 +67,14 @@ function buildIcs(db, { now = Date.now(), nama = 'Six Seven 67' } = {}) {
     if (x.selesai && x.deadline < now - 30 * DAY) continue;
     ev(`tugas-${x.id}`, x.deadline - 30 * 60000, x.deadline, `${x.selesai ? '✓ ' : ''}Tenggat: ${x.judul} (${x.matkul})`, { desk: x.catatan, alarm: x.selesai ? 0 : 24 * 60 }).end();
   }
+  for (const s of db.prakSesiAll()) {
+    const start = parseLocal(`${s.tanggal} ${s.mulai}`);
+    ev(`prak-${s.id}`, start, start + durasi(s.mulai, s.selesai), `🧪 ${s.praktikum}: ${s.judul}`, { lokasi: s.ruang, desk: s.catatan, alarm: 60 }).end();
+  }
+  for (const x of db.prakTugasAll()) {
+    if (x.selesai && x.deadline < now - 30 * DAY) continue;
+    ev(`praktugas-${x.id}`, x.deadline - 30 * 60000, x.deadline, `${x.selesai ? '✓ ' : ''}Tenggat ${x.jenis} ${x.praktikum}: ${x.judul}`, { desk: x.catatan, alarm: x.selesai ? 0 : 24 * 60 }).end();
+  }
   for (const u of db.ujianAll()) {
     ev(`ujian-${u.id}`, u.waktu, u.waktu + 2 * 3600000, `${u.jenis} ${u.matkul}`, { lokasi: u.ruang, alarm: 24 * 60 }).end();
   }
