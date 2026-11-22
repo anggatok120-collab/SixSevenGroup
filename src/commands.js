@@ -42,6 +42,8 @@ Atau balas pesan pengingat tugas dengan *udah*
 login – kirim di chat pribadi ke bot untuk dapat link masuk web
 /groupid – tampilkan ID chat ini
 /pakaigrup – (admin) jadikan grup ini tujuan pengingat
+/kirimkesini – (admin, di chat pribadi) semua pesan bot dikirim ke kamu saja
+/kegrup – (admin) kembalikan pesan bot ke grup
 
 Prefix boleh / ! atau .`;
 
@@ -76,10 +78,26 @@ function handle(db, text, { isAdmin = false, chatJid = '', now = Date.now(), web
       return webUrl ? `🌐 Kelola jadwal, tugas, dan ujian di: ${webUrl}` : 'Alamat web belum diatur (WEB_URL).';
     case 'groupid':
       return `ID chat ini: ${chatJid}`;
+    case 'kirimkesini': case 'kepribadi': {
+      const e = needAdmin(); if (e) return e;
+      if (chatJid.endsWith('@g.us')) return 'Ketik perintah ini di chat pribadi dengan bot, bukan di grup.';
+      const nomor = chatJid.endsWith('@s.whatsapp.net') ? chatJid.split('@')[0].split(':')[0] : akun?.wa;
+      if (!nomor) return 'Nomor kamu tidak terbaca. Atur lewat web: Status Bot → Tujuan pesan.';
+      db.setSetting('tujuan', { mode: 'pribadi', nomor });
+      catat('ubah', 'tujuan pesan', `Semua pesan bot dialihkan ke +${nomor}`);
+      return '✅ Mulai sekarang *semua pesan otomatis bot* (pengingat, pengumuman, polling, info perubahan) dikirim ke chat ini, *tidak ke grup*.\n\nKetik */kegrup* untuk mengembalikan ke grup kelas.';
+    }
+    case 'kegrup': {
+      const e = needAdmin(); if (e) return e;
+      db.setSetting('tujuan', { ...(db.getSetting('tujuan') || {}), mode: 'grup' });
+      catat('ubah', 'tujuan pesan', 'Pesan bot kembali ke grup kelas');
+      return '✅ Pesan bot kembali dikirim ke *grup kelas*.';
+    }
     case 'pakaigrup': {
       const e = needAdmin(); if (e) return e;
       if (!chatJid.endsWith('@g.us')) return 'Ketik /pakaigrup di dalam grup yang mau dijadikan grup kelas.';
       db.setSetting('grupJid', chatJid);
+      db.setSetting('tujuan', { ...(db.getSetting('tujuan') || {}), mode: 'grup' });
       catat('ubah', 'grup tujuan', chatJid);
       return '✅ Grup ini sekarang jadi *grup kelas*. Semua pengingat dan pengumuman akan dikirim ke sini.';
     }

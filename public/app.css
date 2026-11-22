@@ -1075,3 +1075,11 @@ input[type="date"], input[type="time"], input[type="datetime-local"] { font-fami
 .draft-status:empty { display: none; }
 .draft-status i { color: var(--color-success); }
 @media (max-width: 640px) { .draft-status { flex-basis: 100%; justify-content: center; } }
+
+.pilih-tujuan { display: flex; gap: var(--space-3); align-items: flex-start; padding: var(--space-3); border-radius: var(--radius-control); border: 1px solid var(--color-border); cursor: pointer; }
+.pilih-tujuan:has(input:checked) { border-color: var(--color-border-strong); background: var(--color-glass-strong); }
+.pilih-tujuan input { margin-top: 3px; }
+.pilih-tujuan span { display: grid; gap: 2px; }
+.pilih-tujuan small { color: var(--color-text-muted); font-size: var(--text-body-sm); }
+.diag-grid .link-btn { padding: 0; font-size: var(--text-caption); }
+.card.diag-tip { flex-direction: row; align-items: flex-start; margin: 0; }
