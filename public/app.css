@@ -982,3 +982,18 @@ a.title:hover { text-decoration: underline; text-underline-offset: 3px; }
 .grup-pilih { width: 100%; text-align: left; font: inherit; color: inherit; background: transparent; border: 1px solid var(--color-border); }
 .grup-pilih[aria-pressed="true"] { border-color: rgba(79,216,164,.4); }
 .grup-pilih i { font-size: 20px; color: var(--color-success); }
+
+/* Status bot: baris antrean & grafik sejajar */
+.status-split { align-items: stretch; }
+.status-split > .card { display: flex; flex-direction: column; gap: var(--space-4); }
+.status-split .card-head > div { display: grid; gap: 2px; }
+.antre-foot { margin: auto 0 0; font-size: 12px; display: flex; gap: 6px; align-items: center; }
+.chart14 { flex: 1; min-height: 170px; height: auto; align-items: stretch; gap: 6px; }
+.c14 { grid-template-rows: 16px 1fr auto; }
+.c14-n { font: 600 11px var(--font-mono); text-align: center; color: var(--color-text-muted); align-self: end; }
+.c14-bar { background: rgb(var(--fg-rgb) / 0.05); border: 1px solid var(--color-border); border-radius: 7px; justify-content: flex-start; }
+.c14-bar i { border-radius: 0; }
+.c14[data-hari-ini="true"] span { color: var(--color-text); font-weight: 700; }
+.c14-legend { margin-top: auto; }
+.c14-legend .muted { margin-left: auto; color: var(--color-text-subtle); }
+@media (max-width: 640px) { .c14:nth-child(odd) span { visibility: hidden; } .c14-legend .muted { margin-left: 0; } }

@@ -762,13 +762,15 @@ viewStatus = function viewStatusBaru() {
   const hari = Array.from({ length: 14 }, (_, i) => ymdOf(now() - (13 - i) * DAY));
   const data = hari.map((h) => ({ h, ok: s.harian.find((x) => x.hari === h && x.status === 'terkirim')?.n || 0, gagal: s.harian.find((x) => x.hari === h && x.status === 'gagal')?.n || 0 }));
   const maks = Math.max(1, ...data.map((d) => d.ok + d.gagal));
-  const el = document.createElement('div'); el.className = 'split';
+  const el = document.createElement('div'); el.className = 'split status-split';
+  const totOk = data.reduce((a, x) => a + x.ok, 0); const totGagal = data.reduce((a, x) => a + x.gagal, 0);
   el.innerHTML = `<div class="card"><div class="card-head"><h2><i class="ph ph-queue"></i>Pesan berikutnya (24 jam)</h2></div>
       <div class="rows">${s.antrean.length ? s.antrean.map((x) => `<div class="row"><time class="antre-jam">${hm(x.at)}<small>${dayKey(x.at) === dayKey(now()) ? 'hari ini' : 'besok'}</small></time><div class="grow"><div class="title">${esc(x.judul)}</div><div class="sub">${LOG_MODE[x.mode] || esc(x.mode)}${x.n ? ` · ${x.n} orang` : ''}</div></div></div>`).join('')
-        : '<p class="muted" style="margin:0">Tidak ada pesan otomatis dalam 24 jam ke depan.</p>'}</div></div>
-    <div class="card"><div class="card-head"><h2><i class="ph ph-chart-bar"></i>Pesan per hari</h2><span class="muted" style="font-size:13px">${s.push} perangkat berlangganan notifikasi</span></div>
-      <div class="chart14" role="img" aria-label="Jumlah pesan terkirim 14 hari terakhir">${data.map((d) => `<div class="c14" title="${tgl(msOfYmd(d.h))}: ${d.ok} terkirim, ${d.gagal} gagal"><div class="c14-bar"><i class="ok" style="height:${d.ok / maks * 100}%"></i><i class="gagal" style="height:${d.gagal / maks * 100}%"></i></div><span>${Number(d.h.slice(8))}</span></div>`).join('')}</div>
-      <div class="legend"><span><i class="lg-ok"></i>Terkirim</span><span><i class="lg-gagal"></i>Gagal</span></div></div>`;
+        : '<p class="muted" style="margin:0">Tidak ada pesan otomatis dalam 24 jam ke depan.</p>'}</div>
+      <p class="muted antre-foot"><i class="ph ph-info"></i> Perkiraan dari pengaturan Pengingat. Pengumuman manual tidak termasuk.</p></div>
+    <div class="card"><div class="card-head"><div><h2><i class="ph ph-chart-bar"></i>Pesan per hari</h2><span class="muted" style="font-size:13px">14 hari terakhir · ${totOk} terkirim${totGagal ? ` · ${totGagal} gagal` : ''}</span></div></div>
+      <div class="chart14" role="img" aria-label="Jumlah pesan 14 hari terakhir: ${totOk} terkirim, ${totGagal} gagal">${data.map((d) => `<div class="c14" data-hari-ini="${d.h === ymdOf(now())}" title="${tgl(msOfYmd(d.h))}: ${d.ok} terkirim, ${d.gagal} gagal"><b class="c14-n">${d.ok + d.gagal || ''}</b><div class="c14-bar"><i class="ok" style="height:${d.ok / maks * 100}%"></i><i class="gagal" style="height:${d.gagal / maks * 100}%"></i></div><span>${Number(d.h.slice(8))}</span></div>`).join('')}</div>
+      <div class="legend c14-legend"><span><i class="lg-ok"></i>Terkirim</span><span><i class="lg-gagal"></i>Gagal</span><span class="muted"><i class="ph ph-device-mobile"></i>${s.push} perangkat menerima notifikasi push</span></div></div>`;
   const tiles = $$('#content > .tiles')[0]; tiles ? tiles.after(el) : $('#content').append(el);
   // Diagnosis: grup tujuan, pesan terakhir yang diterima, catatan error bot.
   const diag = document.createElement('div'); diag.className = 'card';
