@@ -710,7 +710,7 @@ const FORMS = {
     ${v.id ? `<label class="inline-field"><input type="checkbox" name="selesai" ${v.selesai ? 'checked' : ''}> Sudah selesai</label>` : ''}` },
   ujian: { label: 'ujian', eyebrow: 'Ujian', fields: (v) => `
     ${mkField(v)}
-    <div class="grid2"><label class="field"><span>Jenis</span><select name="jenis">${['UTS', 'UAS', 'Kuis', 'Praktikum'].map((j) => `<option ${v.jenis === j ? 'selected' : ''}>${j}</option>`).join('')}</select></label>
+    <div class="grid2"><label class="field"><span>Jenis</span><select name="jenis">${[...new Set(['UTS', 'UAS', 'Kuis', 'Praktikum', ...(v.jenis ? [v.jenis] : [])])].map((j) => `<option ${v.jenis === j ? 'selected' : ''}>${esc(j)}</option>`).join('')}</select></label>
     <label class="field"><span>Ruang</span><input name="ruang" value="${esc(v.ruang)}"></label></div>
     <label class="field"><span>Waktu</span><input type="datetime-local" name="waktu" required value="${esc((v.waktu || '').replace(' ', 'T'))}"></label>` },
   akun: { label: 'akun', eyebrow: 'Kelola akun', fields: (v) => `

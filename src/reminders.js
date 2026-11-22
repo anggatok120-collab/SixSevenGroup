@@ -32,13 +32,18 @@ function dueReminders(db, s, now = Date.now()) {
     if (!m.kosong) add('besok', `besok:${tanggal}`, m.text);
   }
 
-  // 3. Kelas akan dimulai
+  // 3. Kelas akan dimulai (cek juga kelas besok: kelas 00:15 diingatkan 23:45 malam ini)
   if (s.kelas.on) {
-    for (const k of db.kelasByHari(t.dow)) {
-      const start = todayAt(now, k.mulai);
-      if (inWindow(start - s.kelas.menit * 60000, now)) {
-        add('kelas', `kelas:${k.id}:${tanggal}`,
-          `🔔 *${k.matkul}* mulai jam ${k.mulai}${k.ruang ? ' di ' + k.ruang : ''} (${s.kelas.menit} menit lagi)`);
+    for (const hariKe of [0, 1]) {
+      const base = now + hariKe * 86400000;
+      const b = local(base);
+      const tgl = `${b.y}-${pad(b.mo)}-${pad(b.d)}`;
+      for (const k of db.kelasByHari(b.dow)) {
+        const start = todayAt(base, k.mulai);
+        if (inWindow(start - s.kelas.menit * 60000, now)) {
+          add('kelas', `kelas:${k.id}:${tgl}`,
+            `🔔 *${k.matkul}* mulai jam ${k.mulai}${k.ruang ? ' di ' + k.ruang : ''} (${s.kelas.menit} menit lagi)`);
+        }
       }
     }
   }

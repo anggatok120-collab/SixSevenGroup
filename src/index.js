@@ -101,7 +101,7 @@ async function start() {
         process.exit(1);
       }
       log.warn({ code }, 'Koneksi putus, menyambung ulang...');
-      setTimeout(start, 3000);
+      setTimeout(startSafe, 3000);
     }
   });
 
@@ -136,7 +136,15 @@ async function start() {
   if (!ticker) ticker = setInterval(() => tick().catch((err) => log.error({ err })), 60 * 1000);
 }
 
-start();
+// Kalau start() gagal (misal internet VPS putus saat mengambil versi WA), coba lagi, jangan crash.
+function startSafe() {
+  start().catch((err) => {
+    log.error({ err }, 'gagal menyambung ke WhatsApp, coba lagi 10 detik');
+    setTimeout(startSafe, 10000);
+  });
+}
+
+startSafe();
 startAutoBackup(db, { at: cfg.backupAt, keep: cfg.backupKeep, log });
 
 const bot = {

@@ -94,6 +94,7 @@ function openDb(file = path.join(__dirname, '..', 'data', 'kuliah.db')) {
     one('INSERT INTO matkul (nama, dosen) VALUES (?, ?)').run(nama, dosen || null);
     return nama;
   };
+  const ada = (t, id) => !!one(`SELECT 1 FROM ${t} WHERE id = ?`).get(id);
   const withMk = (x) => ({ ...x, matkul: canon(x.matkul, x.dosen) });
   const pakaiMatkul = (nama) => one(`SELECT
       (SELECT COUNT(*) FROM kelas WHERE matkul = @n COLLATE NOCASE) jadwal,
@@ -123,14 +124,15 @@ function openDb(file = path.join(__dirname, '..', 'data', 'kuliah.db')) {
     kelasAll: () => one('SELECT * FROM kelas ORDER BY hari, mulai').all(),
     kelasByHari: (h) => one('SELECT * FROM kelas WHERE hari = ? ORDER BY mulai').all(h),
     addKelas: (k) => one('INSERT INTO kelas (hari, mulai, selesai, matkul, ruang, dosen) VALUES (@hari, @mulai, @selesai, @matkul, @ruang, @dosen)').run(withMk(k)).lastInsertRowid,
-    updateKelas: (id, k) => one('UPDATE kelas SET hari=@hari, mulai=@mulai, selesai=@selesai, matkul=@matkul, ruang=@ruang, dosen=@dosen WHERE id=@id').run({ ...withMk(k), id }).changes,
+    // Cek dulu datanya ada, supaya id yang salah tidak ikut mendaftarkan mata kuliah baru.
+    updateKelas: (id, k) => ada('kelas', id) && one('UPDATE kelas SET hari=@hari, mulai=@mulai, selesai=@selesai, matkul=@matkul, ruang=@ruang, dosen=@dosen WHERE id=@id').run({ ...withMk(k), id }).changes,
     delKelas: (id) => one('DELETE FROM kelas WHERE id = ?').run(id).changes,
 
     tugasAktif: () => one('SELECT * FROM tugas WHERE selesai = 0 ORDER BY deadline').all(),
     tugasAll: () => one('SELECT * FROM tugas ORDER BY selesai, deadline').all(),
     addTugas: (t) => one("INSERT INTO tugas (matkul, judul, deadline, prioritas, catatan) VALUES (@matkul, @judul, @deadline, @prioritas, @catatan)")
       .run({ prioritas: 'normal', catatan: null, ...withMk(t) }).lastInsertRowid,
-    updateTugas: (id, t) => one('UPDATE tugas SET matkul=@matkul, judul=@judul, deadline=@deadline, selesai=@selesai, prioritas=@prioritas, catatan=@catatan WHERE id=@id')
+    updateTugas: (id, t) => ada('tugas', id) && one('UPDATE tugas SET matkul=@matkul, judul=@judul, deadline=@deadline, selesai=@selesai, prioritas=@prioritas, catatan=@catatan WHERE id=@id')
       .run({ prioritas: 'normal', catatan: null, selesai: 0, ...withMk(t), id }).changes,
     setSelesai: (id, v) => one('UPDATE tugas SET selesai = ? WHERE id = ?').run(v ? 1 : 0, id).changes,
     selesaiTugas: (id) => one('UPDATE tugas SET selesai = 1 WHERE id = ?').run(id).changes,
@@ -139,7 +141,7 @@ function openDb(file = path.join(__dirname, '..', 'data', 'kuliah.db')) {
     ujianAll: () => one('SELECT * FROM ujian ORDER BY waktu').all(),
     ujianMendatang: (now) => one('SELECT * FROM ujian WHERE waktu >= ? ORDER BY waktu').all(now),
     addUjian: (u) => one('INSERT INTO ujian (matkul, jenis, waktu, ruang) VALUES (@matkul, @jenis, @waktu, @ruang)').run(withMk(u)).lastInsertRowid,
-    updateUjian: (id, u) => one('UPDATE ujian SET matkul=@matkul, jenis=@jenis, waktu=@waktu, ruang=@ruang WHERE id=@id').run({ ...withMk(u), id }).changes,
+    updateUjian: (id, u) => ada('ujian', id) && one('UPDATE ujian SET matkul=@matkul, jenis=@jenis, waktu=@waktu, ruang=@ruang WHERE id=@id').run({ ...withMk(u), id }).changes,
     delUjian: (id) => one('DELETE FROM ujian WHERE id = ?').run(id).changes,
 
     sudahTerkirim: (k) => !!one('SELECT 1 FROM terkirim WHERE kunci = ?').get(k),

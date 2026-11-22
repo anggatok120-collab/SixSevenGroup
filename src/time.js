@@ -20,7 +20,12 @@ function local(ms = Date.now()) {
 function parseLocal(str) {
   const m = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})$/.exec(str);
   if (!m) return NaN;
-  return Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]) - OFFSET_MIN * 60000;
+  const ms = Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]);
+  // Tolak tanggal/jam yang "meluber" (31-02, bulan 13, jam 25:99, dst.), jangan diam-diam digeser.
+  const d = new Date(ms);
+  if (d.getUTCFullYear() !== +m[1] || d.getUTCMonth() !== +m[2] - 1 || d.getUTCDate() !== +m[3]
+    || d.getUTCHours() !== +m[4] || d.getUTCMinutes() !== +m[5]) return NaN;
+  return ms - OFFSET_MIN * 60000;
 }
 
 function fmtLocal(ms) {
