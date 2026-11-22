@@ -1,9 +1,11 @@
 // Penyusun pesan WA. Dipakai pengingat otomatis, tombol "kirim sekarang", dan pratinjau di web.
 const { local, parseLocal, pad, HARI_LABEL } = require('./time');
-const { kelasLine, tugasLine, ujianLine, tanggalPanjang, penutup, jam, BULAN, BULAN_PANJANG } = require('./format');
+const { kelasLine, tugasLine, ujianLine, prakSesiLine, prakTugasLine, tanggalPanjang, penutup, jam, BULAN, BULAN_PANJANG } = require('./format');
 const { kelasPada } = require('./jadwal');
 
 const DAY = 86400000;
+const tgl = (ms) => { const t = local(ms); return `${t.y}-${pad(t.mo)}-${pad(t.d)}`; };
+const KUMPUL_P = '✅ Sudah kumpul tugas praktikum? Balas */kumpul P nomor*, contoh */kumpul P3*';
 const KUMPUL = '✅ Sudah kumpul? Balas */kumpul nomor*, contoh */kumpul 5*';
 const bagian = (ikon, judul, n, isi) => `${ikon} *${judul}*${n ? ` · ${n}` : ''}\n${isi}`;
 
@@ -11,6 +13,8 @@ function pesanHariIni(db, now = Date.now()) {
   const kelas = kelasPada(db, now);
   const tugas = db.tugasAktif().filter((x) => x.deadline > now && x.deadline - now <= 3 * DAY);
   const ujian = db.ujianMendatang(now).filter((x) => x.waktu - now <= 7 * DAY);
+  const sesi = db.prakSesiTanggal(tgl(now));
+  const ptugas = db.prakTugasAktif().filter((x) => x.deadline > now && x.deadline - now <= 3 * DAY);
   const libur = kelas.find((k) => k.libur)?.libur;
   const aktif = kelas.filter((k) => !k.batal).length;
   const isi = [
@@ -18,10 +22,13 @@ function pesanHariIni(db, now = Date.now()) {
     libur && !aktif ? `🏖️ Hari ini libur: *${libur}*` : bagian('📚', 'Jadwal hari ini', aktif ? `${aktif} kelas` : '', kelas.length ? kelas.map(kelasLine).join('\n') : 'Tidak ada kelas hari ini 🎉'),
     tugas.length && bagian('📝', 'Tugas mendekati tenggat', tugas.length, tugas.map((x) => tugasLine(x, now)).join('\n')),
     ujian.length && bagian('📖', 'Ujian 7 hari ke depan', ujian.length, ujian.map((x) => ujianLine(x, now)).join('\n')),
+    sesi.length && bagian('🧪', 'Praktikum hari ini', sesi.length, sesi.map(prakSesiLine).join('\n')),
+    ptugas.length && bagian('🧾', 'Tugas praktikum mendekati tenggat', ptugas.length, ptugas.map((x) => prakTugasLine(x, now)).join('\n')),
     tugas.length ? KUMPUL : '',
+    ptugas.length ? KUMPUL_P : '',
     penutup(now),
   ].filter(Boolean);
-  return { text: isi.join('\n\n'), kosong: !kelas.length && !tugas.length && !ujian.length };
+  return { text: isi.join('\n\n'), kosong: !kelas.length && !tugas.length && !ujian.length && !sesi.length && !ptugas.length };
 }
 
 function pesanBesok(db, now = Date.now()) {
@@ -32,6 +39,8 @@ function pesanBesok(db, now = Date.now()) {
   const akhirBesok = awalBesok + DAY;
   const tugas = db.tugasAktif().filter((x) => x.deadline > now && x.deadline < akhirBesok);
   const ujian = db.ujianMendatang(now).filter((x) => x.waktu >= awalBesok && x.waktu < akhirBesok);
+  const sesi = db.prakSesiTanggal(tgl(now + DAY));
+  const ptugas = db.prakTugasAktif().filter((x) => x.deadline > now && x.deadline < akhirBesok);
   const libur = kelas.find((k) => k.libur)?.libur;
   const aktif = kelas.filter((k) => !k.batal).length;
   const isi = [
@@ -39,10 +48,13 @@ function pesanBesok(db, now = Date.now()) {
     libur && !aktif ? `🏖️ Besok libur: *${libur}*` : bagian('📚', 'Jadwal besok', aktif ? `${aktif} kelas` : '', kelas.length ? kelas.map(kelasLine).join('\n') : 'Tidak ada kelas besok 🎉'),
     tugas.length && bagian('📝', 'Tenggat sampai besok', tugas.length, tugas.map((x) => tugasLine(x, now)).join('\n')),
     ujian.length && bagian('📖', 'Ujian besok', ujian.length, ujian.map((x) => ujianLine(x, now)).join('\n')),
+    sesi.length && bagian('🧪', 'Praktikum besok', sesi.length, sesi.map(prakSesiLine).join('\n')),
+    ptugas.length && bagian('🧾', 'Tugas praktikum sampai besok', ptugas.length, ptugas.map((x) => prakTugasLine(x, now)).join('\n')),
     tugas.length ? KUMPUL : '',
-    'Siapkan tas dan tugasnya dari sekarang, lalu istirahat yang cukup 🎒',
+    ptugas.length ? KUMPUL_P : '',
+    sesi.length ? 'Jangan lupa jas lab, modul, dan tugas pendahuluan untuk praktikum 🥼' : 'Siapkan tas dan tugasnya dari sekarang, lalu istirahat yang cukup 🎒',
   ].filter(Boolean);
-  return { text: isi.join('\n\n'), kosong: !kelas.length && !tugas.length && !ujian.length };
+  return { text: isi.join('\n\n'), kosong: !kelas.length && !tugas.length && !ujian.length && !sesi.length && !ptugas.length };
 }
 
 function pesanTugas(db, now = Date.now()) {
@@ -82,13 +94,18 @@ function pesanMingguan(db, now = Date.now()) {
     if (aktif.length) adaKelas = true;
     const tg = tugas.filter((x) => sama(x.deadline, t));
     const uj = ujian.filter((x) => sama(x.waktu, t));
-    if (!kelas.length && !tg.length && !uj.length) continue;
+    const ps = db.prakSesiTanggal(tgl(ms));
+    const pt = db.prakTugasAktif().filter((x) => sama(x.deadline, t) && x.deadline >= awal && x.deadline < akhir);
+    if (ps.length || pt.length) adaKelas = true;
+    if (!kelas.length && !tg.length && !uj.length && !ps.length && !pt.length) continue;
     const libur = kelas.find((k) => k.libur)?.libur;
     const isi = [
       libur ? `🏖️ Libur: ${libur}` : aktif.length ? `📚 ${aktif.length} kelas: ${aktif.map((k) => `${k.matkul} (${jam(k.mulai)})`).join(', ')}` : '',
       ...kelas.filter((k) => k.batal && !k.libur).map((k) => `❌ ${k.matkul} batal`),
       ...uj.map((x) => `📖 *${x.jenis} ${x.matkul}* · ${hm(x.waktu)}`),
       ...tg.map((x) => `📝 Tenggat *${x.matkul}* — ${x.judul} · ${hm(x.deadline)}`),
+      ...ps.map((x) => `🧪 Praktikum *${x.praktikum}* — ${x.judul} · ${jam(x.mulai)}`),
+      ...pt.map((x) => `🧾 Tenggat ${x.jenis} *${x.praktikum}* · ${hm(x.deadline)}`),
     ].filter(Boolean);
     baris.push(`*${HARI_LABEL[t.dow]}, ${t.d} ${BULAN[t.mo - 1]}*\n${isi.map((x) => `▸ ${x}`).join('\n')}`);
   }
@@ -99,6 +116,26 @@ function pesanMingguan(db, now = Date.now()) {
   return { text, kosong: !adaKelas && !tugas.length && !ujian.length };
 }
 
-const BUILDERS = { pagi: pesanHariIni, besok: pesanBesok, tugas: pesanTugas, ujian: pesanUjian, mingguan: pesanMingguan };
+/** Agenda praktikum 7 hari ke depan + tugas praktikum aktif (/praktikum dan "Kirim sekarang"). */
+function pesanPraktikum(db, now = Date.now()) {
+  const hari = []; let nSesi = 0;
+  for (let i = 0; i < 7; i++) {
+    const ms = now + i * DAY; const ss = db.prakSesiTanggal(tgl(ms)).filter((s) => parseLocal(`${s.tanggal} ${s.selesai || s.mulai}`) > now); // yang sudah selesai tidak ditampilkan
+    if (!ss.length) continue; nSesi += ss.length;
+    const t = local(ms);
+    hari.push(`*${i === 0 ? 'Hari ini' : i === 1 ? 'Besok' : HARI_LABEL[t.dow]}, ${t.d} ${BULAN[t.mo - 1]}*\n${ss.map(prakSesiLine).join('\n')}`);
+  }
+  const ptugas = db.prakTugasAktif();
+  if (!nSesi && !ptugas.length) return { text: '🧪 Tidak ada praktikum dan tugas praktikum dalam waktu dekat 🎉', kosong: true };
+  const isi = [
+    '🧪 *Agenda praktikum*',
+    nSesi ? bagian('🗓️', '7 hari ke depan', `${nSesi} sesi`, hari.join('\n\n')) : '',
+    ptugas.length ? bagian('🧾', 'Tugas praktikum aktif', ptugas.length, ptugas.map((x) => prakTugasLine(x, now)).join('\n')) : '',
+    ptugas.length ? KUMPUL_P : '',
+  ].filter(Boolean);
+  return { text: isi.join('\n\n'), kosong: false };
+}
 
-module.exports = { pesanHariIni, pesanBesok, pesanTugas, pesanUjian, pesanMingguan, BUILDERS, KUMPUL };
+const BUILDERS = { pagi: pesanHariIni, besok: pesanBesok, tugas: pesanTugas, ujian: pesanUjian, mingguan: pesanMingguan, praktikum: pesanPraktikum };
+
+module.exports = { pesanHariIni, pesanBesok, pesanTugas, pesanUjian, pesanMingguan, pesanPraktikum, BUILDERS, KUMPUL, KUMPUL_P };

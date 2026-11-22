@@ -1,7 +1,7 @@
 // Service worker: aplikasi bisa di-install dan tampilan dasarnya tetap terbuka saat sinyal jelek.
 // Data (/api) selalu diambil langsung dari server, tidak pernah disimpan di cache.
-const CACHE = 'ss67-v2';
-const SHELL = ['/', '/login', '/app.css', '/app.js', '/fitur.js', '/logo.svg', '/manifest.webmanifest', '/icon-192.png'];
+const CACHE = 'ss67-v3';
+const SHELL = ['/', '/login', '/app.css', '/app.js', '/fitur.js', '/praktikum.js', '/logo.svg', '/manifest.webmanifest', '/icon-192.png'];
 
 // Notifikasi push dari server (pengingat, pengumuman).
 self.addEventListener('push', (e) => {

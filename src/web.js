@@ -169,6 +169,14 @@ function createWeb(db, { password, cfg, bot: botIn = noBot, secret, backupDir = 
       anggota: db.akunCount(),
       orang: db.akunAll().filter((a) => a.status === 'aktif').map((a) => ({ id: a.id, nama: a.nama, foto: !!a.ada_foto })),
       pin: db.pengumumanPin(now).map((p) => ({ id: p.id, teks: p.teks, oleh: p.oleh, kirim_at: p.kirim_at, pin_sampai: p.pin_sampai, gambar: p.gambar })),
+      prak: (() => {
+        const n = db.prakKumpulCount(); const saya = db.prakKumpulSaya(req.user.id);
+        return {
+          daftar: db.praktikumAll().map((p) => ({ ...p, pakai: db.pakaiPraktikum(p.id) })),
+          sesi: db.prakSesiAll(),
+          tugas: db.prakTugasAll().map((t) => ({ ...t, deadline: fmtLocal(t.deadline), ms: t.deadline, selesai: !!t.selesai, kumpulN: n[t.id] || 0, kumpulSaya: saya.has(t.id) })),
+        };
+      })(),
       saya: { nilai: db.nilaiSaya(req.user.id), centang: centangMap(req.user.id), absen: db.absenSaya(req.user.id).map((a) => `${a.tanggal}|${a.kelas_key}`) },
       tugas: db.tugasAll().map((t) => ({ ...out.tugas(t), kelompok: !!t.kelompok, ...k(t) })),
       ujian: db.ujianAll().map(out.ujian),
@@ -244,7 +252,8 @@ function createWeb(db, { password, cfg, bot: botIn = noBot, secret, backupDir = 
       const id = Number(req.params.id);
       const lama = byId(id);
       if (!lama) return res.status(404).json({ error: 'Data tidak ditemukan' });
-      const ekstra = name === 'tugas' ? { kumpul: db.kumpulTugas(id).filter((a) => a.at).map((a) => ({ akun_id: a.id, at: a.at })) } : {};
+      const ekstra = name === 'tugas' ? { kumpul: db.kumpulTugas(id).filter((a) => a.at).map((a) => ({ akun_id: a.id, at: a.at })) }
+        : name === 'prak-tugas' ? { kumpul: db.prakKumpulTugas(id).filter((a) => a.at).map((a) => ({ akun_id: a.id, at: a.at })) } : {};
       if (!del(id)) return res.status(404).json({ error: 'Data tidak ditemukan' });
       const sid = buang(req, jenis, tabel, lama, desc(lama), ekstra);
       res.json({ ok: true, sampah: sid });
@@ -325,6 +334,77 @@ function createWeb(db, { password, cfg, bot: botIn = noBot, secret, backupDir = 
     if (!t || !db.setSelesai(t.id, !!req.body?.selesai)) return res.status(404).json({ error: 'Data tidak ditemukan' });
     catat(req, 'ubah', 'tugas', `${t.matkul}: ${t.judul} ${req.body?.selesai ? 'ditutup (selesai)' : 'dibuka lagi'}`);
     res.json({ ok: true });
+  });
+
+  // ---- Praktikum: daftar praktikum, sesi per tanggal, tugas praktikum ----
+  const prakBody = (b) => {
+    const nama = str(b.nama).replace(/\s+/g, ' ');
+    if (!nama) return { error: 'Nama praktikum wajib diisi' };
+    if (nama.length > 80) return { error: 'Nama praktikum terlalu panjang' };
+    return { v: { nama, lab: str(b.lab) || null, asisten: str(b.asisten) || null, kontak: str(b.kontak) || null, warna: WARNA.includes(b.warna) ? b.warna : null, catatan: str(b.catatan) || null } };
+  };
+  app.post('/api/praktikum', editor, (req, res) => {
+    const r = prakBody(req.body || {}); if (r.error) return bad(res, r.error);
+    if (db.praktikumByNama(r.v.nama)) return bad(res, `Praktikum "${r.v.nama}" sudah ada`);
+    const id = Number(db.addPraktikum(r.v)); catat(req, 'tambah', 'praktikum', r.v.nama); res.json({ id });
+  });
+  app.put('/api/praktikum/:id', editor, (req, res) => {
+    const id = Number(req.params.id); const r = prakBody(req.body || {}); if (r.error) return bad(res, r.error);
+    const lain = db.praktikumByNama(r.v.nama); if (lain && lain.id !== id) return bad(res, `Praktikum "${r.v.nama}" sudah ada`);
+    if (!db.updatePraktikum(id, r.v)) return res.status(404).json({ error: 'Data tidak ditemukan' });
+    catat(req, 'ubah', 'praktikum', r.v.nama); res.json({ ok: true });
+  });
+  app.delete('/api/praktikum/:id', editor, (req, res) => {
+    const p = db.praktikumById(Number(req.params.id)); if (!p) return res.status(404).json({ error: 'Data tidak ditemukan' });
+    const u = db.pakaiPraktikum(p.id);
+    if (u.sesi || u.tugas) return res.status(409).json({ error: `Masih dipakai di ${[u.sesi && `${u.sesi} sesi`, u.tugas && `${u.tugas} tugas`].filter(Boolean).join(' dan ')}. Hapus dulu sesi/tugasnya.` });
+    db.delPraktikum(p.id); res.json({ ok: true, sampah: buang(req, 'praktikum', 'praktikum', p, p.nama) });
+  });
+  function prakSesiBody(b) {
+    const p = db.praktikumById(Number(b.praktikum_id)); if (!p) return { error: 'Pilih praktikumnya' };
+    const judul = str(b.judul).slice(0, 120); if (!judul) return { error: 'Judul/acara praktikum wajib diisi (mis. Modul 1: Mikroskop)' };
+    const tanggal = str(b.tanggal); if (!/^\d{4}-\d{2}-\d{2}$/.test(tanggal) || Number.isNaN(parseLocal(`${tanggal} 00:00`))) return { error: 'Tanggal tidak valid' };
+    const mulai = parseHM(str(b.mulai)); const selesai = str(b.selesai) ? parseHM(str(b.selesai)) : null;
+    if (!mulai || (str(b.selesai) && !selesai)) return { error: 'Jam tidak valid' };
+    if (selesai && selesai <= mulai) return { error: 'Jam selesai harus setelah jam mulai' };
+    return { v: { praktikum_id: p.id, judul, tanggal, mulai, selesai, ruang: str(b.ruang) || null, catatan: str(b.catatan) || null }, p };
+  }
+  crud('prak-sesi', prakSesiBody, db.addPrakSesi, db.updatePrakSesi, db.delPrakSesi, {
+    jenis: 'sesi praktikum', tabel: 'prak_sesi', byId: db.prakSesiById,
+    desc: (s) => `${db.praktikumById(s.praktikum_id)?.nama || 'Praktikum'}: ${s.judul} (${s.tanggal})`,
+    // Ulangi tiap minggu: buat sesi berikutnya sampai tanggal tertentu, judul diberi nomor pertemuan.
+    banyak: (v, b) => {
+      if (!b.ulang) return [v];
+      const sampai = str(b.ulang); if (!/^\d{4}-\d{2}-\d{2}$/.test(sampai) || sampai < v.tanggal) return { error: 'Tanggal akhir pengulangan tidak valid' };
+      const list = []; let d = parseLocal(`${v.tanggal} 12:00`);
+      while (ymd(d) <= sampai && list.length < 20) { list.push({ ...v, tanggal: ymd(d) }); d += 7 * 86400000; }
+      return list.length > 1 ? list.map((x, i) => ({ ...x, judul: `${v.judul} (pertemuan ${i + 1})` })) : list;
+    },
+    perubahan: (lama, baru) => (lama.tanggal !== baru.tanggal || lama.mulai !== baru.mulai
+      ? `🧪 *Jadwal praktikum berubah*\n\n▸ *${db.praktikumById(baru.praktikum_id)?.nama}* — ${baru.judul}\n    Sebelumnya: ~${tglLabel(lama.tanggal)} · ${lama.mulai.replace(':', '.')}~\n    Sekarang: *${tglLabel(baru.tanggal)} · ${baru.mulai.replace(':', '.')}*${baru.ruang ? `\n    🧪 ${baru.ruang}` : ''}` : null),
+  });
+  const JENIS_PRAK = ['Laporan', 'Tugas pendahuluan', 'Pretest', 'Posttest', 'Responsi', 'Lainnya'];
+  function prakTugasBody(b) {
+    const p = db.praktikumById(Number(b.praktikum_id)); if (!p) return { error: 'Pilih praktikumnya' };
+    const judul = str(b.judul).slice(0, 160); if (!judul) return { error: 'Judul tugas wajib diisi' };
+    const deadline = dt(b.deadline); if (Number.isNaN(deadline)) return { error: 'Tenggat tidak valid' };
+    const link = url(b.link); if (link === false) return { error: 'Link harus diawali http:// atau https://' };
+    return { v: { praktikum_id: p.id, jenis: JENIS_PRAK.includes(b.jenis) ? b.jenis : 'Laporan', judul, deadline, link, catatan: str(b.catatan) || null, selesai: b.selesai ? 1 : 0 } };
+  }
+  crud('prak-tugas', prakTugasBody, db.addPrakTugas, db.updatePrakTugas, db.delPrakTugas, {
+    jenis: 'tugas praktikum', tabel: 'prak_tugas', byId: (id) => { const t = db.prakTugasById(id); if (t) delete t.praktikum; return t; },
+    desc: (t) => `${db.praktikumById(t.praktikum_id)?.nama || 'Praktikum'}: ${t.jenis} ${t.judul}`,
+    perubahan: (lama, baru) => (lama.deadline !== baru.deadline && !baru.selesai
+      ? `${baru.deadline > lama.deadline ? '⏳' : '⚠️'} *Tenggat tugas praktikum ${baru.deadline > lama.deadline ? 'diundur' : 'dimajukan'}*\n\n▸ *${db.praktikumById(baru.praktikum_id)?.nama}* — ${baru.jenis}: ${baru.judul}\n    Sebelumnya: ~${waktuWa(lama.deadline)}~\n    Sekarang: *${waktuWa(baru.deadline)}*` : null),
+  });
+  app.post('/api/prak-tugas/:id/kumpul', anyUser, (req, res) => {
+    const t = db.prakTugasById(Number(req.params.id)); if (!t) return res.status(404).json({ error: 'Data tidak ditemukan' });
+    db.setPrakKumpul(t.id, req.user.id, !!req.body?.kumpul); res.json({ ok: true });
+  });
+  app.get('/api/prak-tugas/:id/kumpul', anyUser, (req, res) => {
+    const t = db.prakTugasById(Number(req.params.id)); if (!t) return res.status(404).json({ error: 'Data tidak ditemukan' });
+    const list = db.prakKumpulTugas(t.id);
+    res.json({ sudah: list.filter((a) => a.at).map((a) => ({ nama: a.nama, at: a.at })), belum: list.filter((a) => !a.at).map((a) => a.nama) });
   });
 
   // ---- Status kumpul per anggota (semua peran boleh menandai dirinya sendiri) ----
@@ -410,15 +490,17 @@ function createWeb(db, { password, cfg, bot: botIn = noBot, secret, backupDir = 
   });
 
   // ---- Kembalikan data yang terhapus ----
-  const TABEL_PULIH = ['kelas', 'tugas', 'ujian', 'matkul', 'kelas_ubah', 'pengumuman', 'materi'];
+  const TABEL_PULIH = ['kelas', 'tugas', 'ujian', 'matkul', 'kelas_ubah', 'pengumuman', 'materi', 'praktikum', 'prak_sesi', 'prak_tugas'];
   app.post('/api/sampah/:id/pulihkan', editor, (req, res) => {
     const s = db.sampahById(Number(req.params.id));
     if (!s || !TABEL_PULIH.includes(s.jenis)) return res.status(404).json({ error: 'Data sudah tidak bisa dikembalikan' });
     const { row, kumpul = [], materi = [] } = s.data;
     if (s.jenis === 'matkul' && db.matkulByNama(row.nama)) return bad(res, `Mata kuliah "${row.nama}" sudah ada lagi`);
+    if (s.jenis === 'praktikum' && db.praktikumByNama(row.nama)) return bad(res, `Praktikum "${row.nama}" sudah ada lagi`);
+    if (['prak_sesi', 'prak_tugas'].includes(s.jenis) && !db.praktikumById(row.praktikum_id)) return bad(res, 'Praktikumnya sudah dihapus. Kembalikan praktikumnya dulu.');
     try {
       const id = Number(db.pulihkanBaris(s.jenis, row));
-      for (const k of kumpul) if (db.akunById(k.akun_id)) db.setKumpul(id, k.akun_id, true);
+      for (const k of kumpul) if (db.akunById(k.akun_id)) (s.jenis === 'prak_tugas' ? db.setPrakKumpul : db.setKumpul)(id, k.akun_id, true);
       for (const m of materi) db.addMateri({ matkul_id: id, judul: m.judul, url: m.url, dibuat: m.dibuat });
       db.delSampah(s.id);
       catat(req, 'tambah', 'pemulihan', `${s.jenis} dikembalikan: ${row.judul || row.nama || row.matkul || row.teks?.slice(0, 60) || ''}`);

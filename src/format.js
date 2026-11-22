@@ -66,6 +66,20 @@ function ujianLine(u, now) {
   return baris.join('\n');
 }
 
+/** Blok satu sesi praktikum. */
+function prakSesiLine(s) {
+  const baris = [`▸ *${s.praktikum}* — ${s.judul}`, `${IND}🕗 ${rentang(s.mulai, s.selesai)}${s.ruang || s.lab ? ` · 🧪 ${s.ruang || s.lab}` : ''}`];
+  if (s.asisten) baris.push(`${IND}👤 Asisten: ${s.asisten}`);
+  if (s.catatan) baris.push(`${IND}📝 ${s.catatan}`);
+  return baris.join('\n');
+}
+/** Blok satu tugas praktikum. Nomor (#P3) dipakai untuk /kumpul P3. */
+function prakTugasLine(t, now) {
+  const baris = [`▸ *${t.praktikum}* — ${t.jenis}: ${t.judul} _(#P${t.id})_`, `${IND}⏰ ${waktu(t.deadline)} · ${sisaTampil(t.deadline - now)}`];
+  if (t.link) baris.push(`${IND}📤 ${t.link}`);
+  return baris.join('\n');
+}
+
 /** Daftar kelas satu hari (dipakai /hari, /besok, ringkasan). */
 function jadwalHari(kelas, dow, judul = `*${HARI_LABEL[dow]}*`) {
   if (!kelas.length) return `${judul}\nTidak ada kelas 🎉`;
@@ -85,4 +99,4 @@ const PENUTUP = [
 ];
 const penutup = (ms) => { const t = local(ms); return PENUTUP[(t.y * 372 + t.mo * 31 + t.d) % PENUTUP.length]; };
 
-module.exports = { sisa, sisaTampil, leadLabel, kelasLine, tugasLine, ujianLine, jadwalHari, jam, rentang, waktu, tanggalPanjang, penutup, BULAN, BULAN_PANJANG };
+module.exports = { prakSesiLine, prakTugasLine, sisa, sisaTampil, leadLabel, kelasLine, tugasLine, ujianLine, jadwalHari, jam, rentang, waktu, tanggalPanjang, penutup, BULAN, BULAN_PANJANG };

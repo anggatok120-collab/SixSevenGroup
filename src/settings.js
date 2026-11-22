@@ -1,7 +1,7 @@
 // Pengaturan pengingat: default dari .env, bisa diubah admin lewat web (disimpan di DB).
 const { parseHM } = require('./time');
 
-const MODES = ['pagi', 'besok', 'kelas', 'tugas', 'ujian', 'pribadi', 'mingguan'];
+const MODES = ['pagi', 'besok', 'kelas', 'tugas', 'ujian', 'pribadi', 'mingguan', 'praktikum'];
 const EXTRA = ['tenang', 'jeda'];
 
 function defaults(cfg) {
@@ -13,6 +13,7 @@ function defaults(cfg) {
     ujian: { on: true, menit: cfg.examLeadsMin, pagiJam: cfg.examMorningAt },
     pribadi: { on: false, menit: [1440], ujian: true },
     mingguan: { on: true, jam: '19:00' },        // rekap agenda seminggu, tiap Minggu
+    praktikum: { on: true, menit: 60, tugas: [1440, 180] }, // sesi praktikum & tenggat tugas praktikum
     tenang: { on: false, dari: '22:00', sampai: '05:00' }, // jam tenang: pesan ditunda
     jeda: { sampai: null },                      // mode libur: semua pengingat berhenti sampai tanggal ini
   };
@@ -49,6 +50,12 @@ function validate(input, cfg) {
       if (x.pagiJam && !o.pagiJam) return { error: 'Jam pengingat pagi ujian tidak valid' };
     }
     if (m === 'pribadi') o.ujian = !!x.ujian;
+    if (m === 'praktikum') {
+      o.menit = Number(x.menit);
+      if (!(o.menit >= 5 && o.menit <= 240)) return { error: 'Menit pengingat praktikum harus 5–240' };
+      const arr = (Array.isArray(x.tugas) ? x.tugas : []).map(Number).filter((n) => n > 0 && n <= 60 * 24 * 30);
+      o.tugas = [...new Set(arr)].sort((a, b) => b - a);
+    }
     out[m] = o;
   }
   const tn = (input && input.tenang) || {};
