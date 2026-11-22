@@ -37,7 +37,7 @@ function dueBadge(ms, done) {
   return ['b-normal', `${w(ms).d} ${BULAN[w(ms).m]}`];
 }
 // Format WhatsApp sederhana: *tebal* dan _miring_
-const waFormat = (t) => esc(t).replace(/\*([^*\n]+)\*/g, '<b>$1</b>').replace(/(^|\s)_([^_\n]+)_/g, '$1<i>$2</i>');
+const waFormat = (t) => esc(t).replace(/\*([^*\n]+)\*/g, '<b>$1</b>').replace(/(^|[\s(])_([^_\n]+)_/g, '$1<i>$2</i>').replace(/(^|\s)~([^~\n]+)~/g, '$1<s>$2</s>');
 const badge = ([cls, txt]) => `<span class="badge ${cls}">${esc(txt)}</span>`;
 
 // ---------- Warna mata kuliah ----------

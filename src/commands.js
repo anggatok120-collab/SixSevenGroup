@@ -1,7 +1,8 @@
 const { local, parseUserDate, parseHM, parseHari, pretty, HARI_LABEL } = require('./time');
 const { tugasLine, ujianLine, jadwalHari } = require('./format');
 const { kelasPada } = require('./jadwal');
-const { pesanMingguan } = require('./messages');
+const { pesanMingguan, pesanTugas, pesanUjian } = require('./messages');
+const { jam: jamWa, rentang: rentangWa } = require('./format');
 
 // Cari mata kuliah dari potongan nama (tidak peka huruf besar/kecil).
 const cariMatkul = (db, q) => {
@@ -102,28 +103,24 @@ function handle(db, text, { isAdmin = false, chatJid = '', now = Date.now(), web
       return '✅ Grup ini sekarang jadi *grup kelas*. Semua pengingat dan pengumuman akan dikirim ke sini.';
     }
     case 'hari':
-      return jadwalHari(kelasPada(db, now), t.dow);
+      return jadwalHari(kelasPada(db, now), t.dow, `📚 *Jadwal hari ini* (${HARI_LABEL[t.dow]})`);
     case 'besok':
-      return jadwalHari(kelasPada(db, now + 86400000), (t.dow + 1) % 7);
+      return jadwalHari(kelasPada(db, now + 86400000), (t.dow + 1) % 7, `📚 *Jadwal besok* (${HARI_LABEL[(t.dow + 1) % 7]})`);
     case 'jadwal': {
       const all = db.kelasAll();
       if (!all.length) return 'Jadwal kelas masih kosong. Admin bisa isi pakai /tambahkelas atau /importjadwal.';
       const hariUrut = [1, 2, 3, 4, 5, 6, 0];
-      return '🗓️ *Jadwal Mingguan*\n\n' + hariUrut
+      return `🗓️ *Jadwal kuliah mingguan* · ${all.length} kelas\n\n` + hariUrut
         .map((h) => all.filter((k) => k.hari === h))
         .filter((ks) => ks.length)
-        .map((ks) => `*${HARI_LABEL[ks[0].hari]}*\n` + ks.map((k) => `• [${k.id}] ${k.mulai}${k.selesai ? '–' + k.selesai : ''} *${k.matkul}*${k.ruang ? ' @ ' + k.ruang : ''}`).join('\n'))
+        .map((ks) => `*${HARI_LABEL[ks[0].hari]}*\n` + ks.map((k) => `▸ ${rentangWa(k.mulai, k.selesai)} · *${k.matkul}*${k.ruang ? ` · 📍 ${k.ruang}` : ''} _(#${k.id})_`).join('\n'))
         .join('\n\n');
     }
     case 'tugas': {
-      const list = db.tugasAktif();
-      if (!list.length) return '✅ Tidak ada tugas aktif.';
-      return '📝 *Tugas Aktif*\n' + list.map((x) => (x.deadline < now ? tugasLine(x, now).replace('⏰', '⚠️ LEWAT') : tugasLine(x, now))).join('\n');
+      return pesanTugas(db, now).text;
     }
     case 'ujian': {
-      const list = db.ujianMendatang(now);
-      if (!list.length) return 'Belum ada ujian terjadwal.';
-      return '📚 *Ujian Mendatang*\n' + list.map((u) => ujianLine(u, now)).join('\n');
+      return pesanUjian(db, now).text;
     }
 
     case 'tambahkelas': {
@@ -229,7 +226,7 @@ function handle(db, text, { isAdmin = false, chatJid = '', now = Date.now(), web
  */
 function handleBalasan(db, text, quoted, akun) {
   if (!/^\s*(udah|sudah|udh|sdh|done|beres|kumpul|sudah kumpul|udah kumpul)\b/i.test(text || '') || !quoted) return null;
-  const m = /\/kumpul (\d+)/.exec(quoted) || /\[(\d+)\]/.exec(quoted);
+  const m = /\/kumpul\*? ?(\d+)/.exec(quoted.replace(/\*/g, '')) || /\(#(\d+)\)/.exec(quoted) || /\[(\d+)\]/.exec(quoted);
   if (!m) return null;
   if (!akun) return 'Nomor WhatsApp ini belum terhubung ke akun web, jadi belum bisa ditandai. Minta admin menambahkan nomormu.';
   const tg = db.tugasById(Number(m[1]));

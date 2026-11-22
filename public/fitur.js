@@ -1128,6 +1128,7 @@ document.addEventListener('click', (e) => { if (e.target.closest('[data-log-semu
 // Pengingat & pengumuman: kolom kanan (pratinjau) menempel saat menggulir kolom kiri yang panjang.
 function tandaiSplitMenempel() {
   if (S.view === 'pengingat' || (S.view === 'pengumuman' && S.pgTab !== 'polling')) $('#content .split')?.classList.add('menempel');
+  if (S.view === 'pengingat') $('#content .split')?.classList.add('split-pengingat');
 }
 
 // Semua .split dua kolom: kartu dibagi seimbang (kalau kolomnya berupa tumpukan) dan ujung bawah diratakan.

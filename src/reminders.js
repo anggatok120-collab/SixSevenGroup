@@ -1,6 +1,6 @@
 // Logika murni: tentukan pesan pengingat apa yang harus dikirim pada waktu `now`.
 const { local, parseLocal, pad } = require('./time');
-const { tugasLine, ujianLine, leadLabel } = require('./format');
+const { kelasLine, tugasLine, ujianLine, leadLabel, waktu } = require('./format');
 const { pesanHariIni, pesanBesok, pesanMingguan } = require('./messages');
 const { kelasPada, ymd, getSemester } = require('./jadwal');
 
@@ -68,7 +68,7 @@ function dueReminders(db, s, now = Date.now()) {
         const start = todayAt(base, k.mulai);
         if (jatuhTempo(start - s.kelas.menit * 60000) && start > now) {
           add('kelas', `kelas:${k.id}:${k.tanggal}`,
-            `🔔 *${k.matkul}*${k.pengganti ? ' (kuliah pengganti)' : ''} mulai jam ${k.mulai}${k.ruang ? ' di ' + k.ruang : ''} (${s.kelas.menit} menit lagi)`);
+            `🔔 *Kelas dimulai ${s.kelas.menit} menit lagi*${k.pengganti ? ' · _kuliah pengganti_' : ''}\n\n${kelasLine({ ...k, pengganti: false })}\n\nSampai ketemu di kelas! 🙌`);
         }
       }
     }
@@ -80,7 +80,7 @@ function dueReminders(db, s, now = Date.now()) {
       for (const lead of s.tugas.menit) {
         if (jatuhTempo(x.deadline - lead * 60000) && x.deadline > now) {
           // Tenggat ikut di kunci: kalau tenggat diubah, pengingat dikirim lagi untuk tenggat baru.
-          add('tugas', `tugas:${x.id}:${lead}:${x.deadline}`, `📝 *Pengingat tugas (${leadLabel(lead)})*\n${tugasLine(x, now)}\n\nKalau sudah dikumpulkan: /selesai ${x.id}`);
+          add('tugas', `tugas:${x.id}:${lead}:${x.deadline}`, `⏰ *Pengingat tugas · ${leadLabel(lead)}*\n\n${tugasLine(x, now)}${x.catatan ? `\n    📝 ${x.catatan}` : ''}\n\n✅ Sudah kumpul? Balas */kumpul ${x.id}*`);
         }
       }
     }
@@ -91,7 +91,7 @@ function dueReminders(db, s, now = Date.now()) {
     for (const u of db.ujianMendatang(now)) {
       for (const lead of s.ujian.menit) {
         if (jatuhTempo(u.waktu - lead * 60000) && u.waktu > now) {
-          add('ujian', `ujian:${u.id}:${lead}:${u.waktu}`, `📚 *Pengingat ujian (${leadLabel(lead)})*\n${ujianLine(u, now)}`);
+          add('ujian', `ujian:${u.id}:${lead}:${u.waktu}`, `📖 *Pengingat ujian · ${leadLabel(lead)}*\n\n${ujianLine(u, now)}${u.materi ? `\n\n📋 *Materi:*\n${u.materi.split('\n').map((m) => `• ${m}`).join('\n')}` : ''}\n\nSemangat belajarnya! 📚`);
         }
       }
       if (s.ujian.pagiJam) {
@@ -99,7 +99,7 @@ function dueReminders(db, s, now = Date.now()) {
         const ujianHariIni = ul.y === t.y && ul.mo === t.mo && ul.d === t.d;
         const pagi = todayAt(now, s.ujian.pagiJam);
         if (ujianHariIni && pagi < u.waktu && inWindow(pagi, now)) {
-          add('ujian', `ujianpagi:${u.id}:${u.waktu}`, `🍀 *Hari ini ujian!*\n${ujianLine(u, now)}${u.bawa ? `\n🎒 Bawa: ${u.bawa}` : ''}\n\nSemangat, semoga lancar!`);
+          add('ujian', `ujianpagi:${u.id}:${u.waktu}`, `🍀 *Hari ini ujian!*\n\n${ujianLine(u, now)}${u.bawa ? `\n\n🎒 Jangan lupa bawa: *${u.bawa}*` : ''}\n\nTarik napas, tetap tenang. Semoga lancar! 🙏`);
         }
       }
     }
@@ -117,7 +117,7 @@ function dueReminders(db, s, now = Date.now()) {
           for (const a of akun) {
             if (sudah(x, a.id)) continue;
             add('pribadi', `dm:${a.id}:t:${x.id}:${lead}:${x.deadline}`,
-              `👋 Halo ${a.nama}, tugas ini belum kamu tandai sudah dikumpulkan (${leadLabel(lead)}):\n${tugasLine(x, now)}\n\nSudah kumpul? Balas */kumpul ${x.id}* atau centang di web.`,
+              `👋 Halo *${a.nama}*,\ntugas ini belum kamu tandai sudah dikumpulkan _(${leadLabel(lead)})_:\n\n${tugasLine(x, now)}\n\n✅ Sudah kumpul? Balas */kumpul ${x.id}* atau centang di web.`,
               { to: `${a.wa}@s.whatsapp.net`, akunId: a.id });
           }
         }
@@ -126,7 +126,7 @@ function dueReminders(db, s, now = Date.now()) {
         for (const u of db.ujianMendatang(now)) {
           if (!jatuhTempo(u.waktu - 1440 * 60000)) continue;
           for (const a of akun) {
-            add('pribadi', `dm:${a.id}:u:${u.id}:${u.waktu}`, `📚 Halo ${a.nama}, besok ujian:\n${ujianLine(u, now)}${u.bawa ? `\n🎒 Bawa: ${u.bawa}` : ''}\n\nSemangat belajarnya!`, { to: `${a.wa}@s.whatsapp.net`, akunId: a.id });
+            add('pribadi', `dm:${a.id}:u:${u.id}:${u.waktu}`, `👋 Halo *${a.nama}*, besok ada ujian:\n\n${ujianLine(u, now)}\n\nSemangat belajarnya, kamu pasti bisa! 📚`, { to: `${a.wa}@s.whatsapp.net`, akunId: a.id });
           }
         }
       }
@@ -164,7 +164,7 @@ function statusKumpulFn(db) {
   };
 }
 
-const teksPengumuman = (p) => `📢 *Pengumuman*\n\n${p.teks}${p.oleh ? `\n\n_— ${p.oleh}_` : ''}`;
+const teksPengumuman = (p) => `📢 *PENGUMUMAN*\n\n${p.teks}${p.oleh ? `\n\n— _${p.oleh}_` : ''}`;
 
 module.exports = { dueReminders, teksPengumuman, statusKumpulFn, diJamTenang, WINDOW };
 

@@ -29,13 +29,13 @@ test('kelas batal dilewati, kuliah pengganti diingatkan dan muncul di ringkasan'
   assert.equal(dueReminders(db, s, at('2026-11-23 07:30')).length, 0); // batal
   const r = dueReminders(db, s, at('2026-11-23 12:30'));
   assert.equal(r.length, 1);
-  assert.match(r[0].text, /Fisika\* \(kuliah pengganti\)/);
+  assert.match(r[0].text, /Kelas dimulai 30 menit lagi\* · _kuliah pengganti_[\s\S]*▸ \*Fisika\*/);
   // minggu depannya kelas rutin normal lagi
   assert.equal(dueReminders(db, s, at('2026-11-30 07:30')).length, 1);
   const pagi = pesanHariIni(db, at('2026-11-23 06:00')).text;
-  assert.match(pagi, /~08:00–09:40 Kalkulus~ ❌ \*BATAL\* \(Dosen dinas\)/);
-  assert.match(pagi, /Fisika\*.*kuliah pengganti/);
-  assert.match(handle(db, '/hari', { now: at('2026-11-23 06:00') }), /BATAL/);
+  assert.match(pagi, /▸ ~Kalkulus~ ❌ \*Batal\*\n    🕗 08\.00–09\.40 · Dosen dinas/);
+  assert.match(pagi, /▸ \*Fisika\* 🔁 _kuliah pengganti_/);
+  assert.match(handle(db, '/hari', { now: at('2026-11-23 06:00') }), /❌ \*Batal\*/);
 });
 
 test('status kumpul per anggota dan pengingat pribadi', () => {
@@ -51,7 +51,7 @@ test('status kumpul per anggota dan pengingat pribadi', () => {
   const s = { ...hanya('pribadi'), pribadi: { on: true, menit: [1440], ujian: true } };
   const r = dueReminders(db, s, at('2026-11-24 23:59'));
   assert.deepEqual(r.map((x) => x.to), ['6282222@s.whatsapp.net']); // Ani sudah kumpul
-  assert.match(r[0].text, /Halo Beni/);
+  assert.match(r[0].text, /Halo \*Beni\*/);
   db.delTugas(t);
   assert.deepEqual(db.kumpulCount(), {});
 });
@@ -63,7 +63,7 @@ test('pengumuman terjadwal ikut dikirim penjadwal', () => {
   assert.equal(dueReminders(db, s, at('2026-11-23 09:59')).length, 0);
   const r = dueReminders(db, s, at('2026-11-23 10:01'));
   assert.equal(r[0].pengumumanId, id);
-  assert.match(r[0].text, /Pengumuman\*\n\nKumpul di aula\n\n_— Admin_/);
+  assert.match(r[0].text, /PENGUMUMAN\*\n\nKumpul di aula\n\n— _Admin_/);
   assert.equal(dueReminders(db, s, at('2026-11-23 17:00')).length, 0); // telat > 6 jam
 });
 
@@ -104,7 +104,7 @@ test('API fitur baru: kumpul, kelas batal, pengumuman, riwayat, kalender, warna'
     assert.equal((await req('/api/kelas-ubah', { method: 'POST', token: adm, body: { jenis: 'batal', tanggal: '2030-01-02', kelas_id: k.json.id } })).status, 400); // Rabu
     const kb = await req('/api/kelas-ubah', { method: 'POST', token: adm, body: { jenis: 'batal', tanggal: '2030-01-07', kelas_id: k.json.id, catatan: 'Libur', umumkan: true } });
     assert.equal(kb.json.umum, 'terkirim');
-    assert.match(sent.at(-1), /Kelas batal\*\n\*Kalkulus\* Senin, 7 Jan, jam 08:00\nKeterangan: Libur/);
+    assert.match(sent.at(-1), /Kelas dibatalkan\*\n\n▸ \*Kalkulus\*\n    📅 Senin, 7 Jan · 08\.00\n    📝 Libur/);
     assert.equal((await req('/api/kelas-ubah', { method: 'POST', token: adm, body: { jenis: 'batal', tanggal: '2030-01-07', kelas_id: k.json.id } })).status, 400);
     assert.equal((await req('/api/kelas-ubah', { method: 'POST', token: adm, body: { jenis: 'pengganti', tanggal: '2030-01-08', mulai: '10:00', selesai: '09:00', matkul: 'Kalkulus' } })).status, 400);
     assert.equal((await req('/api/kelas-ubah', { method: 'POST', token: adm, body: { jenis: 'pengganti', tanggal: '2030-01-08', mulai: '10:00', matkul: 'Kalkulus' } })).status, 200);
