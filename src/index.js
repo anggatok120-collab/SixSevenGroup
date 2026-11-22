@@ -79,6 +79,15 @@ let gagalBeruntun = 0;
 let pesanTerakhir = null;
 // Grup tujuan: bisa diganti dari WA (/pakaigrup) atau web, tanpa edit .env. GROUP_JID jadi cadangan.
 const grupJid = () => db.getSetting('grupJid') || cfg.groupJid;
+// Tujuan pesan bot: 'grup' (normal) atau 'pribadi' (semua pesan otomatis dialihkan ke satu nomor).
+const tujuanSetel = () => db.getSetting('tujuan') || { mode: 'grup', nomor: null };
+const nomorPribadi = () => { const t = tujuanSetel(); return t.mode === 'pribadi' && t.nomor ? t.nomor : null; };
+/** JID tujuan untuk pesan yang seharusnya ke grup. */
+function jidGrupAtauPribadi() {
+  const n = nomorPribadi(); if (n) return jidDari(n);
+  if (!grupJid()) throw new Error('grup tujuan belum diatur');
+  return grupJid();
+}
 function perbaruiNamaGrup() {
   grupNama = null;
   if (sock && grupJid()) sock.groupMetadata(grupJid()).then((m) => { grupNama = m.subject; }).catch(() => {});
@@ -114,8 +123,11 @@ async function tick() {
   ticking = true; tickTerakhir = Date.now(); tickInfo = 'berjalan normal';
   try {
     for (const r of dueReminders(db, getSettings(db, cfg))) {
-      const tujuan = r.to || grupJid(); // r.to = chat pribadi anggota
+      // r.to = chat pribadi anggota. Mode pribadi: semuanya dialihkan ke nomor pribadi admin.
+      const alih = nomorPribadi();
+      const tujuan = alih ? jidDari(alih) : r.to || grupJid();
       if (!tujuan) continue;
+      if (alih && r.to) r.text = `_(salinan pengingat untuk ${db.akunById(r.akunId)?.nama || 'anggota'})_\n${r.text}`;
       try {
         const gambar = r.gambar && path.join(UPLOAD_DIR, path.basename(r.gambar));
         await denganBatas(sock.sendMessage(tujuan, gambar && fs.existsSync(gambar) ? { image: fs.readFileSync(gambar), caption: r.text } : { text: r.text }));
@@ -268,6 +280,7 @@ const bot = {
     wa: waConnected,
     nomor: sock?.user?.id ? digits(sock.user.id) : null,
     grupJid: grupJid() || null,
+    tujuan: tujuanSetel(),
     pesanTerakhir,
     penjadwal: { terakhir: tickTerakhir, info: tickInfo },
     catatan: catatanBot.slice(0, 15),
@@ -276,8 +289,7 @@ const bot = {
   }),
   send: async (text, { gambar } = {}) => {
     if (!sock || !waConnected) throw new Error('bot belum terhubung ke WhatsApp');
-    if (!grupJid()) throw new Error('grup tujuan belum diatur');
-    await sock.sendMessage(grupJid(), gambar && fs.existsSync(gambar) ? { image: fs.readFileSync(gambar), caption: text } : { text });
+    await sock.sendMessage(jidGrupAtauPribadi(), gambar && fs.existsSync(gambar) ? { image: fs.readFileSync(gambar), caption: text } : { text });
   },
   sendTo: async (nomor, text) => {
     if (!sock || !waConnected) throw new Error('bot belum terhubung ke WhatsApp');
@@ -294,8 +306,7 @@ const bot = {
   },
   sendPoll: async (name, values, ganda) => {
     if (!sock || !waConnected) throw new Error('bot belum terhubung ke WhatsApp');
-    if (!grupJid()) throw new Error('grup tujuan belum diatur');
-    const sent = await sock.sendMessage(grupJid(), { poll: { name, values, selectableCount: ganda ? 0 : 1 } });
+    const sent = await sock.sendMessage(jidGrupAtauPribadi(), { poll: { name, values, selectableCount: ganda ? 0 : 1 } });
     return { id: sent.key.id, msg: Buffer.from(proto.Message.encode(sent.message).finish()).toString('base64') };
   },
 };

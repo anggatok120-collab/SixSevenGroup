@@ -630,6 +630,7 @@ function createWeb(db, { password, cfg, bot: botIn = noBot, secret, backupDir = 
       push: db.pushSubs().length,
       pesanTerakhir: st.pesanTerakhir || null,
       penjadwal: st.penjadwal || null,
+      tujuan: st.tujuan || db.getSetting('tujuan') || { mode: 'grup' },
       catatan: st.catatan || [],
     });
   });
@@ -637,6 +638,22 @@ function createWeb(db, { password, cfg, bot: botIn = noBot, secret, backupDir = 
   app.get('/api/status/grup', admin, async (req, res) => {
     try { res.json({ grup: await bot.daftarGrup(), aktif: bot.status().grupJid || null }); }
     catch (err) { res.status(502).json({ error: `Gagal mengambil daftar grup: ${err.message}` }); }
+  });
+  // Tujuan pesan bot: grup kelas, atau semua dialihkan ke satu nomor pribadi.
+  app.get('/api/status/tujuan', admin, (req, res) => {
+    res.json({ tujuan: db.getSetting('tujuan') || { mode: 'grup', nomor: null }, saran: db.akunById(req.user.id)?.wa || null });
+  });
+  app.post('/api/status/tujuan', admin, (req, res) => {
+    const mode = req.body?.mode === 'pribadi' ? 'pribadi' : 'grup';
+    const lama = db.getSetting('tujuan') || {};
+    let nomor = lama.nomor || null;
+    if (mode === 'pribadi') {
+      nomor = normalWa(req.body?.nomor);
+      if (!nomor) return bad(res, 'Nomor WhatsApp tidak valid. Contoh: 081234567890');
+    }
+    db.setSetting('tujuan', { mode, nomor });
+    catat(req, 'ubah', 'tujuan pesan', mode === 'pribadi' ? `Semua pesan bot dialihkan ke +${nomor}` : 'Pesan bot kembali ke grup kelas');
+    res.json({ tujuan: { mode, nomor } });
   });
   app.post('/api/status/grup', admin, async (req, res) => {
     const jid = String(req.body?.jid || '');
