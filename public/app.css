@@ -997,3 +997,7 @@ a.title:hover { text-decoration: underline; text-underline-offset: 3px; }
 .c14-legend { margin-top: auto; }
 .c14-legend .muted { margin-left: auto; color: var(--color-text-subtle); }
 @media (max-width: 640px) { .c14:nth-child(odd) span { visibility: hidden; } .c14-legend .muted { margin-left: 0; } }
+
+/* Profil: kartu tersusun dalam kolom yang saling mengisi */
+.profil-cards { columns: 320px 3; column-gap: var(--space-4); }
+.profil-cards > .card { break-inside: avoid; margin: 0 0 var(--space-4); width: 100%; }
