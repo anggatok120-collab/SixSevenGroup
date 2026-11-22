@@ -288,7 +288,24 @@ function sessionsOn(dayMs) {
     return { k, start, end, dayMs, live: !k.batal && start <= n && n < end, past: end <= n };
   });
 }
+// Sesi praktikum pada satu hari, bentuknya sama dengan sessionsOn() supaya bisa digabung di dashboard.
+function prakOn(dayMs) {
+  const n = now(); const tgl = ymdOf(dayMs);
+  return (S.data.prak?.sesi || []).filter((s) => s.tanggal === tgl).map((s) => {
+    const p = (S.data.prak.daftar || []).find((x) => x.id === s.praktikum_id) || {};
+    const start = atToday(dayMs, s.mulai); const end = s.selesai ? atToday(dayMs, s.selesai) : start + 120 * 6e4;
+    return { k: { matkul: s.praktikum, mulai: s.mulai, selesai: s.selesai, ruang: s.ruang || p.lab, dosen: s.judul }, prak: s, start, end, dayMs, live: start <= n && n < end, past: end <= n };
+  });
+}
+const jadwalOn = (dayMs) => [...sessionsOn(dayMs), ...prakOn(dayMs)].sort((a, b) => a.start - b.start);
 function sessionRow(x, showDay) {
+  if (x.prak) {
+    const s = x.prak; const tag = x.live ? '<span class="tag" data-tone="live"><i class="ph ph-broadcast"></i>Berlangsung</span>' : x.past ? '<span class="tag" data-tone="done">Selesai</span>' : '<span class="tag" data-tone="prak"><i class="ph ph-flask"></i>Praktikum</span>';
+    return `<div class="session mk-accent" style="${typeof prVar === 'function' ? prVar(s.praktikum_id) : mkVar(s.praktikum)}" data-live="${x.live}" data-past="${x.past}" data-pr-sesi="${s.id}" role="button" tabindex="0">
+    <span class="session-time"><strong>${s.mulai.replace(':', '.')}</strong><span>${(s.selesai || '').replace(':', '.')}</span></span>
+    <span class="session-main"><b>${esc(s.praktikum)}</b><span class="session-meta">${showDay ? `<span>${HARI[w(x.dayMs).dow]}</span>` : ''}<span>${esc(s.judul)}</span>${x.k.ruang ? `<span>${esc(x.k.ruang)}</span>` : ''}</span></span>
+    ${tag}</div>`;
+  }
   const k = x.k; const praktikum = /praktikum|lab/i.test(k.matkul + ' ' + (k.ruang || ''));
   const tag = k.batal ? '<span class="tag" data-tone="danger"><i class="ph ph-x-circle"></i>Batal</span>' : x.live ? '<span class="tag" data-tone="live"><i class="ph ph-broadcast"></i>Berlangsung</span>' : k.pengganti && !x.past ? '<span class="tag" data-tone="warning"><i class="ph ph-arrows-clockwise"></i>Pengganti</span>' : x.past ? '<span class="tag" data-tone="done">Selesai</span>' : `<span class="tag">${praktikum ? 'Praktikum' : 'Kuliah'}</span>`;
   return `<div class="session mk-accent" style="${mkVar(k.matkul)}" data-live="${x.live}" data-past="${x.past}" data-batal="${!!k.batal}" ${detailAttr(k)} role="button" tabindex="0">
@@ -401,16 +418,16 @@ function viewDashboard() {
   const weekDays = Array.from({ length: 7 }, (_, i) => sod + (i - offset) * DAY);
   let list, hint, title = 'Jadwal hari ini';
   if (S.dashScope === 'week') {
-    list = weekDays.filter((d) => d > sod).flatMap((d) => sessionsOn(d)); title = 'Jadwal pekan ini';
+    list = weekDays.filter((d) => d > sod).flatMap((d) => jadwalOn(d)); title = 'Jadwal pekan ini';
     hint = list.length ? `${list.length} sesi sampai ${HARI[w(weekDays[6]).dow]}` : 'Sisa pekan ini';
   } else if (S.dashScope === 'day' && S.dashDay && S.dashDay !== sod) {
-    list = sessionsOn(S.dashDay); title = `Jadwal ${HARI[w(S.dashDay).dow]}`; hint = `${list.length} sesi · ${w(S.dashDay).d} ${BULAN_PANJANG[w(S.dashDay).m]}`;
+    list = jadwalOn(S.dashDay); title = `Jadwal ${HARI[w(S.dashDay).dow]}`; hint = `${list.length} sesi · ${w(S.dashDay).d} ${BULAN_PANJANG[w(S.dashDay).m]}`;
   } else {
-    list = todaySessions; hint = `${HARI[w(sod).dow]}, ${w(sod).d} ${BULAN_PANJANG[w(sod).m]}${list.length ? ` · ${list.length} sesi` : ''}`;
+    list = jadwalOn(sod); hint = `${HARI[w(sod).dow]}, ${w(sod).d} ${BULAN_PANJANG[w(sod).m]}${list.length ? ` · ${list.length} sesi` : ''}`;
   }
   const selDay = S.dashScope === 'day' && S.dashDay ? S.dashDay : S.dashScope === 'today' ? sod : null;
   const strip = weekDays.map((d) => {
-    const t = w(d); const cnt = kelasPada(d).filter((k) => !k.batal).length;
+    const t = w(d); const cnt = kelasPada(d).filter((k) => !k.batal).length + prakOn(d).length;
     const hasU = S.data.ujian.some((u) => dayKey(u.ms) === dayKey(d)); const hasT = aktif.some((x) => dayKey(x.ms) === dayKey(d));
     const label = `${HARI[t.dow]} ${t.d} ${BULAN[t.m]}, ${cnt} kelas${hasT ? ', ada tenggat tugas' : ''}${hasU ? ', ada ujian' : ''}`;
     return `<button class="wday" data-pick-day="${d}" data-active="${d === selDay}" data-today="${d === sod}" aria-pressed="${d === selDay}" aria-label="${label}"><span>${HARI[t.dow].slice(0, 3)}</span><strong>${t.d}</strong><i class="wbar" data-has="${cnt > 0}" data-alert="${hasU || hasT}"></i></button>`;
@@ -452,9 +469,10 @@ function viewDashboard() {
     <div class="panel">
       <div class="panel-head"><div><h2>${title}</h2><span>${hint}</span></div>
         <div class="segment" role="group" aria-label="Rentang jadwal"><button data-scope="today" aria-pressed="${S.dashScope !== 'week'}">Hari ini</button><button data-scope="week" aria-pressed="${S.dashScope === 'week'}">Pekan ini</button></div></div>
-      ${list.length ? `<div class="sessions">${list.map((x) => sessionRow(x, S.dashScope === 'week')).join('')}</div>` : S.data.kelas.length
+      ${list.length ? `<div class="sessions">${list.map((x) => sessionRow(x, S.dashScope === 'week')).join('')}</div>` : S.data.kelas.length || S.data.prak?.sesi?.length
         ? panelEmpty('coffee', S.dashScope === 'week' ? 'Tidak ada kelas lagi pekan ini' : 'Tidak ada kelas', 'Pilih hari lain di bawah untuk melihat jadwalnya.')
         : panelEmpty('calendar-blank', 'Jadwal kuliah belum diisi', 'Tambahkan jadwal mingguan supaya bot bisa mengingatkan grup sebelum kelas.', 'kelas', 'Tambah jadwal')}
+      ${dashPrak()}
       <div class="week" role="group" aria-label="Agenda pekan">${strip}</div>
     </div>
     <div class="panel">
@@ -483,6 +501,21 @@ function viewDashboard() {
   </section>`;
   startClock();
  
+}
+
+// Dashboard: tugas praktikum yang belum kamu kumpulkan + sesi praktikum berikutnya (mengisi ruang kosong panel jadwal).
+function dashPrak() {
+  const P = S.data.prak; if (!P?.daftar?.length) return '';
+  const n = now();
+  const tugas = (P.tugas || []).filter((t) => !t.selesai && !t.kumpulSaya).slice(0, 3);
+  const next = (P.sesi || []).find((s) => atToday(msOfYmd(s.tanggal), s.mulai) > n && s.tanggal !== ymdOf(n));
+  if (!tugas.length && !next) return '';
+  const warna = (id) => (typeof prVar === 'function' ? prVar(id) : '');
+  return `<div class="dash-prak">
+    <div class="dash-prak-head"><span><i class="ph ph-flask"></i>Praktikum</span><button class="link-btn" data-view="praktikum">Buka<i class="ph ph-arrow-right"></i></button></div>
+    ${next ? `<button class="dp-row mk-accent" style="${warna(next.praktikum_id)}" data-pr-sesi="${next.id}"><i class="ph ph-calendar-dots"></i><span class="grow"><b>${esc(next.praktikum)}</b><small>${esc(next.judul)}</small></span><span class="tag">${(() => { const dd = Math.round((msOfYmd(next.tanggal) - startOfDay(n)) / DAY); return dd === 1 ? 'Besok' : dd < 7 ? HARI[w(msOfYmd(next.tanggal)).dow] : tgl(msOfYmd(next.tanggal)); })()} · ${next.mulai.replace(':', '.')}</span></button>` : ''}
+    ${tugas.map((t) => `<button class="dp-row mk-accent" style="${warna(t.praktikum_id)}" data-pr-tugas="${t.id}"><i class="ph ph-note-pencil"></i><span class="grow"><b>${esc(t.jenis)}: ${esc(t.judul)}</b><small>${esc(t.praktikum)}</small></span>${badge(dueBadge(t.ms))}</button>`).join('')}
+  </div>`;
 }
 
 // ---------- Mata kuliah ----------
