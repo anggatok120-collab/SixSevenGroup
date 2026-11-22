@@ -18,7 +18,23 @@ const { getSettings } = require('./settings');
 const { isLoginRequest, senderNumbers, createLoginToken, loginReply } = require('./walogin');
 const { ymd } = require('./jadwal');
 
-const log = pino({ level: process.env.LOG_LEVEL || 'info' });
+// Catatan peringatan/error terakhir, ditampilkan di menu Status Bot (supaya tidak perlu SSH untuk cek masalah).
+const catatanBot = [];
+const log = pino({
+  level: process.env.LOG_LEVEL || 'info',
+  hooks: {
+    logMethod(args, method, level) {
+      if (level >= 40) {
+        const a = args.find((x) => typeof x === 'string') || '';
+        const o = args.find((x) => x && typeof x === 'object');
+        const err = o?.err?.message || o?.message || '';
+        catatanBot.unshift({ at: Date.now(), level: level >= 50 ? 'error' : 'warn', pesan: `${a}${err ? `: ${err}` : ''}`.slice(0, 300) || 'peringatan' });
+        catatanBot.length = Math.min(catatanBot.length, 30);
+      }
+      return method.apply(this, args);
+    },
+  },
+});
 const cfg = loadConfig();
 
 // Pemulihan backup dari web: file disiapkan sebelum restart, ditukar di sini sebelum database dibuka.
@@ -60,6 +76,13 @@ async function isAdmin(m) {
 const jeda = (ms) => new Promise((r) => setTimeout(r, ms));
 let ticking = false;
 let gagalBeruntun = 0;
+let pesanTerakhir = null;
+// Grup tujuan: bisa diganti dari WA (/pakaigrup) atau web, tanpa edit .env. GROUP_JID jadi cadangan.
+const grupJid = () => db.getSetting('grupJid') || cfg.groupJid;
+function perbaruiNamaGrup() {
+  grupNama = null;
+  if (sock && grupJid()) sock.groupMetadata(grupJid()).then((m) => { grupNama = m.subject; }).catch(() => {});
+}
 let putusSejak = null;
 const UPLOAD_DIR = path.join(__dirname, '..', 'data', 'uploads');
 const terakhirKabar = {};
@@ -85,7 +108,7 @@ async function tick() {
   ticking = true;
   try {
     for (const r of dueReminders(db, getSettings(db, cfg))) {
-      const tujuan = r.to || cfg.groupJid; // r.to = chat pribadi anggota
+      const tujuan = r.to || grupJid(); // r.to = chat pribadi anggota
       if (!tujuan) continue;
       try {
         const gambar = r.gambar && path.join(UPLOAD_DIR, path.basename(r.gambar));
@@ -161,9 +184,9 @@ async function start() {
         setTimeout(() => kabariAdmin(`⚠️ *Bot sempat terputus dari WhatsApp selama ${menit} menit.*\nSekarang sudah tersambung lagi. Pengingat yang jatuh tempo saat terputus lebih dari 10 menit tidak dikirim ulang.`, 'putus'), 5000);
       }
       putusSejak = null;
-      if (cfg.groupJid) sock.groupMetadata(cfg.groupJid).then((m) => { grupNama = m.subject; }).catch(() => {});
+      perbaruiNamaGrup();
       log.info('Terhubung ke WhatsApp');
-      if (!cfg.groupJid) log.warn('GROUP_JID belum diisi. Ketik /groupid di grup kelas, lalu isi di .env dan restart.');
+      if (!grupJid()) log.warn('Grup tujuan belum diatur. Admin ketik /pakaigrup di grup kelas, atau pilih di menu Status Bot.');
     }
     if (connection === 'close') {
       waConnected = false;
@@ -181,6 +204,7 @@ async function start() {
   sock.ev.on('messages.upsert', async ({ messages, type }) => {
     if (type !== 'notify') return;
     for (const m of messages) {
+      pesanTerakhir = Date.now();
       if (!m.message || m.key.fromMe) continue;
       const text = textOf(m);
       const chat = m.key.remoteJid || '';
@@ -236,23 +260,34 @@ const bot = {
   status: () => ({
     wa: waConnected,
     nomor: sock?.user?.id ? digits(sock.user.id) : null,
-    grupJid: cfg.groupJid || null,
+    grupJid: grupJid() || null,
+    pesanTerakhir,
+    catatan: catatanBot.slice(0, 15),
     grupNama,
     sejak: waSejak,
   }),
   send: async (text, { gambar } = {}) => {
     if (!sock || !waConnected) throw new Error('bot belum terhubung ke WhatsApp');
-    if (!cfg.groupJid) throw new Error('GROUP_JID belum diisi');
-    await sock.sendMessage(cfg.groupJid, gambar && fs.existsSync(gambar) ? { image: fs.readFileSync(gambar), caption: text } : { text });
+    if (!grupJid()) throw new Error('grup tujuan belum diatur');
+    await sock.sendMessage(grupJid(), gambar && fs.existsSync(gambar) ? { image: fs.readFileSync(gambar), caption: text } : { text });
   },
   sendTo: async (nomor, text) => {
     if (!sock || !waConnected) throw new Error('bot belum terhubung ke WhatsApp');
     await sock.sendMessage(jidDari(nomor), { text });
   },
+  daftarGrup: async () => {
+    if (!sock || !waConnected) throw new Error('bot belum terhubung ke WhatsApp');
+    const g = await sock.groupFetchAllParticipating();
+    return Object.values(g).map((x) => ({ jid: x.id, nama: x.subject, anggota: x.participants?.length || 0 })).sort((a, b) => a.nama.localeCompare(b.nama));
+  },
+  pakaiGrup: async (jid) => {
+    db.setSetting('grupJid', jid); perbaruiNamaGrup();
+    log.info({ jid }, 'grup tujuan diganti');
+  },
   sendPoll: async (name, values, ganda) => {
     if (!sock || !waConnected) throw new Error('bot belum terhubung ke WhatsApp');
-    if (!cfg.groupJid) throw new Error('GROUP_JID belum diisi');
-    const sent = await sock.sendMessage(cfg.groupJid, { poll: { name, values, selectableCount: ganda ? 0 : 1 } });
+    if (!grupJid()) throw new Error('grup tujuan belum diatur');
+    const sent = await sock.sendMessage(grupJid(), { poll: { name, values, selectableCount: ganda ? 0 : 1 } });
     return { id: sent.key.id, msg: Buffer.from(proto.Message.encode(sent.message).finish()).toString('base64') };
   },
 };
