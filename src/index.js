@@ -4,7 +4,7 @@ const fs = require('fs');
 const pino = require('pino');
 const qrcode = require('qrcode-terminal');
 const {
-  default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, proto, getAggregateVotesInPollMessage,
+  default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, proto, getAggregateVotesInPollMessage, makeCacheableSignalKeyStore,
 } = require('@whiskeysockets/baileys');
 
 const { openDb } = require('./db');
@@ -113,6 +113,20 @@ function pesanPolling(key) {
   const p = key?.id && db.pollingByMsgId(key.id);
   return p?.msg ? proto.Message.decode(Buffer.from(p.msg, 'base64')) : undefined;
 }
+// Semua pesan yang dikirim bot disimpan 7 hari. Kalau HP penerima gagal membuka pesan
+// ("Menunggu pesan ini"), WhatsApp meminta bot mengirim ulang; tanpa salinan ini pesannya tertahan selamanya.
+function simpanKeluar(sent) {
+  try { if (sent?.key?.id && sent.message) db.simpanPesanKeluar(sent.key.id, Buffer.from(proto.Message.encode(sent.message).finish()).toString('base64')); }
+  catch (err) { log.warn({ err }, 'gagal menyimpan salinan pesan keluar'); }
+}
+function ambilPesan(key) {
+  const p = pesanPolling(key); if (p) return p;
+  const m = key?.id && db.pesanKeluar(key.id);
+  if (m) { log.info({ id: key.id }, 'kirim ulang pesan atas permintaan penerima'); return proto.Message.decode(Buffer.from(m, 'base64')); }
+  return undefined;
+}
+// Hitungan percobaan kirim ulang per pesan (supaya tidak berulang tanpa batas).
+const retryCache = (() => { const m = new Map(); return { get: (k) => m.get(k), set: (k, v) => { if (m.size > 5000) m.clear(); m.set(k, v); }, del: (k) => m.delete(k), flushAll: () => m.clear() }; })();
 
 // Batas waktu kirim: pengiriman yang menggantung tidak boleh mengunci penjadwal.
 const denganBatas = (p, ms = 45000) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error(`tidak ada respons WhatsApp dalam ${ms / 1000} detik`)), ms))]);
@@ -152,6 +166,7 @@ async function tick() {
     await laporanTerjadwal();
     const now = Date.now();
     db.bersihkanTerkirim(now - 30 * 86400000);
+    db.bersihkanPesanKeluar(now - 7 * 86400000);
     for (const p of db.pengumumanJatuhTempo(now - 6 * 3600000)) db.setPengumumanStatus(p.id, 'kedaluwarsa', 'Bot tidak terhubung saat jadwal kirim');
     db.bersihkanKelasUbah(ymd(now - 200 * 86400000));
     db.bersihkanSampah(now - 30 * 86400000);
@@ -188,7 +203,15 @@ async function laporanTerjadwal() {
 async function start() {
   const { state, saveCreds } = await useMultiFileAuthState(path.join(__dirname, '..', 'auth'));
   const { version } = await fetchLatestBaileysVersion();
-  sock = makeWASocket({ version, auth: state, logger: log.child({ module: 'baileys' }, { level: 'warn' }), getMessage: async (key) => pesanPolling(key) });
+  const blog = log.child({ module: 'baileys' }, { level: 'warn' });
+  sock = makeWASocket({
+    version, logger: blog,
+    auth: { creds: state.creds, keys: makeCacheableSignalKeyStore(state.keys, blog) },
+    msgRetryCounterCache: retryCache,
+    getMessage: async (key) => ambilPesan(key),
+  });
+  const kirimAsli = sock.sendMessage.bind(sock);
+  sock.sendMessage = async (...args) => { const sent = await kirimAsli(...args); simpanKeluar(sent); return sent; };
 
   // Hasil polling: setiap ada suara masuk, hitung ulang dan simpan.
   sock.ev.on('messages.update', (updates) => {

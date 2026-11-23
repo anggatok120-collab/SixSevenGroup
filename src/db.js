@@ -129,6 +129,9 @@ function openDb(file = path.join(__dirname, '..', 'data', 'kuliah.db')) {
     CREATE TABLE IF NOT EXISTS prak_kumpul (
       tugas_id INTEGER NOT NULL, akun_id INTEGER NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (tugas_id, akun_id)
     );
+    CREATE TABLE IF NOT EXISTS pesan_keluar (     -- salinan pesan yang dikirim bot, untuk melayani permintaan kirim ulang WhatsApp
+      id TEXT PRIMARY KEY, msg TEXT NOT NULL, at INTEGER NOT NULL
+    );
     CREATE TABLE IF NOT EXISTS log_kirim (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       at INTEGER NOT NULL,
@@ -299,6 +302,11 @@ function openDb(file = path.join(__dirname, '..', 'data', 'kuliah.db')) {
       if (row.id != null && one(`SELECT 1 FROM ${table} WHERE id = ?`).get(row.id)) c.splice(c.indexOf('id'), 1);
       return one(`INSERT INTO ${table} (${c.join(', ')}) VALUES (${c.map((k) => '@' + k).join(', ')})`).run(row).lastInsertRowid;
     },
+
+    // ---- Salinan pesan keluar (dipakai saat HP penerima gagal membuka pesan dan meminta kirim ulang) ----
+    simpanPesanKeluar: (id, msg) => one('INSERT OR REPLACE INTO pesan_keluar (id, msg, at) VALUES (?, ?, ?)').run(id, msg, Date.now()),
+    pesanKeluar: (id) => one('SELECT msg FROM pesan_keluar WHERE id = ?').get(id)?.msg || null,
+    bersihkanPesanKeluar: (before) => one('DELETE FROM pesan_keluar WHERE at < ?').run(before).changes,
 
     // ---- Praktikum ----
     praktikumAll: () => one('SELECT * FROM praktikum ORDER BY nama COLLATE NOCASE').all(),

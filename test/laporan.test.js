@@ -77,3 +77,14 @@ test('nomor tugas ditulis "no. 5" dan balasan "udah" tetap dikenali (format lama
   db.setKumpul(t, a, false);
   assert.match(handleBalasan(db, 'sudah', `▸ *Biologi* — Laprak _(#${t})_`, db.akunById(a)), /sudah kamu kumpulkan/);
 });
+
+test('salinan pesan keluar disimpan untuk kirim ulang dan dibersihkan setelah 7 hari', () => {
+  const { proto } = require('@whiskeysockets/baileys');
+  const db = openDb(':memory:');
+  const enc = (m) => Buffer.from(proto.Message.encode(m).finish()).toString('base64');
+  db.simpanPesanKeluar('MSG1', enc({ extendedTextMessage: { text: '⏰ *Pengingat tugas*' } }));
+  assert.equal(proto.Message.decode(Buffer.from(db.pesanKeluar('MSG1'), 'base64')).extendedTextMessage.text, '⏰ *Pengingat tugas*');
+  assert.equal(db.pesanKeluar('TIDAKADA'), null);
+  assert.equal(db.bersihkanPesanKeluar(Date.now() - 7 * 86400000), 0);
+  assert.equal(db.bersihkanPesanKeluar(Date.now() + 1000), 1);
+});
