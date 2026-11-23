@@ -125,6 +125,21 @@ function ambilPesan(key) {
   if (m) { log.info({ id: key.id }, 'kirim ulang pesan atas permintaan penerima'); return proto.Message.decode(Buffer.from(m, 'base64')); }
   return undefined;
 }
+// Sesi enkripsi per nomor bisa rusak di satu perangkat (mis. di HP pesan bot selalu "Menunggu pesan ini",
+// di WA laptop normal). Hapus sesi nomor itu supaya bot membuat sesi baru saat mengirim pesan berikutnya.
+const AUTH_DIR = path.join(__dirname, '..', 'auth');
+let authKeys = null;
+async function resetSesi(users) {
+  if (!authKeys) throw new Error('bot belum siap');
+  const daftar = [...new Set(users.map((u) => String(u).split('@')[0].split(':')[0].replace(/\D/g, '')).filter((u) => u.length >= 6))];
+  let files = []; try { files = fs.readdirSync(AUTH_DIR); } catch { /* abaikan */ }
+  const ids = files.filter((f) => f.endsWith('.json') && daftar.some((u) => f.startsWith(`session-${u}.`))).map((f) => f.slice('session-'.length, -'.json'.length));
+  if (ids.length) await authKeys.set({ session: Object.fromEntries(ids.map((id) => [id, null])) });
+  log.info({ users: daftar, sesi: ids.length }, 'sesi enkripsi direset');
+  return ids.length;
+}
+const PERBAIKI_SESI = /^\s*[/!.](perbaikisesi|resetsesi|perbaiki)\s*$/i;
+
 // Hitungan percobaan kirim ulang per pesan (supaya tidak berulang tanpa batas).
 const retryCache = (() => { const m = new Map(); return { get: (k) => m.get(k), set: (k, v) => { if (m.size > 5000) m.clear(); m.set(k, v); }, del: (k) => m.delete(k), flushAll: () => m.clear() }; })();
 
@@ -204,9 +219,10 @@ async function start() {
   const { state, saveCreds } = await useMultiFileAuthState(path.join(__dirname, '..', 'auth'));
   const { version } = await fetchLatestBaileysVersion();
   const blog = log.child({ module: 'baileys' }, { level: 'warn' });
+  authKeys = makeCacheableSignalKeyStore(state.keys, blog);
   sock = makeWASocket({
     version, logger: blog,
-    auth: { creds: state.creds, keys: makeCacheableSignalKeyStore(state.keys, blog) },
+    auth: { creds: state.creds, keys: authKeys },
     msgRetryCounterCache: retryCache,
     getMessage: async (key) => ambilPesan(key),
   });
@@ -292,6 +308,14 @@ async function start() {
         } catch (err) { log.error({ err }, 'gagal memproses permintaan login'); }
         continue;
       }
+      // /perbaikisesi dari chat pribadi: reset sesi enkripsi pengirim, lalu kirim pesan uji dengan sesi baru.
+      if (pribadi && PERBAIKI_SESI.test(text)) {
+        try {
+          const n = await resetSesi([chat, m.key.senderPn, m.key.remoteJidAlt, ...senderNumbers(m.key)].filter(Boolean));
+          await sock.sendMessage(chat, { text: `🔄 *Sesi chat diperbarui* (${n} sesi lama dihapus).\n\nKalau pesan ini terbaca di HP, berarti sudah normal. Pesan lama yang tertahan "Menunggu pesan ini" tidak bisa dipulihkan, tapi pesan berikutnya dari bot akan terbaca.` });
+        } catch (err) { log.error({ err }, 'gagal reset sesi'); }
+        continue;
+      }
       // Balas pesan pengingat tugas dengan "udah" → tandai kumpul.
       const ctx = m.message?.extendedTextMessage?.contextInfo;
       const quoted = ctx?.quotedMessage?.conversation || ctx?.quotedMessage?.extendedTextMessage?.text || ctx?.quotedMessage?.imageMessage?.caption;
@@ -343,6 +367,12 @@ const bot = {
   send: async (text, { gambar } = {}) => {
     if (!sock || !waConnected) throw new Error('bot belum terhubung ke WhatsApp');
     await sock.sendMessage(jidGrupAtauPribadi(), gambar && fs.existsSync(gambar) ? { image: fs.readFileSync(gambar), caption: text } : { text });
+  },
+  perbaikiSesi: async (nomor) => {
+    if (!sock || !waConnected) throw new Error('bot belum terhubung ke WhatsApp');
+    const n = await resetSesi([nomor]);
+    await sock.sendMessage(jidDari(nomor), { text: `🔄 *Sesi chat diperbarui oleh admin* (${n} sesi lama dihapus).\n\nKalau pesan ini terbaca di HP, berarti sudah normal.` });
+    return n;
   },
   laporan: async ({ kirim } = {}) => {
     if (!kirim) return { ...(await teksLaporan()), nomor: nomorLaporan(), situs: situsLaporan() };

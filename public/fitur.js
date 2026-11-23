@@ -865,7 +865,7 @@ backupCard = function () {
 
 // ================= Klik untuk fitur tambahan =================
 document.addEventListener('click', async (e) => {
-  const el = e.target.closest('[data-ubah-tujuan],[data-ganti-grup],[data-pakai-grup],[data-semester],[data-png],[data-absen],[data-absen-semua],[data-materi-del],[data-kelompok-edit],[data-bagi-acak],[data-add-tugas-on],[data-add-ujian-on],[data-add-kelas-mk],[data-add-tugas-mk],[data-add-ujian-mk],[data-pin],[data-pg-tab],[data-template],[data-gambar-hapus],[data-opsi-add],[data-opsi-del],[data-poll-del],[data-poll-muat],[data-pulih],[data-akun-massal],[data-setujui],[data-undangan],[data-tema],[data-push-tes],[data-foto-del],[data-jeda-off],[data-cal-mode],[data-cal-jenis],[data-libur-add],[data-libur-del],[data-backup-pulih],[data-filter-set],[data-laporan-kirim]');
+  const el = e.target.closest('[data-ubah-tujuan],[data-ganti-grup],[data-pakai-grup],[data-semester],[data-png],[data-absen],[data-absen-semua],[data-materi-del],[data-kelompok-edit],[data-bagi-acak],[data-add-tugas-on],[data-add-ujian-on],[data-add-kelas-mk],[data-add-tugas-mk],[data-add-ujian-mk],[data-pin],[data-pg-tab],[data-template],[data-gambar-hapus],[data-opsi-add],[data-opsi-del],[data-poll-del],[data-poll-muat],[data-pulih],[data-akun-massal],[data-setujui],[data-undangan],[data-tema],[data-push-tes],[data-foto-del],[data-jeda-off],[data-cal-mode],[data-cal-jenis],[data-libur-add],[data-libur-del],[data-backup-pulih],[data-filter-set],[data-laporan-kirim],[data-perbaiki-sesi]');
   if (!el) return;
   const d = el.dataset;
   try {
@@ -909,6 +909,11 @@ document.addEventListener('click', async (e) => {
       S.undangan = (await api('/api/undangan', { method: 'POST', body: { aktif: d.undangan !== 'off' } })).undangan; return viewAkun();
     }
     if ('tema' in d) { terapkanTema(d.tema); return viewProfil(); }
+    if ('perbaikiSesi' in d) {
+      el.disabled = true;
+      try { const r = await api('/api/status/perbaiki-sesi', { method: 'POST', body: { nomor: $('#sesiNomor').value } }); toast(`Sesi +${r.nomor} diperbarui (${r.sesi} sesi lama dihapus). Cek pesan uji di HP.`); } finally { el.disabled = false; }
+      return;
+    }
     if ('laporanKirim' in d) {
       el.disabled = true;
       try { const r = await api('/api/laporan/kirim', { method: 'POST' }); toast(`Laporan server dikirim ke +${r.nomor}.`); } finally { el.disabled = false; }

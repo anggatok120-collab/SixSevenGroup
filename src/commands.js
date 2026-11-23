@@ -35,6 +35,7 @@ const MENU = `🤖 *Bot Pengingat Kuliah*
 *Pribadi*
 /kumpul 3 – tandai tugas no. 3 sudah kamu kumpulkan (nomor WA harus terdaftar di akun web)
 Atau balas pesan pengingat tugas dengan *udah*
+/perbaikisesi – pesan bot di HP-mu tertahan "Menunggu pesan ini"? Kirim ini ke bot
 
 *Ubah (admin)*
 /selesai 3 – tandai tugas no. 3 selesai
