@@ -1214,17 +1214,18 @@ input[type="date"], input[type="time"], input[type="datetime-local"] { font-fami
 .side-toggle { width: 30px; height: 30px; margin-right: -4px; border-color: transparent; background: transparent; }
 .side-toggle:hover { background: var(--color-glass); border-color: var(--color-border); }
 
-/* Dashboard: blok praktikum di panel jadwal */
+/* Dashboard: panel jadwal dibagi dua, kuliah reguler (atas) dan praktikum (bawah) */
 .tag[data-tone="prak"] { color: var(--mk, var(--color-text-muted)); border-color: color-mix(in srgb, var(--mk, #888) 40%, transparent); }
 .tag[data-tone="prak"] i { font-size: 12px; }
-.dash-prak { display: grid; gap: 6px; margin-top: var(--space-4); padding-top: var(--space-4); border-top: 1px solid var(--color-border); }
-.dash-prak-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px; }
-.dash-prak-head > span { display: inline-flex; align-items: center; gap: 6px; font-size: var(--text-caption); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--color-text-subtle); }
-.dash-prak-head .link-btn { display: inline-flex; align-items: center; gap: 4px; font-size: var(--text-body-sm); }
-.dp-row { display: flex; align-items: center; gap: var(--space-3); width: 100%; padding: 9px var(--space-3) 9px calc(var(--space-3) + 6px); border-radius: var(--radius-control); border: 1px solid var(--color-border); background: var(--color-glass); color: var(--color-text); font: inherit; text-align: left; cursor: pointer; transition: background 140ms ease-out, border-color 140ms ease-out; }
-.dp-row:hover { background: rgb(var(--fg-rgb) / .07); border-color: var(--color-border-strong); }
-.dp-row > i { font-size: 17px; color: var(--mk, var(--color-text-muted)); flex: none; }
-.dp-row .grow { flex: 1; min-width: 0; display: grid; }
-.dp-row b { font-weight: 600; font-size: var(--text-body-sm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.dp-row small { color: var(--color-text-muted); font-size: var(--text-caption); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.dp-row .tag, .dp-row .badge { flex: none; }
+.dash-sub { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); margin: 0 0 8px; }
+.dash-sub > span { display: inline-flex; align-items: center; gap: 6px; font-size: var(--text-caption); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--color-text-subtle); }
+.dash-sub > span i { font-size: 14px; }
+.dash-sub > small { font-size: var(--text-caption); color: var(--color-text-subtle); }
+.dash-sub-prak { margin-top: var(--space-4); padding-top: var(--space-4); border-top: 1px solid var(--color-border); }
+.dash-sub .link-btn { display: inline-flex; align-items: center; gap: 4px; font-size: var(--text-caption); }
+.dash-prak-kosong { margin: 0; padding: 10px var(--space-3); border-radius: var(--radius-control); border: 1px dashed var(--color-border); color: var(--color-text-muted); font-size: var(--text-body-sm); }
+.dash-prak-kosong .link-btn { font-size: inherit; }
+.dash-sub { margin: 0; }
+.dash-sub + .sessions, .dash-sub + .dash-prak-kosong, .dash-sub + .panel-empty { margin-top: calc(var(--space-2) - var(--space-4)); }
+.dash-sub-prak { margin-top: var(--space-1); }
+.panel:has(.dash-sub-prak) .week { padding-top: var(--space-2); }
