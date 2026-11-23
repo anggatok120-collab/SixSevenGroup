@@ -236,18 +236,22 @@ function handle(db, text, { isAdmin = false, chatJid = '', now = Date.now(), web
  */
 function handleBalasan(db, text, quoted, akun) {
   if (!/^\s*(udah|sudah|udh|sdh|done|beres|kumpul|sudah kumpul|udah kumpul)\b/i.test(text || '') || !quoted) return null;
-  const bersih = quoted.replace(/\*/g, '');
-  const mp = /\/kumpul P(\d+)/i.exec(bersih) || /\(#P(\d+)\)/.exec(quoted);
-  if (mp) {
-    if (!akun) return 'Nomor WhatsApp ini belum terhubung ke akun web, jadi belum bisa ditandai. Minta admin menambahkan nomormu.';
-    const pt = db.prakTugasById(Number(mp[1])); if (!pt) return null;
+  const bersih = quoted.replace(/[*_]/g, '').replace(/contoh \/kumpul P? ?\d+/gi, ''); // abaikan contoh di kalimat penutup
+  // Kumpulkan semua nomor tugas di pesan yang dibalas: "(no. 5)", "(no. P3)", "/kumpul 5", format lama "(#5)" dan "[5]".
+  const ids = new Set();
+  for (const m of bersih.matchAll(/\((?:#|no\. ?)(P?)(\d+)\)/gi)) ids.add(`${m[1].toUpperCase()}${m[2]}`);
+  for (const m of bersih.matchAll(/\/kumpul (P?) ?(\d+)/gi)) ids.add(`${m[1].toUpperCase()}${m[2]}`);
+  for (const m of bersih.matchAll(/\[(\d+)\]/g)) ids.add(m[1]);
+  if (!ids.size) return null;
+  if (ids.size > 1) return 'Pesan itu berisi beberapa tugas. Balas dengan */kumpul nomor*, misalnya */kumpul 5* (nomornya ada di tanda _(no. …)_ tiap tugas).';
+  if (!akun) return 'Nomor WhatsApp ini belum terhubung ke akun web, jadi belum bisa ditandai. Minta admin menambahkan nomormu.';
+  const [id] = ids;
+  if (id.startsWith('P')) {
+    const pt = db.prakTugasById(Number(id.slice(1))); if (!pt) return null;
     db.setPrakKumpul(pt.id, akun.id, true);
     return `✅ Sip, tugas praktikum *${pt.praktikum}: ${pt.jenis} ${pt.judul}* ditandai sudah kamu kumpulkan.`;
   }
-  const m = /\/kumpul ?(\d+)/.exec(bersih) || /\(#(\d+)\)/.exec(quoted) || /\[(\d+)\]/.exec(quoted);
-  if (!m) return null;
-  if (!akun) return 'Nomor WhatsApp ini belum terhubung ke akun web, jadi belum bisa ditandai. Minta admin menambahkan nomormu.';
-  const tg = db.tugasById(Number(m[1]));
+  const tg = db.tugasById(Number(id));
   if (!tg) return null;
   db.setKumpul(tg.id, akun.id, true);
   return `✅ Sip, *${tg.matkul}: ${tg.judul}* ditandai sudah kamu kumpulkan.`;

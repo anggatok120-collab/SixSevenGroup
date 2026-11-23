@@ -845,7 +845,7 @@ function viewPengingat() {
       <label class="switch" title="Aktif/nonaktif"><input type="checkbox" name="${pl.id}.on" ${p[pl.id].on ? 'checked' : ''}><span></span></label></div>
     <div class="plan-body">${body[pl.id]}${pl.preview ? `<button type="button" class="btn btn-secondary btn-sm" data-send="${pl.preview}"><i class="ph ph-paper-plane-tilt"></i>Kirim sekarang</button>` : ''}</div>
   </div>`).join('');
-  const tabs = [['pagi', 'Hari ini'], ['besok', 'Besok'], ['tugas', 'Tugas'], ['ujian', 'Ujian'], ['praktikum', 'Praktikum'], ['mingguan', 'Mingguan'], ['pribadi', 'Pribadi']];
+  const tabs = [['pagi', 'Hari ini'], ['besok', 'Besok'], ['tugas', 'Tugas'], ['ujian', 'Ujian'], ['praktikum', 'Praktikum'], ['mingguan', 'Mingguan'], ['pribadi', 'Pribadi'], ['laporan', 'Server']];
   const jedaAktif = p.jeda?.sampai && p.jeda.sampai >= ymdOf(now());
   const ekstra = `<div class="plan" data-tone="${jedaAktif ? 'warning' : ''}">
       <div class="plan-head"><i class="ph-duotone ph-pause-circle ic"></i><div class="grow"><b>Mode libur</b><small>${jedaAktif ? `Semua pengingat otomatis berhenti sampai ${tgl(msOfYmd(p.jeda.sampai))}. Pengumuman terjadwal tetap dikirim.` : 'Hentikan semua pengingat otomatis sementara, misalnya saat libur semester.'}</small></div></div>
@@ -853,7 +853,17 @@ function viewPengingat() {
     <div class="plan">
       <div class="plan-head"><i class="ph-duotone ph-moon ic"></i><div class="grow"><b>Jam tenang</b><small>Tidak ada pesan otomatis di jam ini. Pengingat yang jatuh di jam tenang dikirim begitu jam tenang selesai.</small></div>
         <label class="switch" title="Aktif/nonaktif"><input type="checkbox" name="tenang.on" ${p.tenang?.on ? 'checked' : ''}><span></span></label></div>
-      <div class="plan-body"><label class="inline-field">Dari <input type="time" name="tenang.dari" value="${p.tenang?.dari || '22:00'}"></label><label class="inline-field">sampai <input type="time" name="tenang.sampai" value="${p.tenang?.sampai || '05:00'}"></label></div></div>`;
+      <div class="plan-body"><label class="inline-field">Dari <input type="time" name="tenang.dari" value="${p.tenang?.dari || '22:00'}"></label><label class="inline-field">sampai <input type="time" name="tenang.sampai" value="${p.tenang?.sampai || '05:00'}"></label></div></div>
+    ${(() => { const L = p.laporan || {}; const D = S.pengingat.laporanDefault || {}; return `<div class="plan plan-lebar">
+      <div class="plan-head"><i class="ph-duotone ph-hard-drives ic"></i><div class="grow"><b>Laporan server harian</b><small>Kondisi VPS (CPU, RAM, disk), semua aplikasi pm2 (bot ini, portofolio, dll.), situs + SSL, dan kesehatan bot. <b>Hanya dikirim ke nomor admin</b>, tidak ke grup, dan tetap jalan saat jam tenang.</small></div>
+        <label class="switch" title="Aktif/nonaktif"><input type="checkbox" name="laporan.on" ${L.on ? 'checked' : ''}><span></span></label></div>
+      <div class="plan-body laporan-body">
+        <label class="inline-field">Jam <input type="time" name="laporan.jam" value="${L.jam || '00:00'}"> WIB</label>
+        <label class="inline-field">Ke nomor <input type="tel" name="laporan.nomor" value="${esc(L.nomor || '')}" placeholder="${esc(D.nomor ? '+' + D.nomor : '62812…')}" inputmode="numeric"></label>
+        <label class="field laporan-situs"><span>Situs yang dicek <small class="muted">(satu per baris, mis. web portofolio)</small></span><textarea name="laporan.situs" rows="2" placeholder="${esc((D.situs || []).join('\n') || 'https://iwak67gacor.web.id')}">${esc((L.situs || []).join('\n'))}</textarea></label>
+        <div class="laporan-aksi"><button type="button" class="btn btn-secondary btn-sm" data-ptab="laporan"><i class="ph ph-eye"></i>Lihat laporan</button><button type="button" class="btn btn-secondary btn-sm" data-laporan-kirim><i class="ph ph-paper-plane-tilt"></i>Kirim sekarang ke nomorku</button></div>
+        <small class="muted">Nomor kosong = ${D.nomor ? `+${esc(D.nomor)} (nomor admin)` : 'nomor WA akun admin'}. Situs kosong = ${esc((D.situs || []).join(', ') || 'alamat web ini (WEB_URL)')}.</small>
+      </div></div>`; })()}`;
   const n = now();
   $('#content').innerHTML = `
     ${pageHead('bell', 'Pusat pengingat', 'Atur kapan bot WhatsApp mengirim pengingat ke grup kelas. Pratinjau pesan ada di sebelah kanan.', [[PLANS.filter((pl) => p[pl.id].on).length + ' / ' + PLANS.length, 'Jenis aktif']])}<div class="split">
@@ -864,8 +874,8 @@ function viewPengingat() {
     <div class="stack">
       <div class="card"><div class="card-head"><h2><i class="ph ph-eye"></i>Pratinjau pesan</h2></div>
         <div class="segmented" style="margin-bottom:12px">${tabs.map(([k, l]) => `<button class="${previewTab === k ? 'on' : ''}" data-ptab="${k}">${l}</button>`).join('')}</div>
-        <div class="phone"><div class="phone-head"><span class="avatar"><i class="ph-fill ph-users-three"></i></span><div><b>Grup kelas</b><small>Bot Pengingat Kuliah</small></div></div>
-          <div class="chat"><span class="date-chip">${tgl(n)}</span><div class="bubble"><pre>${waFormat(S.pengingat.preview[previewTab] || '')}</pre><small>${hm(n)}</small></div></div></div>
+        <div class="phone"><div class="phone-head"><span class="avatar"><i class="ph-fill ph-${['laporan', 'pribadi'].includes(previewTab) ? 'user' : 'users-three'}"></i></span><div><b>${previewTab === 'laporan' ? 'Chat pribadi admin' : previewTab === 'pribadi' ? 'Chat pribadi anggota' : 'Grup kelas'}</b><small>Bot Pengingat Kuliah</small></div></div>
+          <div class="chat"><span class="date-chip">${tgl(n)}</span><div class="bubble"><pre>${waFormat(previewTab === 'laporan' ? (S.laporanTeks || 'Menyiapkan laporan server…') : S.pengingat.preview[previewTab] || '')}</pre><small>${hm(n)}</small></div></div></div>
         <p class="note-line"><i class="ph ph-info"></i><span>Pengingat pagi dan H-1 dilewati kalau tidak ada kelas, tugas, ujian, atau praktikum. Semua waktu dalam WIB.</span></p>
       </div>
     </div></div>`;
@@ -880,6 +890,7 @@ function viewPengingat() {
     out.praktikum.menit = Number(fd.get('praktikum.menit')); out.praktikum.tugas = fd.getAll('praktikum.tugas').map(Number);
     out.tenang = { on: fd.has('tenang.on'), dari: fd.get('tenang.dari'), sampai: fd.get('tenang.sampai') };
     out.jeda = { sampai: fd.get('jeda.sampai') || null };
+    out.laporan = { on: fd.has('laporan.on'), jam: fd.get('laporan.jam'), nomor: fd.get('laporan.nomor'), situs: String(fd.get('laporan.situs') || '').split('\n') };
     const btn = $('#pSave'); btn.disabled = true; btn.lastChild.textContent = 'Menyimpan…';
     const auto = S.pAuto; S.pAuto = false;
     try {
@@ -895,7 +906,7 @@ function viewPengingat() {
 async function loadStatus() {
   try { const first = !S.status; const [st, bk] = await Promise.all([api('/api/status'), api('/api/backup').catch(() => null)]); S.status = st; S.backup = bk; if (S.view === 'status') (first ? enterAnim : (f) => f())(viewStatus); } catch (e) { toast(e.message, 'error'); }
 }
-const LOG_MODE = { pagi: 'Ringkasan pagi', besok: 'Persiapan besok', kelas: 'Kelas dimulai', tugas: 'Tenggat tugas', ujian: 'Ujian', tes: 'Pesan percobaan', pribadi: 'Pengingat pribadi', pengumuman: 'Pengumuman', mingguan: 'Rekap mingguan', polling: 'Polling', praktikum: 'Praktikum' };
+const LOG_MODE = { pagi: 'Ringkasan pagi', besok: 'Persiapan besok', kelas: 'Kelas dimulai', tugas: 'Tenggat tugas', ujian: 'Ujian', tes: 'Pesan percobaan', pribadi: 'Pengingat pribadi', pengumuman: 'Pengumuman', mingguan: 'Rekap mingguan', polling: 'Polling', praktikum: 'Praktikum', laporan: 'Laporan server' };
 function viewStatus() {
   const s = S.status;
   if (!s) { $('#content').innerHTML = '<div class="card muted">Memeriksa bot…</div>'; return; }
@@ -1224,7 +1235,11 @@ document.addEventListener('click', async (e) => {
   if ('day' in d) return openDay(Number(d.day));
   if ('pickDay' in d) { S.dashDay = Number(d.pickDay); S.dashScope = 'day'; return viewDashboard(); }
   if ('scope' in d) { S.dashScope = d.scope; S.dashDay = null; return viewDashboard(); }
-  if ('ptab' in d) { previewTab = d.ptab; return viewPengingat(); }
+  if ('ptab' in d) {
+    previewTab = d.ptab; viewPengingat();
+    if (d.ptab === 'laporan') { S.laporanTeks = null; try { S.laporanTeks = (await api('/api/laporan')).text; } catch (err) { S.laporanTeks = `⚠️ ${err.message}`; } if (S.view === 'pengingat' && previewTab === 'laporan') viewPengingat(); }
+    return;
+  }
   if ('backupNow' in d) { el.disabled = true; try { S.backup = await api('/api/backup', { method: 'POST' }); toast('Backup database dibuat.'); viewStatus(); } catch (err) { toast(err.message, 'error'); el.disabled = false; } return; }
   if ('backupDl' in d) { try { await downloadBackup(d.backupDl); } catch (err) { toast(err.message, 'error'); } return; }
   if ('reloadStatus' in d) { S.status = null; viewStatus(); return loadStatus(); }

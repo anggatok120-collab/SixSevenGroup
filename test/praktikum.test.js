@@ -30,7 +30,7 @@ test('pesan WA: praktikum masuk ringkasan pagi, besok, mingguan, dan /praktikum'
   const db = openDb(':memory:'); const { t } = isi(db);
   const pagi = pesanHariIni(db, at('2026-11-24 06:00')).text;
   assert.match(pagi, /🧪 \*Praktikum hari ini\* · 1\n▸ \*Praktikum Kimia\* — Modul 1: Titrasi\n {4}🕗 13\.00–15\.00 · 🧪 Lab Kimia 2\n {4}👤 Asisten: Kak Rina/);
-  assert.match(pagi, new RegExp(`Laporan: Laporan Modul 1 _\\(#P${t}\\)_`));
+  assert.match(pagi, new RegExp(`Laporan: Laporan Modul 1 _\\(no\\. P${t}\\)_`));
   assert.match(pagi, /Balas \*\/kumpul P nomor\*/);
   assert.match(pesanBesok(db, at('2026-11-23 20:00')).text, /Praktikum besok[\s\S]*jas lab/);
   assert.equal(pesanHariIni(db, at('2026-11-21 06:00')).kosong, true); // tugas belum ≤3 hari, sesi bukan hari ini
