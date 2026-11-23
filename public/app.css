@@ -1190,14 +1190,15 @@ input[type="date"], input[type="time"], input[type="datetime-local"] { font-fami
 .brand-text { display: flex; flex-direction: column; line-height: 1.2; min-width: 0; flex: 1; margin-left: var(--space-1); }
 .brand-text strong { font-size: var(--text-body-md); font-weight: 600; white-space: nowrap; }
 .brand-text small { font-size: var(--text-caption); color: var(--color-text-subtle); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.side-toggle { flex: none; width: 34px; height: 34px; color: var(--color-text-muted); }
+.side-toggle { flex: none; color: var(--color-text-muted); }
 .side-toggle:hover { color: var(--color-text); }
+.topbar .side-toggle { margin-right: var(--space-1); }
 @media (min-width: 1024px) {
   .shell { transition: grid-template-columns 200ms ease-out; }
   .shell.ringkas { --shell-sidebar: 76px; }
   .shell.ringkas .sidebar { padding-left: 12px; padding-right: 12px; overflow-x: hidden; }
   .shell.ringkas .brand { justify-content: center; padding: 0; }
-  .shell.ringkas .brand-text, .shell.ringkas .side-toggle, .shell.ringkas .nav button span, .shell.ringkas .who, .shell.ringkas #logoutBtn, .shell.ringkas #botText { display: none; }
+  .shell.ringkas .brand-text, .shell.ringkas .nav button span, .shell.ringkas .who, .shell.ringkas #logoutBtn, .shell.ringkas #botText { display: none; }
   .shell.ringkas .brand-btn:hover .brand-buka, .shell.ringkas .brand-btn:focus-visible .brand-buka { opacity: 1; }
   .shell.ringkas .nav-title { height: 1px; padding: 0; margin: var(--space-2) 8px; overflow: hidden; color: transparent; background: var(--shell-border); }
   .shell.ringkas .nav-group:first-child .nav-title { display: none; }
@@ -1211,8 +1212,6 @@ input[type="date"], input[type="time"], input[type="datetime-local"] { font-fami
 @media (max-width: 1023px) { .side-toggle { display: none; } }
 .brand { padding: 0 0 0 var(--space-2); }
 .brand-text { margin-left: 2px; }
-.side-toggle { width: 30px; height: 30px; margin-right: -4px; border-color: transparent; background: transparent; }
-.side-toggle:hover { background: var(--color-glass); border-color: var(--color-border); }
 
 /* Dashboard: panel jadwal dibagi dua, kuliah reguler (atas) dan praktikum (bawah) */
 .tag[data-tone="prak"] { color: var(--mk, var(--color-text-muted)); border-color: color-mix(in srgb, var(--mk, #888) 40%, transparent); }
@@ -1229,3 +1228,21 @@ input[type="date"], input[type="time"], input[type="datetime-local"] { font-fami
 .dash-sub + .sessions, .dash-sub + .dash-prak-kosong, .dash-sub + .panel-empty { margin-top: calc(var(--space-2) - var(--space-4)); }
 .dash-sub-prak { margin-top: var(--space-1); }
 .panel:has(.dash-sub-prak) .week { padding-top: var(--space-2); }
+/* Dashboard: kolom kanan (tumpukan panel) ikut setinggi kolom kiri */
+.dash-grid > .stack > .panel:last-child { flex: 1 1 auto; }
+.dash-grid > .stack > .panel:last-child > .panel-foot:last-child { margin-top: auto; }
+.fk .fk-tag { display: inline-block; margin-left: 6px; padding: 0 7px; border-radius: var(--radius-pill); border: 1px solid color-mix(in srgb, var(--mk, #888) 40%, transparent); color: var(--mk, var(--color-text-muted)); font-size: 10.5px; font-style: normal; font-weight: 600; vertical-align: 1px; }
+.fk[data-pr-sesi] > i, .fk[data-pr-tugas] > i { color: var(--mk, var(--color-text-muted)); }
+.fk[data-pr-sesi], .fk[data-pr-tugas] { cursor: pointer; }
+.fk[data-pr-sesi]:hover, .fk[data-pr-tugas]:hover { background: var(--color-glass-strong); }
+/* Layar lebar: isi halaman lebih lebar supaya tidak menyisakan celah besar di kiri-kanan */
+@media (min-width: 1600px) {
+  .content { max-width: 1480px; }
+  .topbar { padding-left: max(var(--space-7), calc((100% - 1480px) / 2 + var(--space-7))); padding-right: max(var(--space-7), calc((100% - 1480px) / 2 + var(--space-7))); }
+}
+.prog-list { display: grid; gap: var(--space-4); }
+.prog-list .progress small { color: var(--color-text-subtle); }
+.prog-pekan { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-2); }
+.prog-pekan div { display: grid; gap: 2px; padding: 10px var(--space-3); border-radius: var(--radius-control); background: var(--color-glass); border: 1px solid var(--color-border); }
+.prog-pekan b { font-size: var(--text-heading-sm); font-variant-numeric: tabular-nums; }
+.prog-pekan span { font-size: var(--text-caption); color: var(--color-text-subtle); }

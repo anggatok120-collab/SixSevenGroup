@@ -135,9 +135,13 @@ function dashEkstra() {
   const fokus = [
     libur ? `<li class="fk" data-tone="info"><i class="ph ph-umbrella-simple"></i><span><b>Libur: ${esc(libur)}</b><small>Tidak ada kelas rutin hari ini</small></span></li>` : '',
     ...kelas.filter((k) => k.batal && !k.libur).map((k) => `<li class="fk" data-tone="danger" ${detailAttr(k)}><i class="ph ph-x-circle"></i><span><b>${esc(k.matkul)} batal</b><small>${k.mulai}${k.alasan ? ' · ' + esc(k.alasan) : ''}</small></span></li>`),
-    ...sisaKelas.map((k) => `<li class="fk" style="${mkVar(k.matkul)}" ${detailAttr(k)}><i class="ph ph-chalkboard-teacher"></i><span><b>${esc(k.matkul)}${k.pengganti ? ' (pengganti)' : ''}</b><small>${k.mulai}${k.selesai ? '–' + k.selesai : ''}${k.ruang ? ' · ' + esc(k.ruang) : ''}</small></span><time>${k.mulai.replace(':', '.')}</time></li>`),
+    ...[...sisaKelas.map((k) => ({ at: atToday(sod, k.mulai), html: `<li class="fk" style="${mkVar(k.matkul)}" ${detailAttr(k)}><i class="ph ph-chalkboard-teacher"></i><span><b>${esc(k.matkul)}${k.pengganti ? ' (pengganti)' : ''}</b><small>${k.mulai}${k.selesai ? '–' + k.selesai : ''}${k.ruang ? ' · ' + esc(k.ruang) : ''}</small></span><time>${k.mulai.replace(':', '.')}</time></li>` })),
+      ...(S.data.prak?.sesi || []).filter((x) => x.tanggal === ymdOf(n) && atToday(sod, x.selesai || x.mulai) > n).map((x) => ({ at: atToday(sod, x.mulai),
+        html: `<li class="fk" style="${typeof prVar === 'function' ? prVar(x.praktikum_id) : ''}" data-pr-sesi="${x.id}"><i class="ph ph-flask"></i><span><b>${esc(x.praktikum)} <em class="fk-tag">Praktikum</em></b><small>${x.mulai}${x.selesai ? '–' + x.selesai : ''} · ${esc(x.judul)}</small></span><time>${x.mulai.replace(':', '.')}</time></li>` }))]
+      .sort((a, b) => a.at - b.at).map((x) => x.html),
     ...telat.slice(0, 3).map((t) => `<li class="fk" data-tone="danger" data-detail="tugas" data-id="${t.id}"><i class="ph ph-warning"></i><span><b>${esc(t.judul)}</b><small>${esc(t.matkul)} · lewat tenggat, belum kamu tandai kumpul</small></span></li>`),
     ...mendesak.map((t) => `<li class="fk" data-tone="warning" style="${mkVar(t.matkul)}" data-detail="tugas" data-id="${t.id}"><i class="ph ph-hourglass-medium"></i><span><b>${esc(t.judul)}</b><small>${esc(t.matkul)} · tenggat ${relDay(t.ms)}</small></span><time>${fmtCountdown(t.ms - n).split(' ').slice(0, 2).join(' ')}</time></li>`),
+    ...(S.data.prak?.tugas || []).filter((t) => !t.selesai && !t.kumpulSaya && t.ms - n <= 36 * 36e5).map((t) => `<li class="fk" data-tone="${t.ms <= n ? 'danger' : 'warning'}" style="${typeof prVar === 'function' ? prVar(t.praktikum_id) : ''}" data-pr-tugas="${t.id}"><i class="ph ph-${t.ms <= n ? 'warning' : 'flask'}"></i><span><b>${esc(t.jenis)}: ${esc(t.judul)}</b><small>${esc(t.praktikum)} · ${t.ms <= n ? 'lewat tenggat, belum kamu tandai kumpul' : `tenggat ${relDay(t.ms)}`}</small></span></li>`),
     ...ujianDekat.map((u) => `<li class="fk" data-tone="warning" style="${mkVar(u.matkul)}" data-detail="ujian" data-id="${u.id}"><i class="ph ph-exam"></i><span><b>${esc(u.jenis)} ${esc(u.matkul)}</b><small>${relDay(u.ms)}${u.ruang ? ' · ' + esc(u.ruang) : ''}${u.bawa ? ' · bawa ' + esc(u.bawa) : ''}</small></span></li>`),
   ].filter(Boolean);
 
@@ -167,7 +171,16 @@ function dashEkstra() {
       ${fokus.length ? `<ul class="fokus">${fokus.join('')}</ul>` : panelEmpty('confetti', 'Aman untuk hari ini', 'Tidak ada kelas tersisa, tenggat dekat, atau ujian dalam 3 hari.')}</div>
     <div class="stack">
       <div class="panel"><div class="panel-head"><div><h2>Progres kamu</h2><span>Tugas aktif yang sudah kamu kumpulkan</span></div></div>
+        <div class="prog-list">
         <div class="progress"><div><span>${total ? `${sudah} dari ${total} tugas` : 'Belum ada tugas aktif'}</span><strong>${pct}%</strong></div><div class="bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100" aria-label="Progres tugas kamu"><i style="width:${pct}%"></i></div></div>
+        ${(() => { const pt = (S.data.prak?.tugas || []).filter((t) => !t.selesai); if (!S.data.prak?.daftar?.length) return ''; const ps = pt.filter((t) => t.kumpulSaya).length; const pp = pt.length ? Math.round(ps / pt.length * 100) : 100;
+          return `<div class="progress"><div><span>${pt.length ? `${ps} dari ${pt.length} tugas praktikum` : 'Tidak ada tugas praktikum aktif'}</span><strong>${pp}%</strong></div><div class="bar" role="progressbar" aria-valuenow="${pp}" aria-valuemin="0" aria-valuemax="100" aria-label="Progres tugas praktikum"><i style="width:${pp}%"></i></div></div>`; })()}
+        ${(() => { const off = (tn.dow + 6) % 7; const awal = sod - off * DAY; const hari = Array.from({ length: 7 }, (_, i) => awal + i * DAY).filter((d) => d >= sod);
+          const kls = hari.reduce((a, d) => a + kelasPada(d).filter((k) => !k.batal && atToday(d, k.mulai) > n).length, 0);
+          const prk = (S.data.prak?.sesi || []).filter((x) => { const m = atToday(msOfYmd(x.tanggal), x.mulai); return m > n && m < awal + 7 * DAY; }).length;
+          const tgt = S.data.tugas.filter((t) => !t.selesai && t.ms > n && t.ms < awal + 7 * DAY).length + (S.data.prak?.tugas || []).filter((t) => !t.selesai && t.ms > n && t.ms < awal + 7 * DAY).length;
+          return `<div class="prog-pekan" aria-label="Sisa pekan ini"><div><b>${kls}</b><span>kelas lagi</span></div><div><b>${prk}</b><span>praktikum</span></div><div><b>${tgt}</b><span>tenggat</span></div></div>`; })()}
+        </div>
         ${belum ? `<button class="ghost-btn panel-foot" data-view="tugas" data-filter-set="belum">${belum} tugas belum kamu kumpulkan<i class="ph ph-arrow-right"></i></button>` : ''}</div>
       ${depan}
     </div>
