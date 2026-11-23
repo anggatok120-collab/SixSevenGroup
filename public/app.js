@@ -927,7 +927,10 @@ function viewStatus() {
         <div class="rows">${s.log.length ? s.log.map((l) => `<div class="row"><div class="grow"><div class="title">${LOG_MODE[l.mode] || esc(l.mode)}</div><div class="sub">${tgl(l.at)} · ${hm(l.at)}${l.detail ? ` · ${esc(l.detail)}` : ''}</div></div>${badge(l.status === 'terkirim' ? ['b-done', 'Terkirim'] : ['b-urgent', 'Gagal'])}</div>`).join('') : empty('tray', 'Belum ada riwayat', 'Pesan yang dikirim bot akan tercatat di sini.')}</div></div>
       <div class="card"><div class="card-head"><h2><i class="ph ph-flask"></i>Kirim pesan percobaan</h2></div>
         <p class="muted" style="margin:0 0 14px;font-size:13px">Kirim satu pesan uji ke grup untuk memastikan bot bisa mengirim.</p>
-        <button class="btn btn-primary" data-test-send ${s.wa && s.grupJid ? '' : 'disabled'}><i class="ph ph-paper-plane-tilt"></i>Kirim tes ke grup</button></div>
+        <button class="btn btn-primary" data-test-send ${s.wa && s.grupJid ? '' : 'disabled'}><i class="ph ph-paper-plane-tilt"></i>Kirim tes ke grup</button>
+        <div class="sesi-box"><b>Pesan bot di HP tertahan "Menunggu pesan ini"?</b>
+          <p class="muted">Biasanya sesi enkripsi di satu perangkat rusak (di WA laptop normal, di HP tidak). Perbarui sesinya, lalu bot mengirim pesan uji. Bisa juga dengan mengirim <b>/perbaikisesi</b> ke bot dari HP itu.</p>
+          <div class="sesi-row"><label class="inline-field sesi-in">Nomor <input type="tel" id="sesiNomor" inputmode="numeric" placeholder="62812…" value="${esc(s.tujuan?.nomor || '')}"></label><button class="btn btn-secondary btn-sm" data-perbaiki-sesi ${s.wa ? '' : 'disabled'}><i class="ph ph-arrows-clockwise"></i>Perbarui sesi</button></div></div></div>
     </div>
     ${backupCard()}`;
 }

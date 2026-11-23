@@ -688,6 +688,13 @@ function createWeb(db, { password, cfg, bot: botIn = noBot, secret, backupDir = 
     if (!bot.laporan) return bad(res, 'Laporan server hanya tersedia saat bot berjalan');
     try { res.json(await bot.laporan()); } catch (err) { res.status(500).json({ error: err.message }); }
   });
+  app.post('/api/status/perbaiki-sesi', admin, async (req, res) => {
+    const nomor = String(req.body?.nomor || '').replace(/\D/g, '').replace(/^0/, '62');
+    if (!/^\d{9,15}$/.test(nomor)) return bad(res, 'Nomor WA tidak valid');
+    if (!bot.perbaikiSesi) return bad(res, 'Hanya tersedia saat bot berjalan');
+    try { const n = await bot.perbaikiSesi(nomor); catat(req, 'ubah', 'bot', `Sesi chat +${nomor} diperbarui`); res.json({ ok: true, sesi: n, nomor }); }
+    catch (err) { res.status(502).json({ error: err.message }); }
+  });
   app.post('/api/laporan/kirim', admin, async (req, res) => {
     if (!bot.laporan) return bad(res, 'Laporan server hanya tersedia saat bot berjalan');
     try { res.json(await bot.laporan({ kirim: true })); } catch (err) { db.addLog('laporan', 'gagal', err.message); res.status(502).json({ error: `Gagal mengirim: ${err.message}` }); }

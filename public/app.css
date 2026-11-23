@@ -1255,3 +1255,7 @@ input[type="date"], input[type="time"], input[type="datetime-local"] { font-fami
 .laporan-aksi { display: flex; gap: var(--space-2); flex-wrap: wrap; }
 .laporan-body > small { flex-basis: 100%; }
 .plan-head small b { display: inline; font-weight: 600; color: var(--color-text); }
+.sesi-box { display: grid; gap: 6px; margin-top: var(--space-4); padding-top: var(--space-4); border-top: 1px solid var(--color-border); font-size: var(--text-body-sm); }
+.sesi-box p { margin: 0; font-size: 12.5px; }
+.sesi-row { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-top: 4px; }
+.sesi-in { flex: 1 1 200px; min-width: 0; } .sesi-in input { flex: 1; min-width: 0; }
