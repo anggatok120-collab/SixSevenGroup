@@ -50,9 +50,9 @@ function kelasLine(k) {
   return baris.join('\n');
 }
 
-/** Blok satu tugas. Nomor (#id) dipakai untuk /kumpul. */
+/** Blok satu tugas. "no. 5" = nomor tugas, dipakai untuk membalas /kumpul 5. */
 function tugasLine(t, now) {
-  const baris = [`▸ *${t.matkul}* — ${t.judul}${t.kelompok ? ' 👥' : ''} _(#${t.id})_`, `${IND}⏰ ${waktu(t.deadline)} · ${sisaTampil(t.deadline - now)}`];
+  const baris = [`▸ *${t.matkul}* — ${t.judul}${t.kelompok ? ' 👥' : ''} _(no. ${t.id})_`, `${IND}⏰ ${waktu(t.deadline)} · ${sisaTampil(t.deadline - now)}`];
   if (t.link) baris.push(`${IND}📤 ${t.link}`);
   return baris.join('\n');
 }
@@ -73,9 +73,9 @@ function prakSesiLine(s) {
   if (s.catatan) baris.push(`${IND}📝 ${s.catatan}`);
   return baris.join('\n');
 }
-/** Blok satu tugas praktikum. Nomor (#P3) dipakai untuk /kumpul P3. */
+/** Blok satu tugas praktikum. "no. P3" dipakai untuk /kumpul P3. */
 function prakTugasLine(t, now) {
-  const baris = [`▸ *${t.praktikum}* — ${t.jenis}: ${t.judul} _(#P${t.id})_`, `${IND}⏰ ${waktu(t.deadline)} · ${sisaTampil(t.deadline - now)}`];
+  const baris = [`▸ *${t.praktikum}* — ${t.jenis}: ${t.judul} _(no. P${t.id})_`, `${IND}⏰ ${waktu(t.deadline)} · ${sisaTampil(t.deadline - now)}`];
   if (t.link) baris.push(`${IND}📤 ${t.link}`);
   return baris.join('\n');
 }

@@ -1246,3 +1246,12 @@ input[type="date"], input[type="time"], input[type="datetime-local"] { font-fami
 .prog-pekan div { display: grid; gap: 2px; padding: 10px var(--space-3); border-radius: var(--radius-control); background: var(--color-glass); border: 1px solid var(--color-border); }
 .prog-pekan b { font-size: var(--text-heading-sm); font-variant-numeric: tabular-nums; }
 .prog-pekan span { font-size: var(--text-caption); color: var(--color-text-subtle); }
+/* Pengingat: kartu laporan server selebar grid */
+.split-pengingat #pForm > .rows > .plan-lebar { grid-column: 1 / -1; }
+.laporan-body { align-items: center; }
+.laporan-body .laporan-situs { flex: 1 1 100%; margin: 0; }
+.laporan-body .laporan-situs textarea { font-family: var(--font-mono); font-size: 13px; }
+.laporan-body input[type=tel] { width: 170px; }
+.laporan-aksi { display: flex; gap: var(--space-2); flex-wrap: wrap; }
+.laporan-body > small { flex-basis: 100%; }
+.plan-head small b { display: inline; font-weight: 600; color: var(--color-text); }

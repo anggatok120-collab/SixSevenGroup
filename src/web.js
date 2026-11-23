@@ -679,7 +679,18 @@ function createWeb(db, { password, cfg, bot: botIn = noBot, secret, backupDir = 
     const t0 = db.tugasAktif().find((x) => x.deadline > now);
     preview.pribadi = t0 ? `👋 Halo ${req.user.nama}, tugas ini belum kamu tandai sudah dikumpulkan (H-1):\n• [${t0.id}] *${t0.matkul}*: ${t0.judul}\n   ⏰ ${pretty(t0.deadline)}${t0.link ? `\n   📤 Kumpul di: ${t0.link}` : ''}\n\nSudah kumpul? Balas */kumpul ${t0.id}* atau centang di web.`
       : 'Belum ada tugas aktif untuk contoh pengingat pribadi.';
-    res.json({ pengaturan: getSettings(db, cfg), preview });
+    const tj = db.getSetting('tujuan') || {};
+    const laporanDefault = { nomor: tj.nomor || db.adminWa()[0]?.wa || cfg.admins?.[0] || null, situs: [process.env.WEB_URL].filter(Boolean) };
+    res.json({ pengaturan: getSettings(db, cfg), preview, laporanDefault });
+  });
+  // Laporan server harian (khusus admin, dikirim ke nomor admin saja).
+  app.get('/api/laporan', admin, async (req, res) => {
+    if (!bot.laporan) return bad(res, 'Laporan server hanya tersedia saat bot berjalan');
+    try { res.json(await bot.laporan()); } catch (err) { res.status(500).json({ error: err.message }); }
+  });
+  app.post('/api/laporan/kirim', admin, async (req, res) => {
+    if (!bot.laporan) return bad(res, 'Laporan server hanya tersedia saat bot berjalan');
+    try { res.json(await bot.laporan({ kirim: true })); } catch (err) { db.addLog('laporan', 'gagal', err.message); res.status(502).json({ error: `Gagal mengirim: ${err.message}` }); }
   });
   app.put('/api/pengingat', admin, (req, res) => {
     const r = validate(req.body || {}, cfg); if (r.error) return bad(res, r.error);

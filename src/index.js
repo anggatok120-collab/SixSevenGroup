@@ -17,6 +17,8 @@ const { startAutoBackup } = require('./backup');
 const { getSettings } = require('./settings');
 const { isLoginRequest, senderNumbers, createLoginToken, loginReply } = require('./walogin');
 const { ymd } = require('./jadwal');
+const { buatLaporan } = require('./laporan');
+const { parseLocal } = require('./time');
 
 // Catatan peringatan/error terakhir, ditampilkan di menu Status Bot (supaya tidak perlu SSH untuk cek masalah).
 const catatanBot = [];
@@ -147,12 +149,40 @@ async function tick() {
       // Jeda antar chat pribadi supaya nomor bot tidak dianggap spam oleh WhatsApp.
       if (r.to) await jeda(1500 + Math.random() * 1500);
     }
+    await laporanTerjadwal();
     const now = Date.now();
     db.bersihkanTerkirim(now - 30 * 86400000);
     for (const p of db.pengumumanJatuhTempo(now - 6 * 3600000)) db.setPengumumanStatus(p.id, 'kedaluwarsa', 'Bot tidak terhubung saat jadwal kirim');
     db.bersihkanKelasUbah(ymd(now - 200 * 86400000));
     db.bersihkanSampah(now - 30 * 86400000);
   } finally { ticking = false; }
+}
+
+// ---- Laporan server harian: hanya ke nomor admin, tidak ikut jam tenang / mode libur ----
+function nomorLaporan() {
+  const L = getSettings(db, cfg).laporan;
+  return L.nomor || tujuanSetel().nomor || db.adminWa()[0]?.wa || cfg.admins[0] || null;
+}
+function situsLaporan() {
+  const L = getSettings(db, cfg).laporan;
+  return L.situs?.length ? L.situs : [process.env.WEB_URL].filter(Boolean);
+}
+const teksLaporan = () => buatLaporan({ db, bot, situs: situsLaporan(), dbFile: DB_FILE });
+async function kirimLaporan() {
+  const nomor = nomorLaporan();
+  if (!nomor) throw new Error('nomor admin belum diatur (isi di Pengingat → Laporan server)');
+  const { text } = await teksLaporan();
+  await denganBatas(sock.sendMessage(jidDari(nomor), { text }));
+  db.addLog('laporan', 'terkirim', `ke +${nomor}: laporan server harian`);
+}
+async function laporanTerjadwal() {
+  const L = getSettings(db, cfg).laporan; if (!L?.on) return;
+  const now = Date.now(); const hari = ymd(now); const at = parseLocal(`${hari} ${L.jam}`);
+  const key = `laporan:${hari}`;
+  if (now < at || now - at > 6 * 3600000 || db.sudahTerkirim(key)) return;
+  db.tandaiTerkirim(key); // tandai dulu supaya tidak dobel walau pengiriman lambat
+  try { await kirimLaporan(); log.info('laporan server harian terkirim'); }
+  catch (err) { db.addLog('laporan', 'gagal', err.message); log.error({ err }, 'gagal kirim laporan server'); }
 }
 
 async function start() {
@@ -290,6 +320,11 @@ const bot = {
   send: async (text, { gambar } = {}) => {
     if (!sock || !waConnected) throw new Error('bot belum terhubung ke WhatsApp');
     await sock.sendMessage(jidGrupAtauPribadi(), gambar && fs.existsSync(gambar) ? { image: fs.readFileSync(gambar), caption: text } : { text });
+  },
+  laporan: async ({ kirim } = {}) => {
+    if (!kirim) return { ...(await teksLaporan()), nomor: nomorLaporan(), situs: situsLaporan() };
+    if (!sock || !waConnected) throw new Error('bot belum terhubung ke WhatsApp');
+    await kirimLaporan(); return { ok: true, nomor: nomorLaporan() };
   },
   sendTo: async (nomor, text) => {
     if (!sock || !waConnected) throw new Error('bot belum terhubung ke WhatsApp');
