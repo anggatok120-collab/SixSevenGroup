@@ -13,7 +13,7 @@ const DAY = 864e5, TZ = 7 * 36e5; // WIB
 let jmode = 'papan'; try { jmode = localStorage.getItem('jmode') || 'papan'; } catch {}
 const S = { jmode, cal: null, rwFilter: 'semua', pengumuman: null, riwayat: null, icsPath: null, dashScope: 'today', dashDay: null, user: null, view: 'dashboard', data: { kelas: [], tugas: [], ujian: [], bot: {} }, skew: 0, filter: 'aktif', q: '', qUjian: '', pengingat: null, status: null, akun: null };
 let token = null;
-try { token = sessionStorage.getItem('token'); } catch {}
+try { token = localStorage.getItem('token'); } catch {}
 const canEdit = () => ['admin', 'editor'].includes(S.user?.role);
 const isAdmin = () => S.user?.role === 'admin';
 const now = () => Date.now() + S.skew;
@@ -83,7 +83,7 @@ async function api(path, { method = 'GET', body } = {}) {
   return j;
 }
 function logout(expired) {
-  try { sessionStorage.removeItem('token'); } catch {}
+  try { localStorage.removeItem('token'); } catch {}
   location.replace('/login' + (expired ? `?next=${encodeURIComponent(location.pathname + location.hash)}` : ''));
 }
 
@@ -988,7 +988,7 @@ function viewProfil() {
     </div></div>`;
   $('#profForm').onsubmit = async (e) => {
     e.preventDefault();
-    try { const r = await api('/api/auth/me', { method: 'PUT', body: Object.fromEntries(new FormData(e.target)) }); if (r.token) { token = r.token; try { sessionStorage.setItem('token', token); } catch {} } S.user.nama = new FormData(e.target).get('nama') || S.user.nama; setUserChip(); e.target.passwordLama.value = ''; e.target.passwordBaru.value = ''; $('#profErr').textContent = ''; toast('Profil disimpan.'); }
+    try { const r = await api('/api/auth/me', { method: 'PUT', body: Object.fromEntries(new FormData(e.target)) }); if (r.token) { token = r.token; try { localStorage.setItem('token', token); } catch {} } S.user.nama = new FormData(e.target).get('nama') || S.user.nama; setUserChip(); e.target.passwordLama.value = ''; e.target.passwordBaru.value = ''; $('#profErr').textContent = ''; toast('Profil disimpan.'); }
     catch (err) { $('#profErr').textContent = err.message; }
   };
 }

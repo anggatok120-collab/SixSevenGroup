@@ -78,7 +78,7 @@ const f = document.getElementById('f'), err = document.getElementById('err'), b 
 const params = new URLSearchParams(location.search);
 const waToken = params.get('wa');
 function finish(token) {
-  try { sessionStorage.setItem('token', token); } catch {}
+  try { localStorage.setItem('token', token); } catch {}
   const next = params.get('next');
   location.replace(next && /^\/(?![/\\])/.test(next) ? next : '/');
 }
@@ -91,7 +91,7 @@ if (waToken) {
     .then(async (r) => { const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || 'Link masuk tidak valid'); finish(j.token); })
     .catch((e) => { showErr(e.message); b.disabled = false; b.lastChild.textContent = ' Masuk'; });
 } else {
-  try { if (sessionStorage.getItem('token')) location.replace('/'); } catch {}
+  try { if (localStorage.getItem('token')) location.replace('/'); } catch {}
 }
 fetch('/api/auth/wa').then((r) => r.json()).then((j) => {
   if (!j.aktif || !j.nomor) return;
